@@ -69,6 +69,49 @@ export default function MovieLibraryPage() {
     }
   };
 
+  const handleMove = async (id: number, direction: 'up' | 'down') => {
+    const pendingMovies = [...movies]
+      .filter(m => m.status === 'pending')
+      .sort((a, b) => (a.watch_order_rank || 0) - (b.watch_order_rank || 0));
+    
+    const currentIndex = pendingMovies.findIndex(m => m.id === id);
+    if (currentIndex === -1) return;
+    
+    const swapIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (swapIndex < 0 || swapIndex >= pendingMovies.length) return;
+    
+    const currentMovie = pendingMovies[currentIndex];
+    const swapMovie = pendingMovies[swapIndex];
+    
+    const currentRank = currentMovie.watch_order_rank || 0;
+    const swapRank = swapMovie.watch_order_rank || 0;
+    
+    // We update optimism visually, then server
+    setMovies(prev => prev.map(m => {
+      if (m.id === currentMovie.id) return { ...m, watch_order_rank: swapRank };
+      if (m.id === swapMovie.id) return { ...m, watch_order_rank: currentRank };
+      return m;
+    }));
+
+    try {
+      await Promise.all([
+        fetch(`/api/movies/${currentMovie.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ watch_order_rank: swapRank }),
+        }),
+        fetch(`/api/movies/${swapMovie.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ watch_order_rank: currentRank }),
+        })
+      ]);
+    } catch {
+      toast.error("Error updating watch order");
+      fetchMoviesAndSites(); // Revert
+    }
+  };
+
   const filteredMovies = movies.filter(m => {
     if (search && !m.movie_name.toLowerCase().includes(search.toLowerCase())) return false;
     if (statusFilter !== "all" && m.status !== statusFilter) return false;
@@ -167,6 +210,17 @@ export default function MovieLibraryPage() {
                   <a href={movie.watch_link} target="_blank" rel="noreferrer" className="mb-4">
                     <Button size="sm" variant="secondary" className="w-full">Watch Link</Button>
                   </a>
+                )}
+                
+                {movie.status === 'pending' && sortBy === 'watch_order' && (
+                  <div className="flex gap-2 mb-2">
+                    <Button size="sm" variant="secondary" className="flex-1" onClick={() => handleMove(movie.id, 'up')} title="Move Up">
+                      <ArrowUp className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" variant="secondary" className="flex-1" onClick={() => handleMove(movie.id, 'down')} title="Move Down">
+                      <ArrowDown className="w-4 h-4" />
+                    </Button>
+                  </div>
                 )}
                 
                 <Button size="sm" variant="outline" className="mb-2" onClick={() => handleStatusUpdate(movie.id, movie.status === 'pending' ? 'completed' : 'pending')}>

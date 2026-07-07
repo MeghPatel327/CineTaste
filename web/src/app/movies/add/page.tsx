@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
@@ -22,12 +22,22 @@ export default function AddMoviePage() {
   const [watchOrder, setWatchOrder] = useState(0);
   const [watchLink, setWatchLink] = useState("");
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query) return;
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (query.trim()) {
+        performSearch(query);
+      } else {
+        setResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query]);
+
+  const performSearch = async (searchQuery: string) => {
     setSearching(true);
     try {
-      const res = await fetch(`/api/tmdb/search?query=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/tmdb/search?query=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
       if (res.ok) setResults(data.data);
       else toast.error("Failed to search TMDB");
@@ -36,6 +46,11 @@ export default function AddMoviePage() {
     } finally {
       setSearching(false);
     }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) performSearch(query);
   };
 
   const handleSelect = async (result: TMDBResult) => {

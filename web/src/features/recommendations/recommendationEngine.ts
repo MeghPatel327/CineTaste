@@ -11,18 +11,27 @@ export interface RecommendationExplanation {
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
+// Map TMDB genre IDs to names
+const TMDB_GENRES: Record<number, string> = {
+  28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime", 99: "Documentary", 18: "Drama",
+  10751: "Family", 14: "Fantasy", 36: "History", 27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance",
+  878: "Science Fiction", 10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western",
+  10759: "Action & Adventure", 10762: "Kids", 10763: "News", 10764: "Reality", 10765: "Sci-Fi & Fantasy", 
+  10766: "Soap", 10767: "Talk", 10768: "War & Politics"
+};
+
 async function fetchCandidates(seedMovies: MovieRow[]): Promise<any[]> {
   if (!env.TMDB_API_KEY) return [];
 
-  // If no seed movies, fetch popular
+  // Cold start: If no seed movies, fetch popular
   if (seedMovies.length === 0) {
     const res = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${env.TMDB_API_KEY}`);
     const data = await res.json();
     return data.results || [];
   }
 
-  // Otherwise, fetch similar movies for the top 3 highest rated movies
-  const topMovies = [...seedMovies].sort((a, b) => b.rating - a.rating).slice(0, 3);
+  // Fetch similar movies for the top 5 highest rated movies
+  const topMovies = [...seedMovies].sort((a, b) => b.rating - a.rating).slice(0, 5);
   let candidates: any[] = [];
   
   for (const movie of topMovies) {
@@ -50,9 +59,21 @@ export async function generateRecommendations(username: string): Promise<Recomme
   
   const candidates = await fetchCandidates(ratedMovies);
   
+  if (ratedMovies.length === 0) {
+    // Cold start scoring
+    return candidates.map(c => ({
+      movieId: c.id,
+      title: c.title || c.name,
+      poster_url: c.poster_path ? `https://image.tmdb.org/t/p/w500${c.poster_path}` : null,
+      score: c.vote_average || 0,
+      reasons: ["Popular right now"],
+    })).sort((a, b) => b.score - a.score).slice(0, 10);
+  }
+
   // Build Taste Profile
   const genrePreferences: Record<string, number> = {};
   const languagePreferences: Record<string, number> = {};
+  const yearPreferences: number[] = [];
   
   ratedMovies.forEach(movie => {
     let genres: string[] = [];
@@ -65,39 +86,84 @@ export async function generateRecommendations(username: string): Promise<Recomme
     if (movie.language) {
       languagePreferences[movie.language] = (languagePreferences[movie.language] || 0) + (movie.rating || 5);
     }
+
+    if (movie.release_year) {
+      yearPreferences.push(movie.release_year);
+    }
   });
+
+  // Normalize max genre score to 10
+  const maxGenreScore = Math.max(...Object.values(genrePreferences), 1);
+  const avgYear = yearPreferences.length > 0 ? yearPreferences.reduce((a,b) => a+b, 0) / yearPreferences.length : 0;
 
   const recommendations: RecommendationExplanation[] = [];
   const existingTmdbIds = new Set(userMovies.map(m => m.tmdb_id));
 
   for (const candidate of candidates) {
-    if (existingTmdbIds.has(candidate.id)) continue; // Already in library
+    if (existingTmdbIds.has(candidate.id)) continue;
 
     let score = 0;
     const reasons: string[] = [];
+    let matchCount = 0;
 
-    // Genre scoring (Simulated, as candidates usually have genre_ids, not names. We'll add generic scores based on popularity for simplicity if we don't map genre IDs, but let's assume we can map them or just use popularity)
-    // In a real app we'd map candidate.genre_ids to names. For now, we'll boost score slightly to demonstrate.
-    score += (candidate.vote_average || 0) * 0.5;
-    
+    // 1. Genre Score (Weight: 40%)
+    const candidateGenres = (candidate.genre_ids || []).map((id: number) => TMDB_GENRES[id]).filter(Boolean);
+    if (candidateGenres.length > 0) {
+      let candidateGenreScore = 0;
+      candidateGenres.forEach((g: string) => {
+        if (genrePreferences[g]) {
+          candidateGenreScore += (genrePreferences[g] / maxGenreScore) * 10;
+        }
+      });
+      const avgCandidateGenreScore = candidateGenreScore / candidateGenres.length;
+      score += (avgCandidateGenreScore / 10) * 0.40;
+      if (avgCandidateGenreScore > 5) {
+        reasons.push(`Strong genre match (${candidateGenres.join(", ")})`);
+        matchCount++;
+      }
+    }
+
+    // 2. Language Score (Weight: 20%)
     if (candidate.original_language && languagePreferences[candidate.original_language]) {
-      score += 2;
+      score += 0.20;
       reasons.push(`Matches your preferred language (${candidate.original_language})`);
+      matchCount++;
     }
 
-    if (candidate.vote_average > 7) {
+    // 3. Release Year Score (Weight: 20%)
+    const releaseDate = candidate.release_date || candidate.first_air_date;
+    if (releaseDate && avgYear > 0) {
+      const year = parseInt(releaseDate.split("-")[0], 10);
+      const diff = Math.abs(year - avgYear);
+      if (diff <= 10) {
+        score += 0.20 * (1 - (diff / 10)); // Closer to avg year = higher score
+        if (diff <= 5) {
+          reasons.push(`Released in your preferred era (~${year})`);
+          matchCount++;
+        }
+      }
+    }
+
+    // 4. Base Quality/Popularity (Weight: 20%)
+    const voteScore = (candidate.vote_average || 0) / 10;
+    score += voteScore * 0.20;
+    if (candidate.vote_average > 7.5) {
       reasons.push("Highly rated globally");
+      matchCount++;
     }
 
-    if (reasons.length === 0) {
-      reasons.push("Based on your general viewing history");
+    if (matchCount === 0) {
+      reasons.push("Recommended based on your recent activity");
     }
+
+    // Scale final score to 10
+    const finalScore = parseFloat((score * 10).toFixed(2));
 
     recommendations.push({
       movieId: candidate.id,
       title: candidate.title || candidate.name,
       poster_url: candidate.poster_path ? `https://image.tmdb.org/t/p/w500${candidate.poster_path}` : null,
-      score: parseFloat(score.toFixed(2)),
+      score: finalScore,
       reasons,
     });
   }
