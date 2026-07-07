@@ -106,6 +106,7 @@ export default function RecommendationsPage() {
         isOpen={!!selectedTmdbId} 
         onClose={() => setSelectedTmdbId(null)} 
         tmdbId={selectedTmdbId || 0} 
+        onNavigate={(id) => setSelectedTmdbId(id)}
       />
     </AppShell>
   );

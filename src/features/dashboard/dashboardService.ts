@@ -10,7 +10,7 @@ export async function getDashboardStatsService(username: string) {
   const completionPercentage = total > 0 ? Math.round((watched / total) * 100) : 0;
   
   const ratedMovies = movies.filter(m => m.rating > 0);
-  const avgRating = ratedMovies.length > 0 ? (ratedMovies.reduce((acc, m) => acc + m.rating, 0) / ratedMovies.length).toFixed(1) : 0;
+  const avgRating = ratedMovies.length > 0 ? (ratedMovies.reduce((acc, m) => acc + Number(m.rating || 0), 0) / ratedMovies.length).toFixed(1) : 0;
 
   const next5 = movies
     .filter(m => m.status === "pending")

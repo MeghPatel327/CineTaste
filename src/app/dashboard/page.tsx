@@ -181,6 +181,7 @@ function DashboardContent({ data }: { data: any }) {
         isOpen={!!selectedTmdbId} 
         onClose={() => setSelectedTmdbId(null)} 
         tmdbId={selectedTmdbId || 0} 
+        onNavigate={(id) => setSelectedTmdbId(id)}
       />
     </>
   );
