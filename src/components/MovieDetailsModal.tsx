@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { Modal } from "./ui/Modal";
 import { LoadingState } from "./ui/LoadingState";
 import { ErrorState } from "./ui/ErrorState";
+import { BrandLogo } from "./BrandLogo";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { toast } from "sonner";
-import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, Loader2, X } from "lucide-react";
+import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X } from "lucide-react";
 
 // Client-side cache for TMDB details to prevent duplicate fetching in same session
 const detailsCache = new Map<string, any>();
@@ -218,7 +219,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                     </div>
                     <div className="pt-2">
                       <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={saving}>
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                        {saving ? <BrandLogo variant="compact" className="w-4 h-4 mr-2" imageClassName="animate-[spin_2.5s_linear_infinite]" /> : <Plus className="w-4 h-4 mr-2" />}
                         Save to Library
                       </Button>
                     </div>

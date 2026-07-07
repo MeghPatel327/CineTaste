@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 interface SidebarProps {
   isAdmin: boolean;
@@ -51,16 +52,10 @@ export function Sidebar({ isAdmin }: SidebarProps) {
       <div className="p-5 pb-6 border-b border-sidebar-border">
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 group"
+          className="flex items-center group pl-2"
           onClick={() => setMobileOpen(false)}
         >
-          <div className="bg-primary/15 p-2 rounded-xl group-hover:bg-primary/25 transition-colors">
-            <Film className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">CineTaste</h1>
-            <p className="text-[11px] text-muted-foreground leading-none">Movie Companion</p>
-          </div>
+          <BrandLogo variant="full" className="w-36" />
         </Link>
       </div>
 

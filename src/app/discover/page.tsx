@@ -6,7 +6,8 @@ import { AppShell } from "@/components/AppShell";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
-import { Search, Loader2, Star, Sparkles, Film, Tv, TrendingUp, Clock, Eye, Compass, X } from "lucide-react";
+import { Search, Star, Sparkles, Film, Tv, TrendingUp, Clock, Eye, Compass, X } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const TMDB_GENRES: Record<number, string> = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime", 99: "Documentary", 18: "Drama",
@@ -159,7 +160,7 @@ export default function DiscoverPage() {
             </button>
           )}
           {searching && (
-            <Loader2 className="absolute right-12 top-1/2 -translate-y-1/2 w-5 h-5 text-primary animate-spin" />
+            <BrandLogo variant="compact" className="absolute right-12 top-1/2 -translate-y-1/2 w-5 h-5" imageClassName="animate-[spin_2.5s_linear_infinite]" />
           )}
         </div>
 
@@ -172,9 +173,7 @@ export default function DiscoverPage() {
           /* ===================== MODE B: Search Mode ===================== */
           <div>
             {searching && searchResults.length === 0 ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              </div>
+              <BrandLogo variant="loading" className="py-20" />
             ) : searchResults.length === 0 && !searching ? (
               <div className="text-center py-20 text-muted-foreground">
                 <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
