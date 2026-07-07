@@ -12,6 +12,23 @@ const defaultHeaders = {
   "Content-Type": "application/json",
 };
 
+/**
+ * Baserow single_select fields return objects like { id, value, color }.
+ * This normalizer flattens them to plain string values so our app
+ * can work with them transparently.
+ */
+function normalizeRow<T>(row: any): T {
+  const normalized: any = {};
+  for (const [key, val] of Object.entries(row)) {
+    if (val && typeof val === "object" && !Array.isArray(val) && "value" in (val as any)) {
+      normalized[key] = (val as any).value;
+    } else {
+      normalized[key] = val;
+    }
+  }
+  return normalized as T;
+}
+
 export async function baserowGet<T>(tableId: string, queryParams: Record<string, string> = {}): Promise<BaserowListResponse<T>> {
   const url = new URL(`${env.BASEROW_API_URL}/api/database/rows/table/${tableId}/`);
   url.searchParams.append("user_field_names", "true");
@@ -29,7 +46,11 @@ export async function baserowGet<T>(tableId: string, queryParams: Record<string,
     throw new Error(`Baserow GET Error: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  return {
+    ...data,
+    results: data.results.map((row: any) => normalizeRow<T>(row)),
+  };
 }
 
 export async function baserowCreate<T>(tableId: string, data: Record<string, any>): Promise<T> {
@@ -45,7 +66,8 @@ export async function baserowCreate<T>(tableId: string, data: Record<string, any
     throw new Error(`Baserow POST Error: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  return normalizeRow<T>(result);
 }
 
 export async function baserowUpdate<T>(tableId: string, rowId: number, data: Record<string, any>): Promise<T> {
@@ -61,7 +83,8 @@ export async function baserowUpdate<T>(tableId: string, rowId: number, data: Rec
     throw new Error(`Baserow PATCH Error: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  return normalizeRow<T>(result);
 }
 
 export async function baserowDelete(tableId: string, rowId: number): Promise<void> {

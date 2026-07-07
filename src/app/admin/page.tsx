@@ -27,11 +27,16 @@ export default function AdminPage() {
         fetch("/api/admin/pirate-sites")
       ]);
       
-      if (usersRes.ok && sitesRes.ok) {
+      if (usersRes.ok) {
         setUsers((await usersRes.json()).data);
+      } else {
+        toast.error("Failed to load users. Try logging out and back in.");
+      }
+      
+      if (sitesRes.ok) {
         setSites((await sitesRes.json()).data);
       } else {
-        toast.error("Failed to load admin data");
+        toast.error("Failed to load pirate sites");
       }
     } catch {
       toast.error("Error loading admin data");

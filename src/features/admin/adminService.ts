@@ -9,13 +9,13 @@ const updateUserSchema = z.object({
 
 const addSiteSchema = z.object({
   name: z.string().min(1),
-  search_url: z.string().url(),
+  search_url: z.string().min(1),
   enabled: z.boolean(),
 });
 
 const updateSiteSchema = z.object({
   name: z.string().min(1).optional(),
-  search_url: z.string().url().optional(),
+  search_url: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
 });
 

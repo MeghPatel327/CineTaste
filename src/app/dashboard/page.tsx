@@ -15,9 +15,11 @@ export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
+    fetchSession();
   }, []);
 
   const fetchDashboard = async () => {
@@ -31,6 +33,16 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSession = async () => {
+    try {
+      const res = await fetch("/api/auth/session");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.role === "admin") setIsAdmin(true);
+      }
+    } catch {}
   };
 
   const handleLogout = async () => {
@@ -52,6 +64,9 @@ export default function DashboardPage() {
         <div className="flex gap-2">
           <Link href="/movies/add"><Button variant="outline"><Film className="w-4 h-4 mr-2"/> Add Movie</Button></Link>
           <Link href="/movies"><Button variant="outline">Library</Button></Link>
+          {isAdmin && (
+            <Link href="/admin"><Button variant="outline"><Settings className="w-4 h-4 mr-2"/>Admin</Button></Link>
+          )}
           <Button variant="ghost" onClick={handleLogout}><LogOut className="w-4 h-4" /></Button>
         </div>
       </div>
