@@ -30,16 +30,19 @@ async function fetchCandidates(seedMovies: MovieRow[]): Promise<any[]> {
     return data.results || [];
   }
 
-  // Fetch similar movies for the top 5 highest rated movies
+  // Fetch similar movies for the top 5 highest rated movies in parallel
   const topMovies = [...seedMovies].sort((a, b) => b.rating - a.rating).slice(0, 5);
   let candidates: any[] = [];
   
-  for (const movie of topMovies) {
+  const promises = topMovies.map(movie => {
     const type = movie.type === "series" ? "tv" : "movie";
-    const res = await fetch(`${TMDB_BASE_URL}/${type}/${movie.tmdb_id}/similar?api_key=${env.TMDB_API_KEY}`);
-    if (res.ok) {
-      const data = await res.json();
-      candidates = [...candidates, ...(data.results || [])];
+    return fetch(`${TMDB_BASE_URL}/${type}/${movie.tmdb_id}/similar?api_key=${env.TMDB_API_KEY}`).then(res => res.ok ? res.json() : null);
+  });
+
+  const results = await Promise.all(promises);
+  for (const data of results) {
+    if (data && data.results) {
+      candidates = [...candidates, ...data.results];
     }
   }
 
