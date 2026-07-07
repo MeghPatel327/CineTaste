@@ -23,35 +23,43 @@ const TMDB_GENRES: Record<number, string> = {
 async function fetchCandidates(seedMovies: MovieRow[]): Promise<any[]> {
   if (!env.TMDB_API_KEY) return [];
 
-  // Cold start: If no seed movies, fetch popular
-  if (seedMovies.length === 0) {
-    const res = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${env.TMDB_API_KEY}`);
-    const data = await res.json();
-    return data.results || [];
-  }
-
-  // Fetch similar movies for the top 5 highest rated movies in parallel
-  const topMovies = [...seedMovies].sort((a, b) => b.rating - a.rating).slice(0, 5);
-  let candidates: any[] = [];
-  
-  const promises = topMovies.map(movie => {
-    const type = movie.type === "series" ? "tv" : "movie";
-    return fetch(`${TMDB_BASE_URL}/${type}/${movie.tmdb_id}/similar?api_key=${env.TMDB_API_KEY}`).then(res => res.ok ? res.json() : null);
-  });
-
-  const results = await Promise.all(promises);
-  for (const data of results) {
-    if (data && data.results) {
-      candidates = [...candidates, ...data.results];
+  try {
+    // Cold start: If no seed movies, fetch popular
+    if (seedMovies.length === 0) {
+      const res = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${env.TMDB_API_KEY}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.results || [];
     }
-  }
 
-  // Deduplicate candidates
-  const unique = new Map();
-  for (const c of candidates) {
-    if (!unique.has(c.id)) unique.set(c.id, c);
+    // Fetch similar movies for the top 5 highest rated movies in parallel
+    const topMovies = [...seedMovies].sort((a, b) => b.rating - a.rating).slice(0, 5);
+    let candidates: any[] = [];
+    
+    const promises = topMovies.map(movie => {
+      const type = movie.type === "series" ? "tv" : "movie";
+      return fetch(`${TMDB_BASE_URL}/${type}/${movie.tmdb_id}/similar?api_key=${env.TMDB_API_KEY}`)
+        .then(res => res.ok ? res.json() : null)
+        .catch(() => null); // Handle individual fetch failures gracefully
+    });
+
+    const results = await Promise.all(promises);
+    for (const data of results) {
+      if (data && data.results) {
+        candidates = [...candidates, ...data.results];
+      }
+    }
+
+    // Deduplicate candidates
+    const unique = new Map();
+    for (const c of candidates) {
+      if (!unique.has(c.id)) unique.set(c.id, c);
+    }
+    return Array.from(unique.values());
+  } catch (error) {
+    console.error("TMDB Fetch Error:", error);
+    return [];
   }
-  return Array.from(unique.values());
 }
 
 export async function generateRecommendations(username: string): Promise<RecommendationExplanation[]> {
