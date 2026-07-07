@@ -24,17 +24,7 @@ export default function RootLayout({
       <body className={`${inter.variable} antialiased min-h-screen flex flex-col`}>
         <ThemeProvider>
           {children}
-          <Toaster
-            richColors
-            position="bottom-right"
-            duration={3000}
-            toastOptions={{
-              classNames: {
-                toast: "ct-shadow-md border border-border",
-              },
-            }}
-            closeButton
-          />
+          <Toaster richColors position="bottom-right" />
         </ThemeProvider>
       </body>
     </html>

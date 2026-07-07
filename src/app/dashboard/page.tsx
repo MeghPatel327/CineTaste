@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/LoadingState";
-import { DashboardSkeleton } from "@/components/ui/Skeleton";
-import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
@@ -48,7 +46,7 @@ export default function DashboardPage() {
     <AppShell>
       <div className="p-4 md:p-8 max-w-6xl mx-auto">
         {loading ? (
-          <DashboardSkeleton />
+          <LoadingState message="Loading your dashboard..." />
         ) : error || !data ? (
           <ErrorState
             title="Dashboard failed to load"
@@ -75,42 +73,42 @@ function DashboardContent({ data }: { data: any }) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-card p-4 rounded-xl border border-border ct-card-interactive flex flex-col items-center text-center">
+        <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
           <Film className="w-6 h-6 text-primary mb-2" />
           <p className="text-sm text-muted-foreground">Total Titles</p>
-          <p className="text-2xl font-bold"><AnimatedNumber value={stats.total} /></p>
+          <p className="text-2xl font-bold">{stats.total}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border ct-card-interactive flex flex-col items-center text-center">
+        <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
           <CheckCircle className="w-6 h-6 text-green-500 mb-2" />
           <p className="text-sm text-muted-foreground">Watched</p>
-          <p className="text-2xl font-bold"><AnimatedNumber value={stats.watched} /></p>
+          <p className="text-2xl font-bold">{stats.watched}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border ct-card-interactive flex flex-col items-center text-center">
+        <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
           <Clock className="w-6 h-6 text-yellow-500 mb-2" />
           <p className="text-sm text-muted-foreground">Pending</p>
-          <p className="text-2xl font-bold"><AnimatedNumber value={stats.pending} /></p>
+          <p className="text-2xl font-bold">{stats.pending}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border ct-card-interactive flex flex-col items-center text-center">
+        <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
           <Star className="w-6 h-6 text-accent mb-2" />
           <p className="text-sm text-muted-foreground">Avg Rating</p>
-          <p className="text-2xl font-bold"><AnimatedNumber value={Number(stats.avgRating)} decimals={1} /></p>
+          <p className="text-2xl font-bold">{stats.avgRating}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border ct-card-interactive flex flex-col items-center text-center">
+        <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
           <TrendingUp className="w-6 h-6 text-primary mb-2" />
           <p className="text-sm text-muted-foreground">Completion</p>
-          <p className="text-2xl font-bold"><AnimatedNumber value={stats.completionPercentage} suffix="%" /></p>
+          <p className="text-2xl font-bold">{stats.completionPercentage}%</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-        <div className="md:col-span-2 bg-card p-6 rounded-xl border border-border ct-shadow-sm">
+        <div className="md:col-span-2 bg-card p-6 rounded-xl border border-border shadow-sm">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Clock className="text-primary"/> Next 5 to Watch</h2>
           {next5.length === 0 ? (
             <p className="text-muted-foreground">Your watchlist is empty.</p>
           ) : (
             <div className="space-y-4">
               {next5.map((movie: any, idx: number) => (
-                <div key={movie.id} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border ct-card-interactive cursor-pointer" onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type === "series" ? "series" : "movie" })}>
+                <div key={movie.id} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition" onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type === "series" ? "series" : "movie" })}>
                   <span className="font-bold text-muted-foreground w-6 text-center">{idx + 1}</span>
                   {movie.poster_url ? (
                     <img src={movie.poster_url} className="w-12 h-16 object-cover rounded" alt="poster" />
@@ -130,7 +128,7 @@ function DashboardContent({ data }: { data: any }) {
           )}
         </div>
 
-        <div className="bg-card p-6 rounded-xl border border-border ct-shadow-sm flex flex-col">
+        <div className="bg-card p-6 rounded-xl border border-border shadow-sm flex flex-col">
           <h2 className="text-xl font-bold mb-4">Favorite Genres</h2>
           {favoriteGenres.length === 0 ? (
             <p className="text-muted-foreground text-center flex-1 flex items-center justify-center">No data yet.</p>
@@ -146,10 +144,6 @@ function DashboardContent({ data }: { data: any }) {
                       innerRadius={55}
                       outerRadius={80}
                       dataKey="value"
-                      isAnimationActive
-                      animationBegin={0}
-                      animationDuration={600}
-                      animationEasing="ease-out"
                     >
                       {favoriteGenres.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#ffffff" strokeWidth={0} />
@@ -171,12 +165,10 @@ function DashboardContent({ data }: { data: any }) {
                 return (
                   <div className="space-y-2">
                     {favoriteGenres.map((genre: any, index: number) => (
-                      <div key={genre.name} className="flex items-center gap-3 chart-legend-item" style={{ animationDelay: `${index * 80}ms` }}>
+                      <div key={genre.name} className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                         <span className="text-sm font-medium flex-1">{genre.name}</span>
-                        <span className="text-sm font-bold text-muted-foreground w-10 text-right">
-                          <AnimatedNumber value={floored[index]} suffix="%" />
-                        </span>
+                        <span className="text-sm font-bold text-muted-foreground w-10 text-right">{floored[index]}%</span>
                       </div>
                     ))}
                   </div>
@@ -187,7 +179,7 @@ function DashboardContent({ data }: { data: any }) {
         </div>
       </div>
 
-      <div className="bg-card p-6 rounded-xl border border-border ct-shadow-sm">
+      <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="text-yellow-500" /> Recommended For You</h2>
           <Link href="/discover"><Button variant="outline" size="sm">View All</Button></Link>
@@ -197,7 +189,7 @@ function DashboardContent({ data }: { data: any }) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {recommendationPreview.map((rec: any) => (
-              <div key={rec.movieId} className="flex gap-4 p-4 bg-background rounded-lg border border-border ct-card-interactive cursor-pointer" onClick={() => setSelectedItem({ id: rec.movieId, type: rec.media_type === "tv" ? "series" : "movie" })}>
+              <div key={rec.movieId} className="flex gap-4 p-4 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition" onClick={() => setSelectedItem({ id: rec.movieId, type: rec.media_type === "tv" ? "series" : "movie" })}>
                 {rec.poster_url ? (
                   <img src={rec.poster_url} className="w-16 h-24 object-cover rounded" alt="poster" />
                 ) : <div className="w-16 h-24 bg-secondary rounded" />}
@@ -207,7 +199,7 @@ function DashboardContent({ data }: { data: any }) {
                     <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${rec.media_type === "tv" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
                       {rec.media_type === "tv" ? "Series" : "Movie"}
                     </span>
-                    <span className="text-xs match-badge text-primary-foreground px-2 py-0.5 rounded-full inline-block">{rec.score}% Match</span>
+                    <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded inline-block">{rec.score}% Match</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{rec.reasons[0]}</p>
                 </div>

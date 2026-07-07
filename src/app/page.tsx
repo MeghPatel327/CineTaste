@@ -1,10 +1,9 @@
-import { PageEnter } from "@/components/PageEnter";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Film } from "lucide-react";
 
 export default function Home() {
   return (
-    <PageEnter>
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-center">
       <div className="bg-primary/10 p-4 rounded-full mb-6">
         <Film className="w-12 h-12 text-primary" />
@@ -25,6 +24,5 @@ export default function Home() {
         </Link>
       </div>
     </div>
-    </PageEnter>
   );
 }
