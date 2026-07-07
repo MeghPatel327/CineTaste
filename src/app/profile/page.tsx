@@ -6,14 +6,14 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Button } from "@/components/ui/Button";
 import { toast } from "sonner";
-import { User, Shield, Calendar, Film, Star, Heart, Globe, KeyRound, LogOut, Sun, Moon } from "lucide-react";
+import { User, Shield, Calendar, Film, Star, Heart, Globe, KeyRound, LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -143,9 +143,26 @@ export default function ProfilePage() {
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Sun className="w-5 h-5"/> Preferences</h3>
                 <div className="flex justify-between items-center">
                   <span className="font-medium">App Theme</span>
-                  <Button variant="outline" onClick={toggleTheme} className="w-32">
-                    {theme === 'dark' ? <><Moon className="w-4 h-4 mr-2"/> Dark</> : <><Sun className="w-4 h-4 mr-2"/> Light</>}
-                  </Button>
+                  <div className="flex bg-secondary rounded-lg p-1">
+                    <button 
+                      onClick={() => setTheme("system")}
+                      className={`flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${theme === "system" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Monitor className="w-4 h-4"/> System
+                    </button>
+                    <button 
+                      onClick={() => setTheme("light")}
+                      className={`flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${theme === "light" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Sun className="w-4 h-4"/> Light
+                    </button>
+                    <button 
+                      onClick={() => setTheme("dark")}
+                      className={`flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${theme === "dark" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      <Moon className="w-4 h-4"/> Dark
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -34,7 +34,6 @@ const navItems = [
 export function Sidebar({ isAdmin }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -127,19 +126,6 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
       {/* Bottom actions */}
       <div className="p-3 border-t border-sidebar-border space-y-1">
-        {/* Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-all duration-200 w-full"
-        >
-          {theme === "dark" ? (
-            <Sun className="w-[18px] h-[18px] text-yellow-500" />
-          ) : (
-            <Moon className="w-[18px] h-[18px] text-primary" />
-          )}
-          <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
-        </button>
-
         {/* Profile Link */}
         <Link
           href="/profile"
