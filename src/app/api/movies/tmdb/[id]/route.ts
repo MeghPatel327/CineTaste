@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     if (!tmdbData) return errorResponse("Not found", 404, "NOT_FOUND");
 
     const userMovies = await getUserMoviesService(session.username);
-    const libraryMovie = userMovies.find(m => m.tmdb_id === tmdbId);
+    const libraryMovie = userMovies.find(m => Number(m.tmdb_id) === tmdbId);
 
     const trailer = tmdbData.videos?.results?.find((v: any) => v.type === "Trailer" && v.site === "YouTube");
     

@@ -30,6 +30,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
 
   // Form State
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
   const [rating, setRating] = useState(0);
@@ -39,6 +40,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   useEffect(() => {
     if (!isOpen) {
       setIsAdding(false);
+      setIsEditing(false);
       setStatus("pending");
       setRating(0);
       setWatchOrder(0);
@@ -85,6 +87,51 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       }
     } catch (err) {
       toast.error("Error adding movie");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEditing = () => {
+    if (!data?.libraryData) return;
+    const lib = data.libraryData;
+    setStatus(lib.status || "pending");
+    setRating(lib.rating || 0);
+    setWatchOrder(lib.watch_order_rank || 0);
+    setWatchLink(lib.watch_link || "");
+    setIsEditing(true);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data?.libraryData) return;
+    setSaving(true);
+    try {
+      const payload = {
+        status,
+        rating,
+        watch_order_rank: watchOrder,
+        watch_link: watchLink || null,
+      };
+
+      const res = await fetch(`/api/movies/${data.libraryData.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (res.ok) {
+        toast.success("Movie updated");
+        setIsEditing(false);
+        detailsCache.delete(`${type}_${tmdbId}`);
+        fetchDetails(`${type}_${tmdbId}`);
+        if (onUpdated) onUpdated();
+      } else {
+        toast.error(result.message || "Failed to update movie");
+      }
+    } catch (err) {
+      toast.error("Error updating movie");
     } finally {
       setSaving(false);
     }
@@ -181,11 +228,16 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                 
                 <p className="text-white/80 mb-6">{data.genres}</p>
                 
-                {isAdding ? (
-                  <form onSubmit={handleSave} className="bg-black/60 p-4 rounded-xl border border-white/10 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300 w-full max-w-md mx-auto md:mx-0">
+                {isAdding || isEditing ? (
+                  <form
+                    key={isEditing ? "edit" : "add"}
+                    onSubmit={isEditing ? handleEditSave : handleSave}
+                    className="bg-black/60 p-4 rounded-xl border border-white/10 space-y-4 w-full max-w-md mx-auto md:mx-0"
+                    style={{ animation: "formSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}
+                  >
                     <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-bold text-lg">Add to Library</h4>
-                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-white hover:bg-white/20" onClick={() => setIsAdding(false)}>
+                      <h4 className="font-bold text-lg">{isEditing ? "Edit in Library" : "Add to Library"}</h4>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-white hover:bg-white/20" onClick={() => { setIsAdding(false); setIsEditing(false); }}>
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
@@ -219,15 +271,15 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                     </div>
                     <div className="pt-2">
                       <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={saving}>
-                        {saving ? <BrandLogo variant="compact" className="w-4 h-4 mr-2" imageClassName="animate-[spin_2.5s_linear_infinite]" /> : <Plus className="w-4 h-4 mr-2" />}
-                        Save to Library
+                        {saving ? <BrandLogo variant="compact" className="w-4 h-4 mr-2" imageClassName="animate-[spin_2.5s_linear_infinite]" /> : isEditing ? <Edit className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                        {isEditing ? "Update Movie" : "Save to Library"}
                       </Button>
                     </div>
                   </form>
                 ) : (
                   <div className="flex flex-wrap justify-center md:justify-start gap-3">
                     {data.inLibrary ? (
-                      <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { window.location.href = `/movies/edit/${data.libraryData?.id}`; onClose(); }}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
+                      <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
                     ) : (
                       <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
                     )}

@@ -42,7 +42,11 @@ async function fetchWithRetry(
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const response = await fetch(url, options);
+      const fetchOptions: RequestInit = {
+        ...options,
+        cache: "no-store", // Prevent Next.js from aggressively caching Baserow database calls
+      };
+      const response = await fetch(url, fetchOptions);
 
       // Retry on server errors or rate limiting
       if ((response.status === 429 || response.status >= 500) && attempt < retries) {

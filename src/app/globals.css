@@ -122,3 +122,25 @@
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
   }
 }
+
+/* ── Form slide-in animation ── */
+@keyframes formSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-form-in {
+  animation: formSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-form-in {
+    animation: none;
+  }
+}
