@@ -135,12 +135,20 @@
   }
 }
 
-.animate-form-in {
-  animation: formSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+@keyframes formSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.97);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-form-in {
+  .animate-form-in,
+  .animate-form-out {
     animation: none;
   }
 }

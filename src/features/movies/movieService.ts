@@ -20,8 +20,8 @@ const addMovieSchema = z.object({
 
 const updateMovieSchema = z.object({
   status: z.enum(["completed", "pending", "dropped"]).optional(),
-  rating: z.number().min(0).max(10).optional(),
-  watch_order_rank: z.number().int().optional(),
+  rating: z.coerce.number().min(0).max(10).optional(),
+  watch_order_rank: z.coerce.number().int().optional(),
   watch_link: z.string().nullable().optional(),
 });
 
