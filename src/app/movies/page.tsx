@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { MovieCardSkeletonGrid } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
@@ -168,7 +169,7 @@ export default function MovieLibraryPage() {
     <AppShell>
       <div className="p-4 md:p-8 max-w-6xl mx-auto">
         {loading ? (
-          <LoadingState message="Loading your library..." />
+          <MovieCardSkeletonGrid />
         ) : error ? (
           <ErrorState
             title="Library failed to load"
@@ -227,17 +228,19 @@ export default function MovieLibraryPage() {
 
             {filteredMovies.length === 0 ? (
               <EmptyState 
-                title="No movies found" 
-                description="You haven't added any movies matching these filters yet."
-                action={<Link href="/discover"><Button>Add Movie</Button></Link>}
+                title="Your library is waiting" 
+                description="Your library is waiting for its first masterpiece. Add your first movie to begin."
+                action={<Link href="/discover"><Button>Add your first movie</Button></Link>}
               />
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {filteredMovies.map(movie => (
-                  <div key={movie.id} className="bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer" onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type as any })}>
-                    <img src={movie.poster_url || ""} alt={movie.movie_name} className="w-full aspect-[2/3] object-cover" />
+                  <div key={movie.id} className="bg-card rounded-lg overflow-hidden border border-border group relative ct-card-interactive">
+                    <div className="poster-frame cursor-pointer" onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type as any })}>
+                      <img src={movie.poster_url || ""} alt={movie.movie_name} className="w-full aspect-[2/3] object-cover" />
+                    </div>
                     
-                    <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                    <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out flex flex-col justify-end p-4 pointer-events-none group-hover:pointer-events-auto">
                       {movie.status === 'pending' && !movie.watch_link && sites.length > 0 && (
                         <div className="mb-4 flex flex-col gap-1">
                           <p className="text-xs text-muted-foreground font-semibold">Search on:</p>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
+import { PageEnter } from "./PageEnter";
 
 interface AppShellProps {
   children: ReactNode;
@@ -30,7 +31,7 @@ export function AppShell({ children }: AppShellProps) {
     <div className="flex min-h-screen">
       <Sidebar isAdmin={isAdmin} />
       <main className="flex-1 min-w-0 overflow-x-hidden">
-        {children}
+        <PageEnter>{children}</PageEnter>
       </main>
     </div>
   );

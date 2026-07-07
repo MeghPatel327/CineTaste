@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/Button";
@@ -121,7 +121,11 @@ export default function AdminPage() {
     <AppShell>
       <div className="p-4 md:p-8 max-w-6xl mx-auto">
         {loading ? (
-          <LoadingState message="Loading admin dashboard..." />
+          <div className="space-y-8">
+            <Skeleton className="h-10 w-64" />
+            <Skeleton className="h-64 rounded-xl" />
+            <Skeleton className="h-48 rounded-xl" />
+          </div>
         ) : error ? (
           <ErrorState
             title="Admin data failed to load"
@@ -134,8 +138,8 @@ export default function AdminPage() {
 
             <section>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Users /> Users</h2>
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <table className="w-full text-left">
+              <div className="bg-card rounded-xl border border-border ct-table-wrap ct-shadow-sm overflow-auto max-h-[480px]">
+                <table className="w-full text-left ct-table">
                   <thead className="bg-secondary text-secondary-foreground">
                     <tr>
                       <th className="p-4">Username</th>
@@ -176,7 +180,7 @@ export default function AdminPage() {
             <section>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><LinkIcon /> Pirate Sites (Search Templates)</h2>
               <div className="grid md:grid-cols-2 gap-8">
-                <div className="bg-card rounded-xl border border-border p-4">
+                <div className="bg-card rounded-xl border border-border ct-shadow-sm p-4">
                   <h3 className="font-bold mb-4">Add Template</h3>
                   <form onSubmit={addSite} className="space-y-4">
                     <div>

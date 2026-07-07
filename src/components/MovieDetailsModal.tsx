@@ -9,6 +9,7 @@ import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { toast } from "sonner";
 import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Client-side cache for TMDB details to prevent duplicate fetching in same session
 const detailsCache = new Map<string, any>();
@@ -36,11 +37,33 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   const [rating, setRating] = useState(0);
   const [watchOrder, setWatchOrder] = useState(0);
   const [watchLink, setWatchLink] = useState("");
+  const [isFormExiting, setIsFormExiting] = useState(false);
+
+  const closeForm = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setIsAdding(false);
+      setIsEditing(false);
+      setIsFormExiting(false);
+      return;
+    }
+    setIsFormExiting(true);
+  };
+
+  const finishFormClose = () => {
+    setIsAdding(false);
+    setIsEditing(false);
+    setIsFormExiting(false);
+  };
+
+  const handleFormAnimationEnd = (e: React.AnimationEvent<HTMLFormElement>) => {
+    if (isFormExiting && e.animationName.includes("formSlideOut")) {
+      finishFormClose();
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) {
-      setIsAdding(false);
-      setIsEditing(false);
+      finishFormClose();
       setStatus("pending");
       setRating(0);
       setWatchOrder(0);
@@ -78,7 +101,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       const result = await res.json();
       if (res.ok) {
         toast.success("Added to library");
-        setIsAdding(false);
+        closeForm();
         detailsCache.delete(`${type}_${tmdbId}`);
         fetchDetails(`${type}_${tmdbId}`);
         if (onUpdated) onUpdated();
@@ -123,7 +146,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       const result = await res.json();
       if (res.ok) {
         toast.success("Movie updated");
-        setIsEditing(false);
+        closeForm();
         detailsCache.delete(`${type}_${tmdbId}`);
         fetchDetails(`${type}_${tmdbId}`);
         if (onUpdated) onUpdated();
@@ -175,7 +198,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !data) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={data?.title || "Movie Details"} maxWidth="max-w-5xl">
@@ -197,7 +220,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
             <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center md:items-start">
               <div className="w-48 md:w-64 shrink-0">
                 {data.poster_url ? (
-                  <img src={data.poster_url} alt={data.title} className="w-full aspect-[2/3] object-cover rounded-lg shadow-2xl" />
+                  <img src={data.poster_url} alt={data.title} className="w-full aspect-[2/3] object-cover rounded-lg ct-shadow-md poster-frame" />
                 ) : (
                   <div className="w-full aspect-[2/3] bg-secondary rounded-lg flex items-center justify-center text-muted-foreground shadow-2xl">No Poster</div>
                 )}
@@ -232,12 +255,15 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                   <form
                     key={isEditing ? "edit" : "add"}
                     onSubmit={isEditing ? handleEditSave : handleSave}
-                    className="bg-black/60 p-4 rounded-xl border border-white/10 space-y-4 w-full max-w-md mx-auto md:mx-0"
-                    style={{ animation: "formSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}
+                    onAnimationEnd={handleFormAnimationEnd}
+                    className={cn(
+                      "bg-black/60 p-4 rounded-xl border border-white/10 space-y-4 w-full max-w-md mx-auto md:mx-0",
+                      isFormExiting ? "animate-form-out" : "animate-form-in"
+                    )}
                   >
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="font-bold text-lg">{isEditing ? "Edit in Library" : "Add to Library"}</h4>
-                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-white hover:bg-white/20" onClick={() => { setIsAdding(false); setIsEditing(false); }}>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-white hover:bg-white/20" onClick={closeForm}>
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
@@ -279,21 +305,23 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                 ) : (
                   <div className="flex flex-wrap justify-center md:justify-start gap-3">
                     {data.inLibrary ? (
-                      <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
+                      <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
                     ) : (
-                      <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
+                      <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
                     )}
                     {data.inLibrary && data.libraryData?.watch_link && (
-                      <a href={data.libraryData.watch_link} target="_blank" rel="noreferrer">
+                      <a href={data.libraryData.watch_link} target="_blank" rel="noreferrer" className="modal-btn-stagger">
                         <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0"><ExternalLink className="w-4 h-4 mr-2" /> Watch Now</Button>
                       </a>
                     )}
-                    {pirateSites.map(site => (
+                    {pirateSites.map((site, i) => (
                       <a 
                         key={site.id} 
                         href={site.search_url.replace("{query}", encodeURIComponent(data.title))} 
                         target="_blank" 
                         rel="noreferrer"
+                        className="modal-btn-stagger"
+                        style={{ animationDelay: `${(i + 2) * 50}ms` }}
                       >
                         <Button variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
                           <Globe className="w-4 h-4 mr-2" /> {site.name}

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { LoadingState } from "@/components/ui/LoadingState";
+import { Skeleton, MovieCardSkeletonGrid } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import { Search, Star, Sparkles, Film, Tv, TrendingUp, Clock, Eye, Compass, X } from "lucide-react";
@@ -149,7 +149,7 @@ export default function DiscoverPage() {
             placeholder="Search movies & series..."
             value={query}
             onChange={e => setQuery(e.target.value)}
-            className="w-full bg-card border border-border rounded-xl pl-12 pr-12 py-3.5 text-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted-foreground/50"
+            className="w-full bg-card border border-border rounded-xl pl-12 pr-12 py-3.5 text-lg ct-search-input placeholder:text-muted-foreground/50"
           />
           {query && (
             <button
@@ -166,7 +166,10 @@ export default function DiscoverPage() {
 
         {/* Content Area */}
         {loading && !isSearchMode ? (
-          <LoadingState message="Loading your personalized feed..." />
+          <div className="space-y-10">
+            <Skeleton className="h-6 w-48" />
+            <MovieCardSkeletonGrid count={10} />
+          </div>
         ) : error && !isSearchMode ? (
           <ErrorState title="Failed to load" message="Couldn't load your discover feed." onRetry={fetchDiscoverData} />
         ) : isSearchMode ? (
@@ -185,16 +188,18 @@ export default function DiscoverPage() {
                 {searchResults.map((r: any) => (
                   <div
                     key={r.id}
-                    className="bg-card rounded-xl overflow-hidden border border-border cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
+                    className="bg-card rounded-xl overflow-hidden border border-border ct-card-interactive group"
                     onClick={() => handleOpenDetails(r.id, r.media_type === "tv" ? "series" : "movie")}
                   >
                     {r.poster_path ? (
-                      <img
-                        src={`https://image.tmdb.org/t/p/w342${r.poster_path}`}
-                        alt={r.title || r.name}
-                        className="w-full aspect-[2/3] object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
+                      <div className="poster-frame">
+                        <img
+                          src={`https://image.tmdb.org/t/p/w342${r.poster_path}`}
+                          alt={r.title || r.name}
+                          className="w-full aspect-[2/3] object-cover"
+                          loading="lazy"
+                        />
+                      </div>
                     ) : (
                       <div className="w-full aspect-[2/3] bg-secondary flex items-center justify-center text-muted-foreground text-sm">No Poster</div>
                     )}
@@ -390,7 +395,7 @@ function HorizontalSection({
       </div>
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar"
+        className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory ct-scroll-row hide-scrollbar"
       >
         {items.map((item: any) => {
           const id = item.movieId || item.id;
@@ -400,19 +405,19 @@ function HorizontalSection({
               className="w-36 md:w-44 shrink-0 snap-start cursor-pointer group"
               onClick={() => onSelect(id, item.media_type === "tv" ? "series" : "movie")}
             >
-              <div className="relative overflow-hidden rounded-xl">
+              <div className="relative overflow-hidden rounded-xl poster-frame">
                 {(item.poster_url || item.poster_path) ? (
                   <img
                     src={item.poster_url || `https://image.tmdb.org/t/p/w342${item.poster_path}`}
                     alt={item.title}
-                    className="w-full aspect-[2/3] object-cover rounded-xl group-hover:scale-105 transition-transform duration-300 shadow-md"
+                    className="w-full aspect-[2/3] object-cover rounded-xl ct-shadow-sm"
                     loading="lazy"
                   />
                 ) : (
                   <div className="w-full aspect-[2/3] bg-secondary rounded-xl flex items-center justify-center text-xs text-muted-foreground">No Poster</div>
                 )}
                 {showScore && item.score && (
-                  <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
+                  <div className="absolute top-2 right-2 match-badge text-primary-foreground text-xs font-bold px-2.5 py-0.5 rounded-full">
                     {item.score}%
                   </div>
                 )}
