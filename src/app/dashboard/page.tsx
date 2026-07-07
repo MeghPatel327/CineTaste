@@ -9,6 +9,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { Film, CheckCircle, Clock, Star, TrendingUp, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -62,6 +63,7 @@ export default function DashboardPage() {
 
 function DashboardContent({ data }: { data: any }) {
   const { stats, next5, favoriteGenres, recommendationPreview } = data;
+  const [selectedTmdbId, setSelectedTmdbId] = useState<number | null>(null);
 
   return (
     <>
@@ -106,7 +108,7 @@ function DashboardContent({ data }: { data: any }) {
           ) : (
             <div className="space-y-4">
               {next5.map((movie: any, idx: number) => (
-                <div key={movie.id} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border">
+                <div key={movie.id} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition" onClick={() => setSelectedTmdbId(movie.tmdb_id)}>
                   <span className="font-bold text-muted-foreground w-6 text-center">{idx + 1}</span>
                   {movie.poster_url ? (
                     <img src={movie.poster_url} className="w-12 h-16 object-cover rounded" alt="poster" />
@@ -161,7 +163,7 @@ function DashboardContent({ data }: { data: any }) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {recommendationPreview.map((rec: any) => (
-              <div key={rec.movieId} className="flex gap-4 p-4 bg-background rounded-lg border border-border">
+              <div key={rec.movieId} className="flex gap-4 p-4 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition" onClick={() => setSelectedTmdbId(rec.movieId)}>
                 {rec.poster_url ? (
                   <img src={rec.poster_url} className="w-16 h-24 object-cover rounded" alt="poster" />
                 ) : <div className="w-16 h-24 bg-secondary rounded" />}
@@ -175,6 +177,11 @@ function DashboardContent({ data }: { data: any }) {
           </div>
         )}
       </div>
+      <MovieDetailsModal 
+        isOpen={!!selectedTmdbId} 
+        onClose={() => setSelectedTmdbId(null)} 
+        tmdbId={selectedTmdbId || 0} 
+      />
     </>
   );
 }

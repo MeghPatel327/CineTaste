@@ -11,6 +11,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { Plus, Search, ArrowUp, ArrowDown, ExternalLink } from "lucide-react";
+import { MovieDetailsModal } from "@/components/MovieDetailsModal";
+import { RatingModal } from "@/components/RatingModal";
 
 export default function MovieLibraryPage() {
   const [movies, setMovies] = useState<MovieRow[]>([]);
@@ -22,6 +24,9 @@ export default function MovieLibraryPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState("added_desc");
+  
+  const [selectedTmdbId, setSelectedTmdbId] = useState<number | null>(null);
+  const [ratingMovieId, setRatingMovieId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchMoviesAndSites();
@@ -47,7 +52,13 @@ export default function MovieLibraryPage() {
     }
   };
 
-  const handleStatusUpdate = async (id: number, newStatus: string) => {
+  const handleStatusUpdate = async (e: React.MouseEvent, id: number, newStatus: string) => {
+    e.stopPropagation();
+    if (newStatus === "completed") {
+      setRatingMovieId(id);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/movies/${id}`, {
         method: "PATCH",
@@ -63,7 +74,25 @@ export default function MovieLibraryPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleRatingSubmit = async (rating: number) => {
+    if (!ratingMovieId) return;
+    try {
+      const res = await fetch(`/api/movies/${ratingMovieId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed", rating }),
+      });
+      if (res.ok) {
+        toast.success("Movie marked as completed");
+        fetchMoviesAndSites();
+      }
+    } catch {
+      toast.error("Error saving rating");
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
     if (!confirm("Are you sure?")) return;
     try {
       const res = await fetch(`/api/movies/${id}`, { method: "DELETE" });
@@ -76,7 +105,8 @@ export default function MovieLibraryPage() {
     }
   };
 
-  const handleMove = async (id: number, direction: 'up' | 'down') => {
+  const handleMove = async (e: React.MouseEvent, id: number, direction: 'up' | 'down') => {
+    e.stopPropagation();
     const pendingMovies = [...movies]
       .filter(m => m.status === 'pending')
       .sort((a, b) => (a.watch_order_rank || 0) - (b.watch_order_rank || 0));
@@ -202,7 +232,7 @@ export default function MovieLibraryPage() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {filteredMovies.map(movie => (
-                  <div key={movie.id} className="bg-card rounded-lg overflow-hidden border border-border group relative">
+                  <div key={movie.id} className="bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer" onClick={() => setSelectedTmdbId(movie.tmdb_id)}>
                     <img src={movie.poster_url || ""} alt={movie.movie_name} className="w-full aspect-[2/3] object-cover" />
                     
                     <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
@@ -223,26 +253,26 @@ export default function MovieLibraryPage() {
                       )}
                       
                       {movie.watch_link && (
-                        <a href={movie.watch_link} target="_blank" rel="noreferrer" className="mb-4">
+                        <a href={movie.watch_link} target="_blank" rel="noreferrer" className="mb-4" onClick={(e) => e.stopPropagation()}>
                           <Button size="sm" variant="secondary" className="w-full">Watch Link</Button>
                         </a>
                       )}
                       
                       {movie.status === 'pending' && sortBy === 'watch_order' && (
                         <div className="flex gap-2 mb-2">
-                          <Button size="sm" variant="secondary" className="flex-1" onClick={() => handleMove(movie.id, 'up')} title="Move Up">
+                          <Button size="sm" variant="secondary" className="flex-1" onClick={(e) => handleMove(e, movie.id, 'up')} title="Move Up">
                             <ArrowUp className="w-4 h-4" />
                           </Button>
-                          <Button size="sm" variant="secondary" className="flex-1" onClick={() => handleMove(movie.id, 'down')} title="Move Down">
+                          <Button size="sm" variant="secondary" className="flex-1" onClick={(e) => handleMove(e, movie.id, 'down')} title="Move Down">
                             <ArrowDown className="w-4 h-4" />
                           </Button>
                         </div>
                       )}
                       
-                      <Button size="sm" variant="outline" className="mb-2" onClick={() => handleStatusUpdate(movie.id, movie.status === 'pending' ? 'completed' : 'pending')}>
+                      <Button size="sm" variant="outline" className="mb-2" onClick={(e) => handleStatusUpdate(e, movie.id, movie.status === 'pending' ? 'completed' : 'pending')}>
                         Mark {movie.status === 'pending' ? 'Completed' : 'Pending'}
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(movie.id)}>Remove</Button>
+                      <Button size="sm" variant="destructive" onClick={(e) => handleDelete(e, movie.id)}>Remove</Button>
                     </div>
 
                     <div className="p-3">
@@ -259,6 +289,18 @@ export default function MovieLibraryPage() {
           </>
         )}
       </div>
+
+      <MovieDetailsModal 
+        isOpen={!!selectedTmdbId} 
+        onClose={() => setSelectedTmdbId(null)} 
+        tmdbId={selectedTmdbId || 0} 
+      />
+
+      <RatingModal 
+        isOpen={!!ratingMovieId} 
+        onClose={() => setRatingMovieId(null)} 
+        onSubmit={handleRatingSubmit} 
+      />
     </AppShell>
   );
 }

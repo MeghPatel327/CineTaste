@@ -1,5 +1,6 @@
 import { MovieRow, getUserMovies } from "@/features/movies/movieRepository";
 import { env } from "@/lib/env";
+import { getFilmIndustry } from "@/lib/utils";
 
 export interface RecommendationExplanation {
   movieId: number;
@@ -65,8 +66,8 @@ async function fetchCandidates(seedMovies: MovieRow[]): Promise<any[]> {
 export async function generateRecommendations(username: string): Promise<RecommendationExplanation[]> {
   const userMovies = await getUserMovies(username);
   
-  // Filter for watched/rated movies to build taste profile
-  const ratedMovies = userMovies.filter(m => m.status === "completed" || m.rating > 0);
+  // Filter for rated movies only (rating > 0) to build taste profile
+  const ratedMovies = userMovies.filter(m => m.rating > 0);
   
   const candidates = await fetchCandidates(ratedMovies);
   
@@ -83,7 +84,7 @@ export async function generateRecommendations(username: string): Promise<Recomme
 
   // Build Taste Profile
   const genrePreferences: Record<string, number> = {};
-  const languagePreferences: Record<string, number> = {};
+  const industryPreferences: Record<string, number> = {};
   const yearPreferences: number[] = [];
   
   ratedMovies.forEach(movie => {
@@ -95,7 +96,8 @@ export async function generateRecommendations(username: string): Promise<Recomme
     });
     
     if (movie.language) {
-      languagePreferences[movie.language] = (languagePreferences[movie.language] || 0) + (movie.rating || 5);
+      const industry = getFilmIndustry(movie.language);
+      industryPreferences[industry] = (industryPreferences[industry] || 0) + (movie.rating || 5);
     }
 
     if (movie.release_year) {
@@ -134,11 +136,14 @@ export async function generateRecommendations(username: string): Promise<Recomme
       }
     }
 
-    // 2. Language Score (Weight: 20%)
-    if (candidate.original_language && languagePreferences[candidate.original_language]) {
-      score += 0.20;
-      reasons.push(`Matches your preferred language (${candidate.original_language})`);
-      matchCount++;
+    // 2. Industry Score (Weight: 20%)
+    if (candidate.original_language) {
+      const industry = getFilmIndustry(candidate.original_language);
+      if (industryPreferences[industry]) {
+        score += 0.20;
+        reasons.push(`Matches your preferred Film Industry (${industry})`);
+        matchCount++;
+      }
     }
 
     // 3. Release Year Score (Weight: 20%)

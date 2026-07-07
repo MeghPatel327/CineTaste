@@ -8,11 +8,13 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
 import { RecommendationExplanation } from "@/features/recommendations/recommendationEngine";
 import { Sparkles } from "lucide-react";
+import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 
 export default function RecommendationsPage() {
   const [recommendations, setRecommendations] = useState<RecommendationExplanation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [selectedTmdbId, setSelectedTmdbId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchRecommendations();
@@ -67,7 +69,7 @@ export default function RecommendationsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {recommendations.map(rec => (
-                  <div key={rec.movieId} className="bg-card rounded-lg overflow-hidden border border-border flex shadow-sm hover:shadow-md transition">
+                  <div key={rec.movieId} className="bg-card rounded-lg overflow-hidden border border-border flex shadow-sm hover:shadow-md transition cursor-pointer hover:border-primary" onClick={() => setSelectedTmdbId(rec.movieId)}>
                     <div className="w-1/3 shrink-0">
                       {rec.poster_url ? (
                         <img src={rec.poster_url} alt={rec.title} className="w-full h-full object-cover" />
@@ -100,6 +102,11 @@ export default function RecommendationsPage() {
           </>
         )}
       </div>
+      <MovieDetailsModal 
+        isOpen={!!selectedTmdbId} 
+        onClose={() => setSelectedTmdbId(null)} 
+        tmdbId={selectedTmdbId || 0} 
+      />
     </AppShell>
   );
 }
