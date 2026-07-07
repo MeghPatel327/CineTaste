@@ -184,6 +184,8 @@
   .page-enter,
   .modal-enter,
   .modal-exit,
+  .modal-backdrop-enter,
+  .modal-backdrop-exit,
   .logo-fade-in,
   .chart-legend-item,
   .skeleton {
@@ -191,6 +193,8 @@
   }
 
   .ct-card-interactive,
+  .ct-movie-card,
+  .ct-poster-img,
   .poster-frame,
   .btn-interactive,
   .sidebar-nav-item {
@@ -298,6 +302,68 @@
   transform: translateY(-4px);
   box-shadow: var(--ct-shadow-hover);
   border-color: var(--ct-border-hover);
+}
+
+/* ── Premium MovieCard ── */
+.ct-movie-card {
+  /* Base border + shadow */
+  border: 1px solid var(--ct-border-subtle);
+  box-shadow: var(--ct-shadow-sm);
+  border-radius: 0.75rem;
+
+  transition:
+    transform 200ms cubic-bezier(0, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0, 0, 0.2, 1),
+    filter 200ms cubic-bezier(0, 0, 0.2, 1),
+    opacity 200ms cubic-bezier(0, 0, 0.2, 1);
+
+  will-change: transform, filter, opacity;
+}
+
+.ct-movie-card:hover,
+.ct-movie-card:focus-visible {
+  transform: translateY(-6px) scale(1.03);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  border-color: var(--ct-accent);
+  outline: none;
+}
+
+/* Signature CineTaste focus effect: dim neighbour cards */
+.ct-movie-card--dimmed {
+  filter: brightness(0.94);
+  opacity: 0.95;
+}
+
+/* Poster wrapper */
+.ct-poster-wrap {
+  position: relative;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+/* Skeleton inside poster */
+.ct-poster-skeleton {
+  z-index: 1;
+}
+
+/* Poster image transition: blur-in → sharp */
+.ct-poster-img {
+  display: block;
+  transition:
+    opacity 300ms ease-out,
+    transform 250ms cubic-bezier(0, 0, 0.2, 1),
+    filter 300ms ease-out;
+  will-change: transform, filter, opacity;
+}
+
+/* Focus-visible outline for keyboard users */
+.ct-movie-card:focus-visible {
+  box-shadow:
+    var(--ct-focus-glow),
+    0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .ct-shadow-sm {

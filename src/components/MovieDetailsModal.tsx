@@ -303,31 +303,39 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                     </div>
                   </form>
                 ) : (
-                  <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                    {data.inLibrary ? (
-                      <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
-                    ) : (
-                      <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
+                  <div className="flex flex-col items-center md:items-start gap-2">
+                    {/* Row 1: primary actions */}
+                    <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                      {data.inLibrary ? (
+                        <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
+                      ) : (
+                        <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
+                      )}
+                      {data.inLibrary && data.libraryData?.watch_link && (
+                        <a href={data.libraryData.watch_link} target="_blank" rel="noreferrer" className="modal-btn-stagger">
+                          <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0"><ExternalLink className="w-4 h-4 mr-2" /> Watch Now</Button>
+                        </a>
+                      )}
+                    </div>
+                    {/* Row 2: search / stream links */}
+                    {pirateSites.length > 0 && (
+                      <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                        {pirateSites.map((site, i) => (
+                          <a
+                            key={site.id}
+                            href={site.search_url.replace("{query}", encodeURIComponent(data.title))}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="modal-btn-stagger"
+                            style={{ animationDelay: `${(i + 2) * 50}ms` }}
+                          >
+                            <Button variant="secondary" size="sm" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs">
+                              <Globe className="w-3.5 h-3.5 mr-1.5" /> {site.name}
+                            </Button>
+                          </a>
+                        ))}
+                      </div>
                     )}
-                    {data.inLibrary && data.libraryData?.watch_link && (
-                      <a href={data.libraryData.watch_link} target="_blank" rel="noreferrer" className="modal-btn-stagger">
-                        <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0"><ExternalLink className="w-4 h-4 mr-2" /> Watch Now</Button>
-                      </a>
-                    )}
-                    {pirateSites.map((site, i) => (
-                      <a 
-                        key={site.id} 
-                        href={site.search_url.replace("{query}", encodeURIComponent(data.title))} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="modal-btn-stagger"
-                        style={{ animationDelay: `${(i + 2) * 50}ms` }}
-                      >
-                        <Button variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
-                          <Globe className="w-4 h-4 mr-2" /> {site.name}
-                        </Button>
-                      </a>
-                    ))}
                   </div>
                 )}
               </div>

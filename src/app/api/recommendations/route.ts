@@ -8,7 +8,14 @@ export async function GET(req: NextRequest) {
   if (!session) return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
 
   try {
-    const recommendations = await generateRecommendations(session.username);
+    const { searchParams } = new URL(req.url);
+    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+    const limit = parseInt(searchParams.get("limit") ?? "0", 10);
+
+    const options =
+      limit > 0 ? { offset, limit } : undefined;
+
+    const recommendations = await generateRecommendations(session.username, options);
     return successResponse(recommendations);
   } catch (error: any) {
     return handleApiError(error);

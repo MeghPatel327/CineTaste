@@ -10,13 +10,12 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
-import { Plus, Search, ArrowUp, ArrowDown, ExternalLink } from "lucide-react";
+import { Plus, Search, ArrowUp, ArrowDown } from "lucide-react";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import { RatingModal } from "@/components/RatingModal";
 
 export default function MovieLibraryPage() {
   const [movies, setMovies] = useState<MovieRow[]>([]);
-  const [sites, setSites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   
@@ -36,14 +35,9 @@ export default function MovieLibraryPage() {
     setLoading(true);
     setError(false);
     try {
-      const [moviesRes, sitesRes] = await Promise.all([
-        fetch("/api/movies"),
-        fetch("/api/admin/pirate-sites")
-      ]);
-      
-      if (moviesRes.ok) setMovies((await moviesRes.json()).data);
+      const res = await fetch("/api/movies");
+      if (res.ok) setMovies((await res.json()).data);
       else throw new Error("Failed to load movies");
-      if (sitesRes.ok) setSites((await sitesRes.json()).data.filter((s: any) => s.enabled));
     } catch {
       setError(true);
       toast.error("Error loading library");
@@ -238,22 +232,6 @@ export default function MovieLibraryPage() {
                     <img src={movie.poster_url || ""} alt={movie.movie_name} className="w-full aspect-[2/3] object-cover" />
                     
                     <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                      {movie.status === 'pending' && !movie.watch_link && sites.length > 0 && (
-                        <div className="mb-4 flex flex-col gap-1">
-                          <p className="text-xs text-muted-foreground font-semibold">Search on:</p>
-                          {sites.map(site => (
-                            <a 
-                              key={site.id} 
-                              href={site.search_url.replace('{query}', encodeURIComponent(movie.movie_name))}
-                              target="_blank" rel="noreferrer"
-                              className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-                            >
-                              {site.name} <ExternalLink className="w-3 h-3" />
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                      
                       {movie.watch_link && (
                         <a href={movie.watch_link} target="_blank" rel="noreferrer" className="mb-4" onClick={(e) => e.stopPropagation()}>
                           <Button size="sm" variant="secondary" className="w-full">Watch Link</Button>

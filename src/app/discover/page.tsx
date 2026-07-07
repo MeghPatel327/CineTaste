@@ -6,7 +6,9 @@ import { AppShell } from "@/components/AppShell";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
-import { Search, Star, Sparkles, Film, Tv, TrendingUp, Clock, Eye, Compass, X } from "lucide-react";
+import { HorizontalRow, type RowItem } from "@/components/HorizontalRow";
+import { MovieCard } from "@/components/MovieCard";
+import { Search, Clock, Compass, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
 const TMDB_GENRES: Record<number, string> = {
@@ -30,13 +32,22 @@ interface DiscoverData {
   userGenres: string[];
 }
 
+// ── Session storage key for scroll position ──────────────────────────────────
+const SCROLL_KEY = "ct-discover-scroll";
+const QUERY_KEY = "ct-discover-query";
+
 export default function DiscoverPage() {
   const [discoverData, setDiscoverData] = useState<DiscoverData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   // Search state
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => {
+    if (typeof sessionStorage !== "undefined") {
+      return sessionStorage.getItem(QUERY_KEY) ?? "";
+    }
+    return "";
+  });
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const isSearchMode = query.trim().length > 0;
@@ -48,17 +59,43 @@ export default function DiscoverPage() {
   const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
 
   // Scroll position preservation
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const savedScrollPos = useRef(0);
+  const hasRestoredScroll = useRef(false);
 
   useEffect(() => {
     fetchDiscoverData();
-    // Load recent searches
     try {
       const saved = localStorage.getItem("cinetaste-recent-searches");
       if (saved) setRecentSearches(JSON.parse(saved));
     } catch {}
   }, []);
+
+  // Restore scroll position after data loads
+  useEffect(() => {
+    if (discoverData && !hasRestoredScroll.current) {
+      hasRestoredScroll.current = true;
+      const pos = parseInt(sessionStorage.getItem(SCROLL_KEY) ?? "0", 10);
+      if (pos > 0) {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, pos);
+        });
+      }
+    }
+  }, [discoverData]);
+
+  // Persist scroll on unload / navigation
+  useEffect(() => {
+    const saveScroll = () => {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    };
+    window.addEventListener("beforeunload", saveScroll);
+    return () => window.removeEventListener("beforeunload", saveScroll);
+  }, []);
+
+  // Persist query
+  useEffect(() => {
+    sessionStorage.setItem(QUERY_KEY, query);
+  }, [query]);
 
   const fetchDiscoverData = async () => {
     setLoading(true);
@@ -87,7 +124,7 @@ export default function DiscoverPage() {
     }
     const timeout = setTimeout(() => {
       performSearch(query.trim());
-    }, 500);
+    }, 350);
     return () => clearTimeout(timeout);
   }, [query]);
 
@@ -98,7 +135,6 @@ export default function DiscoverPage() {
       const data = await res.json();
       if (res.ok) {
         setSearchResults(data.data || []);
-        // Save to recent searches
         const newRecent = [q, ...recentSearches.filter(s => s.toLowerCase() !== q.toLowerCase())].slice(0, 8);
         setRecentSearches(newRecent);
         localStorage.setItem("cinetaste-recent-searches", JSON.stringify(newRecent));
@@ -111,14 +147,13 @@ export default function DiscoverPage() {
   };
 
   const handleOpenDetails = useCallback((tmdbId: number, type: "movie" | "series") => {
-    // Save scroll position
     savedScrollPos.current = window.scrollY;
+    sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
     setSelectedItem({ id: tmdbId, type });
   }, []);
 
   const handleCloseDetails = useCallback(() => {
     setSelectedItem(null);
-    // Restore scroll position on next tick
     requestAnimationFrame(() => {
       window.scrollTo(0, savedScrollPos.current);
     });
@@ -132,7 +167,7 @@ export default function DiscoverPage() {
 
   return (
     <AppShell>
-      <div ref={scrollContainerRef} className="p-4 md:p-8 max-w-7xl mx-auto">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto page-enter">
         {/* Page Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold flex items-center gap-3">
@@ -141,26 +176,31 @@ export default function DiscoverPage() {
           <p className="text-muted-foreground mt-1">Find your next favorite movie or series.</p>
         </div>
 
-        {/* Search Bar - Always Visible */}
+        {/* Search Bar */}
         <div className="relative mb-8">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             placeholder="Search movies & series..."
             value={query}
             onChange={e => setQuery(e.target.value)}
-            className="w-full bg-card border border-border rounded-xl pl-12 pr-12 py-3.5 text-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-muted-foreground/50"
+            className="ct-search-input w-full bg-card border border-border rounded-xl pl-12 pr-12 py-3.5 text-lg focus:outline-none placeholder:text-muted-foreground/50"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
+              aria-label="Clear search"
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           )}
           {searching && (
-            <BrandLogo variant="compact" className="absolute right-12 top-1/2 -translate-y-1/2 w-5 h-5" imageClassName="animate-[spin_2.5s_linear_infinite]" />
+            <BrandLogo
+              variant="compact"
+              className="absolute right-12 top-1/2 -translate-y-1/2 w-5 h-5"
+              imageClassName="animate-[spin_2.5s_linear_infinite]"
+            />
           )}
         </div>
 
@@ -170,7 +210,7 @@ export default function DiscoverPage() {
         ) : error && !isSearchMode ? (
           <ErrorState title="Failed to load" message="Couldn't load your discover feed." onRetry={fetchDiscoverData} />
         ) : isSearchMode ? (
-          /* ===================== MODE B: Search Mode ===================== */
+          /* ── Search Mode ── */
           <div>
             {searching && searchResults.length === 0 ? (
               <BrandLogo variant="loading" className="py-20" />
@@ -181,172 +221,21 @@ export default function DiscoverPage() {
                 <p className="text-sm mt-2">Try a different search term.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {searchResults.map((r: any) => (
-                  <div
-                    key={r.id}
-                    className="bg-card rounded-xl overflow-hidden border border-border cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
-                    onClick={() => handleOpenDetails(r.id, r.media_type === "tv" ? "series" : "movie")}
-                  >
-                    {r.poster_path ? (
-                      <img
-                        src={`https://image.tmdb.org/t/p/w342${r.poster_path}`}
-                        alt={r.title || r.name}
-                        className="w-full aspect-[2/3] object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full aspect-[2/3] bg-secondary flex items-center justify-center text-muted-foreground text-sm">No Poster</div>
-                    )}
-                    <div className="p-3">
-                      <h3 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors">{r.title || r.name}</h3>
-                      <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${r.media_type === "tv" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
-                          {r.media_type === "tv" ? "Series" : "Movie"}
-                        </span>
-                        <span>{r.release_date?.split("-")[0] || r.first_air_date?.split("-")[0] || ""}</span>
-                      </div>
-                      {r.vote_average > 0 && (
-                        <div className="flex items-center gap-1 mt-1.5 text-xs">
-                          <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                          <span className="font-medium">{r.vote_average.toFixed(1)}</span>
-                        </div>
-                      )}
-                      {r.genre_ids && r.genre_ids.length > 0 && (
-                        <p className="text-[11px] text-muted-foreground mt-1.5 line-clamp-1">
-                          {r.genre_ids.slice(0, 3).map((id: number) => TMDB_GENRES[id]).filter(Boolean).join(" · ")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <SearchResultsGrid
+                results={searchResults}
+                onSelect={handleOpenDetails}
+              />
             )}
           </div>
         ) : discoverData ? (
-          /* ===================== MODE A: Discovery Home ===================== */
-          <div className="space-y-10">
-
-            {/* Recent Searches */}
-            {recentSearches.length > 0 && (
-              <section>
-                <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-muted-foreground">
-                  <Clock className="w-5 h-5" /> Recent Searches
-                </h2>
-                <div className="flex flex-wrap gap-2">
-                  {recentSearches.map(term => (
-                    <button
-                      key={term}
-                      className="flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 text-sm hover:border-primary hover:text-primary transition-all group"
-                    >
-                      <span onClick={() => setQuery(term)}>{term}</span>
-                      <X
-                        className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); clearRecentSearch(term); }}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Top Picks For You */}
-            {discoverData.topPicks.length > 0 && (
-              <HorizontalSection
-                title="⭐ Top Picks For You"
-                subtitle="The highest quality personalized recommendations"
-                items={discoverData.topPicks}
-                onSelect={handleOpenDetails}
-                showScore
-              />
-            )}
-
-            {/* Because You Like {Genre} */}
-            {discoverData.genreSections.map(section => (
-              <HorizontalSection
-                key={section.genre}
-                title={`🎬 Because You Like ${section.genre}`}
-                items={section.items}
-                onSelect={handleOpenDetails}
-              />
-            ))}
-
-            {/* Recommended Movies */}
-            {discoverData.recommendedMovies.length > 0 && (
-              <HorizontalSection
-                title="🎥 Recommended Movies"
-                subtitle="Movies tailored to your taste"
-                items={discoverData.recommendedMovies}
-                onSelect={handleOpenDetails}
-                showScore
-              />
-            )}
-
-            {/* Recommended Series */}
-            {discoverData.recommendedSeries.length > 0 && (
-              <HorizontalSection
-                title="📺 Recommended Series"
-                subtitle="TV series you'll love"
-                items={discoverData.recommendedSeries}
-                onSelect={handleOpenDetails}
-                showScore
-              />
-            )}
-
-            {/* Hidden Gems */}
-            {discoverData.hiddenGems.length > 0 && (
-              <HorizontalSection
-                title="🍿 Hidden Gems"
-                subtitle="Less popular but highly recommended"
-                items={discoverData.hiddenGems}
-                onSelect={handleOpenDetails}
-                showScore
-              />
-            )}
-
-            {/* Trending Today */}
-            {discoverData.trending.length > 0 && (
-              <HorizontalSection
-                title="🔥 Trending Today"
-                subtitle="What's hot right now"
-                items={discoverData.trending}
-                onSelect={handleOpenDetails}
-              />
-            )}
-
-            {/* Recently Released */}
-            {discoverData.recentlyReleased.length > 0 && (
-              <HorizontalSection
-                title="🕒 Recently Released"
-                subtitle="Fresh titles just for you"
-                items={discoverData.recentlyReleased}
-                onSelect={handleOpenDetails}
-              />
-            )}
-
-            {/* Popular Movies */}
-            {discoverData.popularMovies.length > 0 && (
-              <HorizontalSection
-                title="🎬 Popular Movies"
-                items={discoverData.popularMovies}
-                onSelect={handleOpenDetails}
-              />
-            )}
-
-            {/* Popular Series */}
-            {discoverData.popularSeries.length > 0 && (
-              <HorizontalSection
-                title="📺 Popular Series"
-                items={discoverData.popularSeries}
-                onSelect={handleOpenDetails}
-              />
-            )}
-
-            {/* End message */}
-            <div className="text-center py-10 text-muted-foreground">
-              <p className="text-sm">You're all caught up! Rate more movies to improve your recommendations.</p>
-            </div>
-          </div>
+          /* ── Discovery Home ── */
+          <DiscoveryFeed
+            data={discoverData}
+            recentSearches={recentSearches}
+            onSearchClick={setQuery}
+            onClearSearch={clearRecentSearch}
+            onSelect={handleOpenDetails}
+          />
         ) : null}
       </div>
 
@@ -364,79 +253,282 @@ export default function DiscoverPage() {
   );
 }
 
-/* ===================== Horizontal Carousel Section ===================== */
-function HorizontalSection({
-  title,
-  subtitle,
-  items,
+/* ── Search Results Grid ─────────────────────────────────────────────────── */
+function SearchResultsGrid({
+  results,
   onSelect,
-  showScore,
 }: {
-  title: string;
-  subtitle?: string;
-  items: any[];
+  results: any[];
   onSelect: (id: number, type: "movie" | "series") => void;
-  showScore?: boolean;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  if (items.length === 0) return null;
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   return (
-    <section>
-      <div className="mb-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-        {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
-      </div>
-      <div
-        ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar"
-      >
-        {items.map((item: any) => {
-          const id = item.movieId || item.id;
-          return (
-            <div
-              key={id}
-              className="w-36 md:w-44 shrink-0 snap-start cursor-pointer group"
-              onClick={() => onSelect(id, item.media_type === "tv" ? "series" : "movie")}
-            >
-              <div className="relative overflow-hidden rounded-xl">
-                {(item.poster_url || item.poster_path) ? (
-                  <img
-                    src={item.poster_url || `https://image.tmdb.org/t/p/w342${item.poster_path}`}
-                    alt={item.title}
-                    className="w-full aspect-[2/3] object-cover rounded-xl group-hover:scale-105 transition-transform duration-300 shadow-md"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full aspect-[2/3] bg-secondary rounded-xl flex items-center justify-center text-xs text-muted-foreground">No Poster</div>
-                )}
-                {showScore && item.score && (
-                  <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
-                    {item.score}%
-                  </div>
-                )}
-                {item.vote_average > 0 && !showScore && (
-                  <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> {item.vote_average.toFixed(1)}
-                  </div>
-                )}
-              </div>
-              <p className="font-semibold text-sm mt-2 line-clamp-2 group-hover:text-primary transition-colors">
-                {item.title}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${item.media_type === "tv" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
-                  {item.media_type === "tv" ? "Series" : "Movie"}
-                </span>
-                {item.release_year > 0 && (
-                  <span className="text-xs text-muted-foreground">{item.release_year}</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {results.map((r: any, index: number) => {
+        const posterUrl = r.poster_path
+          ? `https://image.tmdb.org/t/p/w342${r.poster_path}`
+          : null;
+        const genres = (r.genre_ids || [])
+          .slice(0, 3)
+          .map((id: number) => TMDB_GENRES[id])
+          .filter(Boolean);
+
+        return (
+          <MovieCard
+            key={r.id}
+            id={r.id}
+            title={r.title || r.name}
+            posterUrl={posterUrl}
+            mediaType={r.media_type === "tv" ? "tv" : "movie"}
+            releaseYear={
+              r.release_date
+                ? parseInt(r.release_date.split("-")[0], 10)
+                : r.first_air_date
+                ? parseInt(r.first_air_date.split("-")[0], 10)
+                : undefined
+            }
+            voteAverage={r.vote_average > 0 ? r.vote_average : undefined}
+            genres={genres}
+            dimmed={focusedIndex !== null && focusedIndex !== index}
+            onClick={onSelect}
+            onFocusEnter={() => setFocusedIndex(index)}
+            onFocusLeave={() => setFocusedIndex(null)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Discovery Feed ──────────────────────────────────────────────────────── */
+function DiscoveryFeed({
+  data,
+  recentSearches,
+  onSearchClick,
+  onClearSearch,
+  onSelect,
+}: {
+  data: DiscoverData;
+  recentSearches: string[];
+  onSearchClick: (term: string) => void;
+  onClearSearch: (term: string) => void;
+  onSelect: (id: number, type: "movie" | "series") => void;
+}) {
+  // Infinite browsing: extra recommendation batches appended as user scrolls
+  const [extraBatches, setExtraBatches] = useState<RowItem[][]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const offsetRef = useRef(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Keep a stable set of ids seen in the main feed to avoid duplicates
+  const seenIds = useRef<Set<number>>(new Set());
+
+  // Pre-populate seenIds from initial data
+  useEffect(() => {
+    const allInitial = [
+      ...data.topPicks,
+      ...data.genreSections.flatMap(s => s.items),
+      ...data.recommendedMovies,
+      ...data.recommendedSeries,
+      ...data.hiddenGems,
+      ...data.trending,
+      ...data.popularMovies,
+      ...data.popularSeries,
+      ...data.recentlyReleased,
+    ];
+    allInitial.forEach(item => seenIds.current.add(item.movieId ?? item.id));
+    offsetRef.current = data.topPicks.length + data.recommendedMovies.length + data.recommendedSeries.length;
+  }, [data]);
+
+  const loadMoreRecommendations = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/recommendations?offset=${offsetRef.current}&limit=20`
+      );
+      if (!res.ok) { setHasMore(false); return; }
+      const json = await res.json();
+      const items: RowItem[] = (json.data ?? json ?? []).filter(
+        (r: any) => !seenIds.current.has(r.movieId ?? r.id)
+      );
+
+      if (items.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      items.forEach(r => seenIds.current.add(r.movieId ?? r.id ?? 0));
+      offsetRef.current += items.length;
+      setExtraBatches(prev => [...prev, items]);
+    } catch {
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore]);
+
+  // Trigger load when sentinel comes into view
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMoreRecommendations();
+      },
+      { rootMargin: "400px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMoreRecommendations]);
+
+  return (
+    <div className="space-y-10">
+      {/* Recent Searches */}
+      {recentSearches.length > 0 && (
+        <section>
+          <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-muted-foreground">
+            <Clock className="w-5 h-5" /> Recent Searches
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {recentSearches.map(term => (
+              <button
+                key={term}
+                className="flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 text-sm hover:border-primary hover:text-primary transition-all group"
+              >
+                <span onClick={() => onSearchClick(term)}>{term}</span>
+                <X
+                  className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  onClick={(e) => { e.stopPropagation(); onClearSearch(term); }}
+                />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {data.topPicks.length > 0 && (
+        <HorizontalRow
+          title="⭐ Top Picks For You"
+          subtitle="The highest quality personalized recommendations"
+          items={data.topPicks}
+          onSelect={onSelect}
+          showScore
+        />
+      )}
+
+      {data.genreSections.map(section => (
+        <HorizontalRow
+          key={section.genre}
+          title={`🎬 Because You Like ${section.genre}`}
+          items={section.items}
+          onSelect={onSelect}
+        />
+      ))}
+
+      {data.recommendedMovies.length > 0 && (
+        <HorizontalRow
+          title="🎥 Recommended Movies"
+          subtitle="Movies tailored to your taste"
+          items={data.recommendedMovies}
+          onSelect={onSelect}
+          showScore
+        />
+      )}
+
+      {data.recommendedSeries.length > 0 && (
+        <HorizontalRow
+          title="📺 Recommended Series"
+          subtitle="TV series you'll love"
+          items={data.recommendedSeries}
+          onSelect={onSelect}
+          showScore
+        />
+      )}
+
+      {data.hiddenGems.length > 0 && (
+        <HorizontalRow
+          title="🍿 Hidden Gems"
+          subtitle="Less popular but highly recommended"
+          items={data.hiddenGems}
+          onSelect={onSelect}
+          showScore
+        />
+      )}
+
+      {data.trending.length > 0 && (
+        <HorizontalRow
+          title="🔥 Trending Today"
+          subtitle="What's hot right now"
+          items={data.trending}
+          onSelect={onSelect}
+        />
+      )}
+
+      {data.recentlyReleased.length > 0 && (
+        <HorizontalRow
+          title="🕒 Recently Released"
+          subtitle="Fresh titles just for you"
+          items={data.recentlyReleased}
+          onSelect={onSelect}
+        />
+      )}
+
+      {data.popularMovies.length > 0 && (
+        <HorizontalRow
+          title="🎬 Popular Movies"
+          items={data.popularMovies}
+          onSelect={onSelect}
+        />
+      )}
+
+      {data.popularSeries.length > 0 && (
+        <HorizontalRow
+          title="📺 Popular Series"
+          items={data.popularSeries}
+          onSelect={onSelect}
+        />
+      )}
+
+      {/* Extra infinite batches */}
+      {extraBatches.map((batch, i) => (
+        <HorizontalRow
+          key={`extra-${i}`}
+          title={`✨ More For You`}
+          items={batch}
+          onSelect={onSelect}
+          showScore
+        />
+      ))}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="h-1" aria-hidden="true" />
+
+      {/* Loading indicator */}
+      {loadingMore && (
+        <div className="flex justify-center py-6">
+          <BrandLogo
+            variant="compact"
+            className="w-8 h-8"
+            imageClassName="animate-[spin_2.5s_linear_infinite]"
+          />
+        </div>
+      )}
+
+      {/* End of feed message */}
+      {!hasMore && extraBatches.length > 0 && (
+        <div className="text-center py-10 text-muted-foreground">
+          <p className="text-sm">You're all caught up! Rate more movies to improve your recommendations.</p>
+        </div>
+      )}
+
+      {!hasMore && extraBatches.length === 0 && (
+        <div className="text-center py-10 text-muted-foreground">
+          <p className="text-sm">You're all caught up! Rate more movies to improve your recommendations.</p>
+        </div>
+      )}
+    </div>
   );
 }
