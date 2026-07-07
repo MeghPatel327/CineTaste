@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { ProfileCardSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { toast } from "sonner";
 import { User, Shield, Calendar, Film, Star, Heart, Globe, KeyRound, LogOut, Sun, Moon, Monitor } from "lucide-react";
@@ -85,7 +85,7 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
-      <div className="p-4 md:p-8 max-w-4xl mx-auto">
+      <div className="p-4 md:p-8 max-w-4xl mx-auto page-enter">
         <div className="mb-8 flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-bold">Your Profile</h1>
@@ -94,7 +94,32 @@ export default function ProfilePage() {
         </div>
 
         {loading ? (
-          <LoadingState message="Loading profile..." />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-8">
+              <ProfileCardSkeleton />
+              <div className="bg-card border border-border p-6 rounded-xl space-y-4">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+            </div>
+            <div className="space-y-8">
+              <div className="bg-card border border-border p-6 rounded-xl space-y-4">
+                <Skeleton className="h-5 w-36" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="space-y-1.5">
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                ))}
+                <Skeleton className="h-9 w-full" />
+              </div>
+              <div className="bg-destructive/10 border border-destructive/20 p-6 rounded-xl space-y-4">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            </div>
+          </div>
         ) : error || !profile ? (
           <ErrorState title="Error" message="Could not load your profile." onRetry={fetchProfile} />
         ) : (

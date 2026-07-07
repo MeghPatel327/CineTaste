@@ -3,11 +3,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import { HorizontalRow, type RowItem } from "@/components/HorizontalRow";
 import { MovieCard } from "@/components/MovieCard";
+import { MovieCardSkeleton } from "@/components/ui/Skeleton";
 import { Search, Clock, Compass, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
@@ -206,7 +206,7 @@ export default function DiscoverPage() {
 
         {/* Content Area */}
         {loading && !isSearchMode ? (
-          <LoadingState message="Loading your personalized feed..." />
+          <DiscoverSkeleton />
         ) : error && !isSearchMode ? (
           <ErrorState title="Failed to load" message="Couldn't load your discover feed." onRetry={fetchDiscoverData} />
         ) : isSearchMode ? (
@@ -253,6 +253,27 @@ export default function DiscoverPage() {
   );
 }
 
+/* ── Discover skeleton — shown while initial feed loads ─────────────────── */
+function DiscoverSkeleton() {
+  return (
+    <div className="space-y-10">
+      {[5, 7, 6, 8].map((count, i) => (
+        <section key={i}>
+          <div className="mb-3 space-y-1.5">
+            <div className="h-5 w-48 rounded ct-shimmer" />
+            {i === 0 && <div className="h-3 w-64 rounded ct-shimmer" />}
+          </div>
+          <div className="flex gap-4 overflow-hidden pb-3">
+            {Array.from({ length: count }).map((_, j) => (
+              <MovieCardSkeleton key={j} className="shrink-0" />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 /* ── Search Results Grid ─────────────────────────────────────────────────── */
 function SearchResultsGrid({
   results,
@@ -261,11 +282,9 @@ function SearchResultsGrid({
   results: any[];
   onSelect: (id: number, type: "movie" | "series") => void;
 }) {
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      {results.map((r: any, index: number) => {
+      {results.map((r: any) => {
         const posterUrl = r.poster_path
           ? `https://image.tmdb.org/t/p/w342${r.poster_path}`
           : null;
@@ -290,10 +309,7 @@ function SearchResultsGrid({
             }
             voteAverage={r.vote_average > 0 ? r.vote_average : undefined}
             genres={genres}
-            dimmed={focusedIndex !== null && focusedIndex !== index}
             onClick={onSelect}
-            onFocusEnter={() => setFocusedIndex(index)}
-            onFocusLeave={() => setFocusedIndex(null)}
           />
         );
       })}

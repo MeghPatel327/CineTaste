@@ -1,44 +1,32 @@
 @import "tailwindcss";
 
 @theme {
-  /* Dark theme (default) */
   --color-background: var(--ct-bg);
   --color-foreground: var(--ct-fg);
-
   --color-card: var(--ct-card);
   --color-card-foreground: var(--ct-card-fg);
-
   --color-popover: var(--ct-card);
   --color-popover-foreground: var(--ct-card-fg);
-
   --color-primary: var(--ct-primary);
   --color-primary-foreground: var(--ct-primary-fg);
-
   --color-secondary: var(--ct-secondary);
   --color-secondary-foreground: var(--ct-secondary-fg);
-
   --color-muted: var(--ct-muted);
   --color-muted-foreground: var(--ct-muted-fg);
-
   --color-accent: var(--ct-accent);
   --color-accent-foreground: var(--ct-accent-fg);
-
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
-
   --color-border: var(--ct-border);
   --color-input: var(--ct-border);
   --color-ring: var(--ct-primary);
-
   --color-sidebar: var(--ct-sidebar);
   --color-sidebar-foreground: var(--ct-sidebar-fg);
   --color-sidebar-border: var(--ct-sidebar-border);
   --color-sidebar-accent: var(--ct-sidebar-accent);
-
   --radius-lg: 0.5rem;
   --radius-md: calc(0.5rem - 2px);
   --radius-sm: calc(0.5rem - 4px);
-
   --font-sans: var(--font-inter);
 }
 
@@ -47,82 +35,83 @@
 .dark {
   --ct-bg: #0d1a12;
   --ct-fg: #f0f7f2;
-
   --ct-card: #152019;
   --ct-card-fg: #f0f7f2;
-
   --ct-primary: #2E6F40;
   --ct-primary-fg: #ffffff;
-
   --ct-secondary: #1e3327;
   --ct-secondary-fg: #f0f7f2;
-
   --ct-muted: #1e3327;
   --ct-muted-fg: #8fac96;
-
   --ct-accent: #68BA7F;
   --ct-accent-fg: #0d1a12;
-
   --ct-border: #2a4a33;
-
   --ct-sidebar: #0a1410;
   --ct-sidebar-fg: #d4e8d9;
   --ct-sidebar-border: #1e3327;
   --ct-sidebar-accent: rgba(46, 111, 64, 0.15);
 
-  /* Animation & depth tokens */
+  /* Animation tokens */
   --ct-duration-fast: 150ms;
   --ct-duration-normal: 180ms;
   --ct-duration-slow: 250ms;
   --ct-ease-out: cubic-bezier(0, 0, 0.2, 1);
 
-  --ct-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.1);
-  --ct-shadow-md: 0 2px 6px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.14);
-  --ct-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.28), 0 2px 4px rgba(0, 0, 0, 0.16);
+  /* Upgraded shadows — wider spread, softer, not darker */
+  --ct-shadow-sm:    0 1px 3px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.10);
+  --ct-shadow-md:    0 4px 14px rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.12);
+  --ct-shadow-hover: 0 20px 50px rgba(0,0,0,0.28), 0 8px 16px rgba(0,0,0,0.14);
+  --ct-shadow-card:  0 2px 8px rgba(0,0,0,0.20), 0 1px 3px rgba(0,0,0,0.10);
 
-  --ct-border-subtle: rgba(42, 74, 51, 0.55);
-  --ct-border-hover: rgba(104, 186, 127, 0.35);
+  --ct-border-subtle:   rgba(42, 74, 51, 0.55);
+  --ct-border-hover:    rgba(104, 186, 127, 0.75);
   --ct-border-selected: var(--ct-primary);
-  --ct-focus-glow: 0 0 0 3px rgba(46, 111, 64, 0.25);
+  --ct-focus-glow:      0 0 0 3px rgba(46, 111, 64, 0.25);
+
+  /* Shimmer gradient for dark mode */
+  --ct-shimmer-base:     #1a2e22;
+  --ct-shimmer-shine:    #223629;
+  --ct-shimmer-bg:       #152019;
 }
 
 /* ── Light Theme ── */
 .light {
   --ct-bg: #f5faf6;
   --ct-fg: #0d1a12;
-
   --ct-card: #ffffff;
   --ct-card-fg: #0d1a12;
-
   --ct-primary: #2E6F40;
   --ct-primary-fg: #ffffff;
-
   --ct-secondary: #dceede;
   --ct-secondary-fg: #0d1a12;
-
   --ct-muted: #e8f3ea;
   --ct-muted-fg: #4a6b52;
-
   --ct-accent: #68BA7F;
   --ct-accent-fg: #0d1a12;
-
   --ct-border: #b8d4bc;
-
   --ct-sidebar: #ffffff;
   --ct-sidebar-fg: #1e3327;
   --ct-sidebar-border: #dceede;
   --ct-sidebar-accent: rgba(46, 111, 64, 0.10);
 
-  --ct-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
-  --ct-shadow-md: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-  --ct-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --ct-shadow-sm:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --ct-shadow-md:    0 4px 14px rgba(0,0,0,0.09), 0 2px 4px rgba(0,0,0,0.05);
+  --ct-shadow-hover: 0 20px 50px rgba(0,0,0,0.12), 0 8px 16px rgba(0,0,0,0.06);
+  --ct-shadow-card:  0 2px 8px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.03);
 
-  --ct-border-subtle: rgba(184, 212, 188, 0.7);
-  --ct-border-hover: rgba(46, 111, 64, 0.45);
+  --ct-border-subtle:   rgba(184, 212, 188, 0.7);
+  --ct-border-hover:    rgba(46, 111, 64, 0.70);
   --ct-border-selected: var(--ct-primary);
-  --ct-focus-glow: 0 0 0 3px rgba(46, 111, 64, 0.2);
+  --ct-focus-glow:      0 0 0 3px rgba(46, 111, 64, 0.2);
+
+  --ct-shimmer-base:  #eaf4ec;
+  --ct-shimmer-shine: #f4faf5;
+  --ct-shimmer-bg:    #ffffff;
 }
 
+/* ════════════════════════════════════════════════════════
+   BASE
+   ════════════════════════════════════════════════════════ */
 @layer base {
   *,
   ::after,
@@ -136,7 +125,6 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
   }
-  /* Smooth theme transition on key elements */
   body,
   .bg-card,
   .bg-background,
@@ -147,37 +135,133 @@
   }
 }
 
-/* ── Form slide-in animation ── */
+/* ════════════════════════════════════════════════════════
+   SHIMMER — replaces static skeleton pulse
+   Uses background-position animation (GPU: only composited
+   properties), no width/height changes.
+   ════════════════════════════════════════════════════════ */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.ct-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--ct-shimmer-base)  0%,
+    var(--ct-shimmer-shine) 40%,
+    var(--ct-shimmer-base)  80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.375rem;
+}
+
+/* Legacy .skeleton kept for backward compat — now just an alias */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--ct-shimmer-base)  0%,
+    var(--ct-shimmer-shine) 40%,
+    var(--ct-shimmer-base)  80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ════════════════════════════════════════════════════════
+   PAGE TRANSITIONS
+   ════════════════════════════════════════════════════════ */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter {
+  animation: pageEnter var(--ct-duration-normal) var(--ct-ease-out) forwards;
+}
+
+/* ════════════════════════════════════════════════════════
+   MODAL ANIMATIONS
+   ════════════════════════════════════════════════════════ */
+@keyframes modalEnter {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes modalExit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.97); }
+}
+@keyframes backdropEnter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes backdropExit {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.modal-backdrop-enter { animation: backdropEnter var(--ct-duration-normal) var(--ct-ease-out) forwards; }
+.modal-backdrop-exit  { animation: backdropExit  var(--ct-duration-fast)   var(--ct-ease-out) forwards; }
+.modal-enter          { animation: modalEnter    var(--ct-duration-slow)   var(--ct-ease-out) forwards; }
+.modal-exit           { animation: modalExit     var(--ct-duration-fast)   var(--ct-ease-out) forwards; }
+
+/* ════════════════════════════════════════════════════════
+   FORM SLIDE
+   ════════════════════════════════════════════════════════ */
 @keyframes formSlideIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-16px) scale(0.97);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  0%   { opacity: 0; transform: translateY(-16px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 @keyframes formSlideOut {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-12px) scale(0.97);
-  }
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-12px) scale(0.97); }
 }
 
-.animate-form-in {
-  animation: formSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.animate-form-in  { animation: formSlideIn  0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-form-out { animation: formSlideOut 0.3s cubic-bezier(0.4, 0, 1, 1)   forwards; }
+
+/* ════════════════════════════════════════════════════════
+   LOGO / MISC
+   ════════════════════════════════════════════════════════ */
+@keyframes logoFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.logo-fade-in { animation: logoFadeIn 400ms var(--ct-ease-out) forwards; }
+
+/* ════════════════════════════════════════════════════════
+   CHART LEGEND STAGGER
+   ════════════════════════════════════════════════════════ */
+@keyframes legendFadeIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.chart-legend-item {
+  animation: legendFadeIn var(--ct-duration-slow) var(--ct-ease-out) both;
+  opacity: 0;
 }
 
-.animate-form-out {
-  animation: formSlideOut 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+/* ════════════════════════════════════════════════════════
+   MODAL BUTTON STAGGER
+   ════════════════════════════════════════════════════════ */
+@keyframes btnStaggerIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.modal-btn-stagger {
+  animation: btnStaggerIn var(--ct-duration-slow) var(--ct-ease-out) forwards;
+  opacity: 0;
+}
+.modal-btn-stagger:nth-child(1) { animation-delay: 50ms; }
+.modal-btn-stagger:nth-child(2) { animation-delay: 100ms; }
+.modal-btn-stagger:nth-child(3) { animation-delay: 150ms; }
+.modal-btn-stagger:nth-child(4) { animation-delay: 200ms; }
+.modal-btn-stagger:nth-child(5) { animation-delay: 250ms; }
 
+/* ════════════════════════════════════════════════════════
+   REDUCED MOTION — disable all animations
+   ════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   .animate-form-in,
   .animate-form-out,
@@ -188,7 +272,8 @@
   .modal-backdrop-exit,
   .logo-fade-in,
   .chart-legend-item,
-  .skeleton {
+  .skeleton,
+  .ct-shimmer {
     animation: none !important;
   }
 
@@ -206,102 +291,18 @@
   }
 }
 
-/* ── Page enter ── */
-@keyframes pageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-enter {
-  animation: pageEnter var(--ct-duration-normal) var(--ct-ease-out) forwards;
-}
-
-/* ── Modal ── */
-@keyframes modalEnter {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes modalExit {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-}
-
-@keyframes backdropEnter {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes backdropExit {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-.modal-backdrop-enter {
-  animation: backdropEnter var(--ct-duration-normal) var(--ct-ease-out) forwards;
-}
-
-.modal-backdrop-exit {
-  animation: backdropExit var(--ct-duration-fast) var(--ct-ease-out) forwards;
-}
-
-.modal-enter {
-  animation: modalEnter var(--ct-duration-slow) var(--ct-ease-out) forwards;
-}
-
-.modal-exit {
-  animation: modalExit var(--ct-duration-fast) var(--ct-ease-out) forwards;
-}
-
-/* ── Logo fade ── */
-@keyframes logoFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.logo-fade-in {
-  animation: logoFadeIn 400ms var(--ct-ease-out) forwards;
-}
-
-/* ── Skeleton pulse ── */
-@keyframes skeletonPulse {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.75; }
-}
-
-.skeleton {
-  animation: skeletonPulse 1.5s ease-in-out infinite;
-}
-
-/* ── Interactive cards (legacy utility — kept for non-MovieCard uses) ── */
+/* ════════════════════════════════════════════════════════
+   LEGACY INTERACTIVE CARD (dashboard/library cards)
+   ════════════════════════════════════════════════════════ */
 .ct-card-interactive {
   cursor: pointer;
   border-color: var(--ct-border-subtle);
-  box-shadow: var(--ct-shadow-sm);
+  box-shadow: var(--ct-shadow-card);
   transition:
     transform var(--ct-duration-slow) var(--ct-ease-out),
     box-shadow var(--ct-duration-slow) var(--ct-ease-out),
     border-color var(--ct-duration-slow) var(--ct-ease-out);
 }
-
 .ct-card-interactive:hover {
   transform: translateY(-4px);
   box-shadow: var(--ct-shadow-hover);
@@ -309,102 +310,86 @@
 }
 
 /* ════════════════════════════════════════════════════════
-   Premium MovieCard — all animations GPU-accelerated
-   Only transform / opacity / filter ever change.
+   PREMIUM MOVIE CARD
+   GPU-only: transform / opacity / filter
+   NO sibling dimming (removed per V3 spec)
    ════════════════════════════════════════════════════════ */
-
 .ct-movie-card {
   border: 1px solid var(--ct-border-subtle);
-  box-shadow: var(--ct-shadow-sm);
+  box-shadow: var(--ct-shadow-card);
   border-radius: 0.75rem;
-  /* Single transition covers card lift + dim + click */
   transition:
-    transform 200ms cubic-bezier(0, 0, 0.2, 1),
-    box-shadow 200ms cubic-bezier(0, 0, 0.2, 1),
-    border-color 200ms cubic-bezier(0, 0, 0.2, 1),
-    opacity 200ms cubic-bezier(0, 0, 0.2, 1),
-    filter 200ms cubic-bezier(0, 0, 0.2, 1);
+    transform 180ms cubic-bezier(0, 0, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0, 0, 0.2, 1),
+    border-color 180ms cubic-bezier(0, 0, 0.2, 1);
   will-change: transform;
 }
 
-/* Card lift on hover */
+/* Card lift — scale 1→1.035, translateY -6px */
 .ct-movie-card:hover,
 .ct-movie-card:focus-visible {
-  transform: translateY(-6px) scale(1.03);
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.38),
-    0 3px 8px rgba(0, 0, 0, 0.22);
-  border-color: var(--ct-accent);
+  transform: translateY(-6px) scale(1.035);
+  box-shadow: var(--ct-shadow-hover);
+  border-color: var(--ct-border-hover);
   outline: none;
 }
 
-/* Click feedback — scale down slightly, handled by data attr so no style= conflict */
+/* Click feedback via data attr — no style= conflict */
 .ct-movie-card[data-clicking="true"] {
-  transform: scale(0.97) !important;
+  transform: scale(0.98) !important;
   transition-duration: 80ms !important;
 }
 
-/* Signature focus effect: dim all sibling cards in the same row */
-.ct-movie-card[data-dimmed="true"] {
-  opacity: 0.92;
-  filter: brightness(0.91);
-}
-
-/* Focus-visible ring for keyboard users */
+/* Focus-visible keyboard ring */
 .ct-movie-card:focus-visible {
-  box-shadow:
-    var(--ct-focus-glow),
-    0 10px 28px rgba(0, 0, 0, 0.38);
+  box-shadow: var(--ct-focus-glow), var(--ct-shadow-hover);
 }
 
-/* ── Poster image — opacity reveal only; hover filter via CSS below ── */
+/* ── Poster image ── */
 .ct-poster-img {
   display: block;
   transition:
     opacity 280ms ease-out,
-    transform 200ms cubic-bezier(0, 0, 0.2, 1),
-    filter 200ms cubic-bezier(0, 0, 0.2, 1);
+    transform 180ms cubic-bezier(0, 0, 0.2, 1),
+    filter 180ms cubic-bezier(0, 0, 0.2, 1);
   will-change: transform, filter;
 }
 
-/* Poster zoom + brighten on card hover */
+/* Poster brightens on hover — no dimming on siblings */
 .ct-movie-card:hover .ct-poster-img,
 .ct-movie-card:focus-visible .ct-poster-img {
   transform: scale(1.04);
   filter: brightness(1.05) contrast(1.03) saturate(1.02);
 }
 
-/* Bottom gradient: always on, intensifies on hover */
+/* Bottom gradient intensifies on hover */
 .ct-poster-gradient {
-  transition: opacity 200ms cubic-bezier(0, 0, 0.2, 1);
-  opacity: 0.82;
+  transition: opacity 180ms cubic-bezier(0, 0, 0.2, 1);
+  opacity: 0.80;
 }
-
 .ct-movie-card:hover .ct-poster-gradient,
 .ct-movie-card:focus-visible .ct-poster-gradient {
   opacity: 1;
 }
 
-/* Badge (score + TMDB rating) scale on card hover */
+/* Badge scale on hover */
 .ct-badge {
   transition:
-    transform 200ms cubic-bezier(0, 0, 0.2, 1),
-    box-shadow 200ms cubic-bezier(0, 0, 0.2, 1);
+    transform 180ms cubic-bezier(0, 0, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0, 0, 0.2, 1);
 }
-
 .ct-movie-card:hover .ct-badge,
 .ct-movie-card:focus-visible .ct-badge {
   transform: scale(1.07);
 }
 
-/* Title: translate up + full opacity on hover */
+/* Title lift on hover */
 .ct-card-title {
   transition:
-    transform 200ms cubic-bezier(0, 0, 0.2, 1),
-    opacity 200ms cubic-bezier(0, 0, 0.2, 1),
-    color 200ms cubic-bezier(0, 0, 0.2, 1);
+    transform 180ms cubic-bezier(0, 0, 0.2, 1),
+    opacity 180ms cubic-bezier(0, 0, 0.2, 1),
+    color 180ms cubic-bezier(0, 0, 0.2, 1);
 }
-
 .ct-movie-card:hover .ct-card-title,
 .ct-movie-card:focus-visible .ct-card-title {
   transform: translateY(-3px);
@@ -412,37 +397,41 @@
   color: var(--ct-accent);
 }
 
-/* Metadata: fade in + translate up on hover */
+/* Metadata fade + lift on hover */
 .ct-card-meta {
   transition:
-    transform 200ms cubic-bezier(0, 0, 0.2, 1),
-    opacity 200ms cubic-bezier(0, 0, 0.2, 1);
+    transform 180ms cubic-bezier(0, 0, 0.2, 1),
+    opacity 180ms cubic-bezier(0, 0, 0.2, 1);
 }
-
 .ct-movie-card:hover .ct-card-meta,
 .ct-movie-card:focus-visible .ct-card-meta {
   transform: translateY(-2px);
   opacity: 1;
 }
 
-.ct-shadow-sm { box-shadow: var(--ct-shadow-sm); }
-.ct-shadow-md { box-shadow: var(--ct-shadow-md); }
+/* ════════════════════════════════════════════════════════
+   SHADOW UTILITIES
+   ════════════════════════════════════════════════════════ */
+.ct-shadow-sm  { box-shadow: var(--ct-shadow-sm); }
+.ct-shadow-md  { box-shadow: var(--ct-shadow-md); }
 
-/* ── Poster hover (legacy — used by MovieDetailsModal poster) ── */
+/* ════════════════════════════════════════════════════════
+   MODAL POSTER FRAME (legacy, MovieDetailsModal)
+   ════════════════════════════════════════════════════════ */
 .poster-frame {
   overflow: hidden;
   transition: box-shadow var(--ct-duration-slow) var(--ct-ease-out);
 }
-
 .poster-frame img {
   transition: transform var(--ct-duration-slow) var(--ct-ease-out);
   will-change: transform;
 }
-
-.group:hover .poster-frame { box-shadow: var(--ct-shadow-hover); }
+.group:hover .poster-frame     { box-shadow: var(--ct-shadow-hover); }
 .group:hover .poster-frame img { transform: scale(1.03); }
 
-/* ── Match badge (legacy, also used in modal) ── */
+/* ════════════════════════════════════════════════════════
+   MATCH BADGE (legacy + modal)
+   ════════════════════════════════════════════════════════ */
 .match-badge {
   background: linear-gradient(135deg, #3d8f55 0%, var(--ct-primary) 100%);
   box-shadow: 0 2px 6px rgba(46, 111, 64, 0.35);
@@ -450,138 +439,89 @@
     box-shadow var(--ct-duration-slow) var(--ct-ease-out),
     transform var(--ct-duration-fast) var(--ct-ease-out);
 }
-
 .match-badge:hover { box-shadow: 0 2px 10px rgba(104, 186, 127, 0.45); }
 
-/* ── Search input focus ── */
+/* ════════════════════════════════════════════════════════
+   SEARCH INPUT
+   ════════════════════════════════════════════════════════ */
 .ct-search-input {
   transition:
     border-color var(--ct-duration-slow) var(--ct-ease-out),
     box-shadow var(--ct-duration-slow) var(--ct-ease-out);
 }
-
 .ct-search-input::placeholder {
   transition: opacity var(--ct-duration-slow) var(--ct-ease-out);
 }
-
 .ct-search-input:focus {
   border-color: var(--ct-border-hover);
   box-shadow: var(--ct-focus-glow);
   outline: none;
 }
+.ct-search-input:focus::placeholder { opacity: 0.5; }
 
-.ct-search-input:focus::placeholder {
-  opacity: 0.5;
-}
-
-/* ── Admin table ── */
+/* ════════════════════════════════════════════════════════
+   ADMIN TABLE
+   ════════════════════════════════════════════════════════ */
 .ct-table-wrap {
   border-radius: 0.75rem;
   overflow: hidden;
   box-shadow: var(--ct-shadow-sm);
 }
-
 .ct-table thead {
   position: sticky;
   top: 0;
   z-index: 1;
 }
-
 .ct-table tbody tr {
   transition: background-color var(--ct-duration-slow) var(--ct-ease-out);
 }
-
 .ct-table tbody tr:nth-child(even) {
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: rgba(255,255,255,0.02);
 }
-
 .light .ct-table tbody tr:nth-child(even) {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(0,0,0,0.02);
 }
-
 .ct-table tbody tr:hover {
   background-color: var(--ct-sidebar-accent);
 }
 
-/* ── Chart legend stagger ── */
-@keyframes legendFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.chart-legend-item {
-  animation: legendFadeIn var(--ct-duration-slow) var(--ct-ease-out) forwards;
-  opacity: 0;
-}
-
-/* ── Scrollbars ── */
+/* ════════════════════════════════════════════════════════
+   SCROLLBARS — thin modern style
+   ════════════════════════════════════════════════════════ */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--ct-primary) transparent;
+  scrollbar-color: var(--ct-border) transparent;
 }
-
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: var(--ct-primary);
+*::-webkit-scrollbar        { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track  { background: transparent; }
+*::-webkit-scrollbar-thumb  {
+  background: var(--ct-border);
   border-radius: 999px;
   transition: background var(--ct-duration-slow) var(--ct-ease-out);
 }
+*::-webkit-scrollbar-thumb:hover { background: var(--ct-primary); }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--ct-accent);
-}
-
-.hide-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+.hide-scrollbar                     { scrollbar-width: none; -ms-overflow-style: none; }
+.hide-scrollbar::-webkit-scrollbar  { display: none; }
 
 .ct-scroll-row {
-  scroll-behavior: smooth;
   overflow-x: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--ct-primary) transparent;
+  scrollbar-color: var(--ct-border) transparent;
 }
+.ct-scroll-row::-webkit-scrollbar        { height: 3px; }
+.ct-scroll-row::-webkit-scrollbar-thumb  { background: var(--ct-border); border-radius: 999px; }
+.ct-scroll-row::-webkit-scrollbar-thumb:hover { background: var(--ct-primary); }
 
-.ct-scroll-row::-webkit-scrollbar {
-  height: 4px;
-}
-
-.ct-scroll-row::-webkit-scrollbar-thumb {
-  background: var(--ct-primary);
-  border-radius: 999px;
-}
-
-.ct-scroll-row::-webkit-scrollbar-thumb:hover {
-  background: var(--ct-accent);
-}
-
-/* ── Sidebar nav ── */
+/* ════════════════════════════════════════════════════════
+   SIDEBAR NAV
+   ════════════════════════════════════════════════════════ */
 .sidebar-nav-item {
   position: relative;
   transition:
     background-color var(--ct-duration-slow) var(--ct-ease-out),
     color var(--ct-duration-slow) var(--ct-ease-out);
 }
-
 .sidebar-nav-item-active::before {
   content: "";
   position: absolute;
@@ -594,7 +534,9 @@
   border-radius: 0 2px 2px 0;
 }
 
-/* ── Button micro-interactions ── */
+/* ════════════════════════════════════════════════════════
+   BUTTON MICRO-INTERACTIONS (legacy class)
+   ════════════════════════════════════════════════════════ */
 .btn-interactive {
   transition:
     transform var(--ct-duration-fast) var(--ct-ease-out),
@@ -602,31 +544,4 @@
     background-color var(--ct-duration-slow) var(--ct-ease-out),
     border-color var(--ct-duration-slow) var(--ct-ease-out);
 }
-
-.btn-interactive:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-/* ── Modal button stagger ── */
-@keyframes btnStaggerIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.modal-btn-stagger {
-  animation: btnStaggerIn var(--ct-duration-slow) var(--ct-ease-out) forwards;
-  opacity: 0;
-}
-
-.modal-btn-stagger:nth-child(1) { animation-delay: 50ms; }
-.modal-btn-stagger:nth-child(2) { animation-delay: 100ms; }
-.modal-btn-stagger:nth-child(3) { animation-delay: 150ms; }
-.modal-btn-stagger:nth-child(4) { animation-delay: 200ms; }
-.modal-btn-stagger:nth-child(5) { animation-delay: 250ms; }
-
+.btn-interactive:active:not(:disabled) { transform: translateY(1px); }

@@ -27,7 +27,7 @@ interface HorizontalRowProps {
 }
 
 const PRELOAD_BUFFER = 12;
-const CARD_SCROLL_STEP = 200; // px per arrow key press
+const CARD_SCROLL_STEP = 200;
 
 export function HorizontalRow({
   title,
@@ -36,21 +36,17 @@ export function HorizontalRow({
   showScore = false,
   onSelect,
 }: HorizontalRowProps) {
-  // ── All hooks before any conditional return ───────────────────────────
   const rowId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [visibleUntil, setVisibleUntil] = useState(PRELOAD_BUFFER);
 
-  // ── Wheel → horizontal scroll ────────────────────────────────────────
+  // ── Wheel → horizontal scroll (direct, no smooth-behavior lag) ───────
   const handleWheel = useCallback((e: WheelEvent) => {
     const el = scrollRef.current;
     if (!el) return;
-    // Let native horizontal trackpad swipes pass through
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // let trackpad pass
     e.preventDefault();
-    // Direct, immediate scroll — no smooth behavior on the container
     el.scrollLeft += e.deltaY * 1.3;
   }, []);
 
@@ -69,19 +65,14 @@ export function HorizontalRow({
     else if (e.key === "ArrowLeft") { e.preventDefault(); el.scrollLeft -= CARD_SCROLL_STEP; }
   }, []);
 
-  // ── Signature focus effect ───────────────────────────────────────────
-  const handleFocusEnter = useCallback((index: number) => setFocusedIndex(index), []);
-  const handleFocusLeave = useCallback(() => setFocusedIndex(null), []);
-
-  // ── Smart preloading via IntersectionObserver ────────────────────────
+  // ── Smart preloading ─────────────────────────────────────────────────
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        if (entry.isIntersecting)
           setVisibleUntil(prev => Math.min(prev + PRELOAD_BUFFER, items.length));
-        }
       },
       { root: scrollRef.current, rootMargin: "0px 300px 0px 0px", threshold: 0 }
     );
@@ -89,7 +80,6 @@ export function HorizontalRow({
     return () => observer.disconnect();
   }, [items.length]);
 
-  // ── Guard after all hooks ────────────────────────────────────────────
   if (items.length === 0) return null;
 
   return (
@@ -105,7 +95,6 @@ export function HorizontalRow({
         aria-label={`${title} scroll list`}
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        // NO scroll-smooth here — wheel handler needs immediate response
         className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory hide-scrollbar focus:outline-none"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
@@ -115,7 +104,6 @@ export function HorizontalRow({
             item.poster_url ||
             (item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : null);
           const isVisible = index < visibleUntil;
-          const isDimmed = focusedIndex !== null && focusedIndex !== index;
 
           return (
             <div key={`${rowId}-${id}-${index}`} role="listitem" className="snap-start shrink-0">
@@ -129,24 +117,19 @@ export function HorizontalRow({
                   voteAverage={item.vote_average}
                   score={item.score}
                   showScore={showScore}
-                  dimmed={isDimmed}
                   genres={item.genres}
                   onClick={onSelect}
-                  onFocusEnter={() => handleFocusEnter(index)}
-                  onFocusLeave={handleFocusLeave}
                 />
               ) : (
-                // Off-screen placeholder — preserves scroll width without rendering real cards
                 <div className="w-36 md:w-44 shrink-0" aria-hidden="true">
-                  <div className="w-full aspect-[2/3] rounded-xl bg-secondary/50" />
-                  <div className="h-3 w-3/4 rounded bg-secondary/50 mt-2" />
+                  <div className="w-full aspect-[2/3] rounded-xl ct-shimmer" />
+                  <div className="h-3 w-3/4 rounded ct-shimmer mt-2" />
                 </div>
               )}
             </div>
           );
         })}
 
-        {/* Preload sentinel — sits at the end of rendered cards */}
         <div ref={sentinelRef} className="shrink-0 w-px h-px self-center" aria-hidden="true" />
       </div>
     </section>

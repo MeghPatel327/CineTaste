@@ -1,19 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/components/ThemeProvider";
 import {
-  Film,
   LayoutDashboard,
   Library,
   Compass,
   Shield,
   User,
-  LogOut,
-  Sun,
-  Moon,
   Menu,
   X,
 } from "lucide-react";
@@ -32,13 +27,7 @@ const navItems = [
 
 export function Sidebar({ isAdmin }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-  };
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -69,22 +58,19 @@ export function Sidebar({ isAdmin }: SidebarProps) {
               href={item.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                "sidebar-nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium",
                 active
-                  ? "bg-sidebar-accent text-primary shadow-sm"
+                  ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
                   : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
               <item.icon
                 className={cn(
-                  "w-[18px] h-[18px] shrink-0 transition-colors",
+                  "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
                   active ? "text-primary" : "text-muted-foreground"
                 )}
               />
               <span>{item.label}</span>
-              {active && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              )}
             </Link>
           );
         })}
@@ -96,22 +82,19 @@ export function Sidebar({ isAdmin }: SidebarProps) {
               href="/admin"
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                "sidebar-nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium",
                 isActive("/admin")
-                  ? "bg-sidebar-accent text-primary shadow-sm"
+                  ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
                   : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
               <Shield
                 className={cn(
-                  "w-[18px] h-[18px] shrink-0 transition-colors",
+                  "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
                   isActive("/admin") ? "text-primary" : "text-muted-foreground"
                 )}
               />
               <span>Admin</span>
-              {isActive("/admin") && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              )}
             </Link>
           </>
         )}
@@ -119,22 +102,18 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
       {/* Bottom actions */}
       <div className="p-3 border-t border-sidebar-border space-y-1">
-        {/* Profile Link */}
         <Link
           href="/profile"
           onClick={() => setMobileOpen(false)}
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full",
+            "sidebar-nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full",
             isActive("/profile")
-              ? "bg-sidebar-accent text-primary shadow-sm"
+              ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
               : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
           )}
         >
-          <User className="w-[18px] h-[18px] shrink-0" />
+          <User className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
           <span>Profile</span>
-          {isActive("/profile") && (
-            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          )}
         </Link>
       </div>
     </div>

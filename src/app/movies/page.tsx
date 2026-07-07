@@ -6,8 +6,8 @@ import { MovieRow } from "@/features/movies/movieRepository";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { LibraryCardSkeleton } from "@/components/ui/Skeleton";
 import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { Plus, Search, ArrowUp, ArrowDown } from "lucide-react";
@@ -160,9 +160,16 @@ export default function MovieLibraryPage() {
 
   return (
     <AppShell>
-      <div className="p-4 md:p-8 max-w-6xl mx-auto">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto page-enter">
         {loading ? (
-          <LoadingState message="Loading your library..." />
+          <>
+            <div className="flex justify-between items-center mb-8">
+              <h1 className="text-3xl font-bold">Library</h1>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {Array.from({ length: 12 }).map((_, i) => <LibraryCardSkeleton key={i} />)}
+            </div>
+          </>
         ) : error ? (
           <ErrorState
             title="Library failed to load"

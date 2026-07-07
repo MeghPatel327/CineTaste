@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { TableRowSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -119,9 +119,36 @@ export default function AdminPage() {
 
   return (
     <AppShell>
-      <div className="p-4 md:p-8 max-w-6xl mx-auto">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto page-enter">
         {loading ? (
-          <LoadingState message="Loading admin dashboard..." />
+          <div className="space-y-12">
+            <Skeleton className="h-9 w-64" />
+            <section>
+              <Skeleton className="h-7 w-32 mb-4" />
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-secondary"><tr>{Array.from({length:5}).map((_,i)=><th key={i} className="p-4"><Skeleton className="h-4 w-full"/></th>)}</tr></thead>
+                  <tbody>{Array.from({length:4}).map((_,i)=><TableRowSkeleton key={i} cols={5}/>)}</tbody>
+                </table>
+              </div>
+            </section>
+            <section>
+              <Skeleton className="h-7 w-48 mb-4" />
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+                  <Skeleton className="h-5 w-24" />
+                  {Array.from({length:3}).map((_,i)=><Skeleton key={i} className="h-9 w-full"/>)}
+                  <Skeleton className="h-9 w-24" />
+                </div>
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-secondary"><tr>{Array.from({length:3}).map((_,i)=><th key={i} className="p-4"><Skeleton className="h-4 w-full"/></th>)}</tr></thead>
+                    <tbody>{Array.from({length:3}).map((_,i)=><TableRowSkeleton key={i} cols={3}/>)}</tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          </div>
         ) : error ? (
           <ErrorState
             title="Admin data failed to load"

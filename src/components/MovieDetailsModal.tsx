@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Modal } from "./ui/Modal";
-import { LoadingState } from "./ui/LoadingState";
 import { ErrorState } from "./ui/ErrorState";
 import { BrandLogo } from "./BrandLogo";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
+import { Skeleton } from "./ui/Skeleton";
 import { toast } from "sonner";
 import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -203,7 +203,53 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={data?.title || "Movie Details"} maxWidth="max-w-5xl">
       {loading ? (
-        <LoadingState message="Loading details..." />
+        /* ── Modal skeleton ── */
+        <div className="flex flex-col gap-8 pb-8">
+          {/* Hero skeleton */}
+          <div className="rounded-xl overflow-hidden bg-secondary/30 p-6 md:p-8">
+            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+              <Skeleton className="w-48 md:w-64 shrink-0 aspect-[2/3] rounded-lg" />
+              <div className="flex-1 w-full space-y-4">
+                <Skeleton className="h-9 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <div className="flex gap-2 flex-wrap">
+                  {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-7 w-24 rounded-full" />)}
+                </div>
+                <Skeleton className="h-4 w-2/5" />
+                <div className="flex gap-3 pt-2">
+                  <Skeleton className="h-9 w-32 rounded-md" />
+                  <Skeleton className="h-9 w-28 rounded-md" />
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Body skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-24" />
+                <div className="flex gap-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="w-32 shrink-0 space-y-1.5">
+                      <Skeleton className="w-full aspect-[2/3] rounded-lg" />
+                      <Skeleton className="h-3 w-3/4" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+          </div>
+        </div>
       ) : error || !data ? (
         <ErrorState title="Failed to load" message="Could not fetch movie details." onRetry={() => fetchDetails(`${type}_${tmdbId}`)} />
       ) : (

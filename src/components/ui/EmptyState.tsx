@@ -1,5 +1,5 @@
-import { Film } from "lucide-react";
 import { ReactNode } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 interface EmptyStateProps {
   title: string;
@@ -10,12 +10,14 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, description, icon, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-8 text-center bg-card rounded-lg border border-border min-h-[300px]">
-      <div className="mb-4 text-muted-foreground">
-        {icon || <Film size={48} className="opacity-50" />}
+    <div className="flex flex-col items-center justify-center p-12 text-center bg-card rounded-xl border border-border min-h-[320px] gap-5">
+      <div className="text-muted-foreground/60">
+        {icon ?? <BrandLogo variant="compact" className="w-14 h-14 opacity-40" />}
       </div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-muted-foreground mb-6 max-w-md">{description}</p>
+      <div className="space-y-2">
+        <h3 className="text-xl font-semibold">{title}</h3>
+        <p className="text-muted-foreground max-w-sm text-sm leading-relaxed">{description}</p>
+      </div>
       {action && <div>{action}</div>}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,9 +13,10 @@ interface MovieCardProps {
   voteAverage?: number;
   score?: number;
   showScore?: boolean;
-  dimmed?: boolean;
   genres?: string[];
   onClick: (id: number, type: "movie" | "series") => void;
+  // Legacy props — accepted but ignored so existing call sites don't break
+  dimmed?: boolean;
   onFocusEnter?: () => void;
   onFocusLeave?: () => void;
 }
@@ -29,36 +30,15 @@ export function MovieCard({
   voteAverage,
   score,
   showScore = false,
-  dimmed = false,
   genres,
   onClick,
-  onFocusEnter,
-  onFocusLeave,
 }: MovieCardProps) {
-  // "loading" → skeleton visible, image not yet shown
-  // "revealed" → image fades in (opacity 0→1), blur overlay fades out
-  // "loaded"   → fully sharp, hover enabled
+  // "loading"  → shimmer visible, image hidden
+  // "revealed" → image opacity-100, blur overlay still on
+  // "loaded"   → blur overlay fades out, hover filters active
   const [imgPhase, setImgPhase] = useState<"loading" | "revealed" | "loaded">("loading");
-  // Drive click-scale via a data attribute so CSS handles it, no style conflict
   const [clicking, setClicking] = useState(false);
-  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSeries = mediaType === "tv";
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (focusTimer.current) clearTimeout(focusTimer.current);
-    };
-  }, []);
-
-  const handleMouseEnter = useCallback(() => {
-    focusTimer.current = setTimeout(() => onFocusEnter?.(), 300);
-  }, [onFocusEnter]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (focusTimer.current) { clearTimeout(focusTimer.current); focusTimer.current = null; }
-    onFocusLeave?.();
-  }, [onFocusLeave]);
 
   const handleClick = useCallback(() => {
     if (clicking) return;
@@ -72,9 +52,8 @@ export function MovieCard({
   }, [handleClick]);
 
   const handleImageLoad = useCallback(() => {
-    // Phase 1: image becomes visible (still blurred by the overlay)
     setImgPhase("revealed");
-    // Phase 2: after brief pause, mark fully loaded so blur overlay disappears
+    // Give the opacity transition a frame, then remove blur overlay
     setTimeout(() => setImgPhase("loaded"), 80);
   }, []);
 
@@ -84,44 +63,37 @@ export function MovieCard({
       tabIndex={0}
       aria-label={`${title}${releaseYear ? `, ${releaseYear}` : ""} · ${isSeries ? "Series" : "Movie"}`}
       data-clicking={clicking ? "true" : undefined}
-      data-dimmed={dimmed ? "true" : undefined}
       className={cn(
         "ct-movie-card group relative w-36 md:w-44 shrink-0 rounded-xl cursor-pointer select-none outline-none",
         "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       )}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
     >
-      {/* ── Poster ── */}
+      {/* ── Poster area ── */}
       <div className="relative overflow-hidden rounded-xl aspect-[2/3]">
 
-        {/* Skeleton — visible until image loads */}
+        {/* Shimmer while loading */}
         <div className={cn(
-          "absolute inset-0 rounded-xl bg-secondary",
-          "transition-opacity duration-300",
-          imgPhase !== "loading" ? "opacity-0 pointer-events-none" : "skeleton"
+          "absolute inset-0 rounded-xl transition-opacity duration-300",
+          imgPhase === "loading" ? "ct-shimmer" : "opacity-0 pointer-events-none"
         )} />
 
-        {/* Poster image — opacity-based reveal, filter purely from CSS hover */}
-        {posterUrl && imgPhase !== "loading" || (posterUrl && imgPhase === "loading") ? (
-          posterUrl ? (
-            <img
-              src={posterUrl}
-              alt={title}
-              loading="lazy"
-              decoding="async"
-              className={cn(
-                "ct-poster-img absolute inset-0 w-full h-full object-cover rounded-xl",
-                // Fade in on reveal
-                imgPhase === "loading" ? "opacity-0" : "opacity-100"
-              )}
-              onLoad={handleImageLoad}
-              onError={() => setImgPhase("loaded")}
-            />
-          ) : null
-        ) : null}
+        {/* Poster image — fades in via opacity only */}
+        {posterUrl && (
+          <img
+            src={posterUrl}
+            alt={title}
+            loading="lazy"
+            decoding="async"
+            className={cn(
+              "ct-poster-img absolute inset-0 w-full h-full object-cover rounded-xl",
+              imgPhase === "loading" ? "opacity-0" : "opacity-100"
+            )}
+            onLoad={handleImageLoad}
+            onError={() => setImgPhase("loaded")}
+          />
+        )}
 
         {/* No-poster fallback */}
         {!posterUrl && (
@@ -130,21 +102,17 @@ export function MovieCard({
           </div>
         )}
 
-        {/* Blur overlay — fades out as image sharpens (separate from hover filter) */}
+        {/* Blur-in overlay — separate from image so hover filter is never blocked */}
         {posterUrl && (
           <div className={cn(
-            "absolute inset-0 rounded-xl pointer-events-none",
-            "backdrop-blur-sm bg-black/10",
+            "absolute inset-0 rounded-xl pointer-events-none backdrop-blur-sm bg-black/10",
             "transition-opacity duration-300",
             imgPhase === "loaded" ? "opacity-0" : "opacity-100"
           )} />
         )}
 
-        {/* Bottom gradient — always on, brightens on hover */}
-        <div className={cn(
-          "ct-poster-gradient absolute inset-x-0 bottom-0 h-[55%] rounded-b-xl pointer-events-none",
-          "bg-gradient-to-t from-black/80 via-black/35 to-transparent"
-        )} />
+        {/* Bottom gradient — always present, intensifies on hover via CSS */}
+        <div className="ct-poster-gradient absolute inset-x-0 bottom-0 h-[55%] rounded-b-xl pointer-events-none bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
 
         {/* Match score badge */}
         {showScore && score !== undefined && (
@@ -162,7 +130,7 @@ export function MovieCard({
         )}
       </div>
 
-      {/* ── Text ── */}
+      {/* ── Text below poster ── */}
       <div className="pt-2 pb-1 px-0.5">
         <p className="ct-card-title font-semibold text-sm line-clamp-2 leading-snug opacity-95">
           {title}
