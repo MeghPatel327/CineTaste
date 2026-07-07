@@ -146,7 +146,7 @@ function DashboardContent({ data }: { data: any }) {
                       dataKey="value"
                     >
                       {favoriteGenres.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#ffffff" strokeWidth={1.5} />
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#ffffff" strokeWidth={0} />
                       ))}
                     </Pie>
                     <Tooltip contentStyle={{backgroundColor: 'var(--ct-card)', borderColor: 'var(--ct-border)', color: 'var(--ct-card-fg)'}} />
