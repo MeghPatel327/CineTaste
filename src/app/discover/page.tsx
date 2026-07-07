@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -10,6 +11,8 @@ import { MovieCard } from "@/components/MovieCard";
 import { MovieCardSkeleton } from "@/components/ui/Skeleton";
 import { Search, Clock, Compass, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Button } from "@/components/ui/Button";
 
 const TMDB_GENRES: Record<number, string> = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime", 99: "Documentary", 18: "Drama",
@@ -35,6 +38,9 @@ interface DiscoverData {
 // ── Session storage key for scroll position ──────────────────────────────────
 const SCROLL_KEY = "ct-discover-scroll";
 const QUERY_KEY = "ct-discover-query";
+const staggerStyle = (index: number, step = 50) => ({
+  "--ct-stagger-delay": `${index * step}ms`,
+} as CSSProperties);
 
 export default function DiscoverPage() {
   const [discoverData, setDiscoverData] = useState<DiscoverData | null>(null);
@@ -49,6 +55,8 @@ export default function DiscoverPage() {
     return "";
   });
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [visibleSearchResults, setVisibleSearchResults] = useState<any[]>([]);
+  const [resultsPhase, setResultsPhase] = useState<"in" | "out">("in");
   const [searching, setSearching] = useState(false);
   const isSearchMode = query.trim().length > 0;
 
@@ -61,6 +69,7 @@ export default function DiscoverPage() {
   // Scroll position preservation
   const savedScrollPos = useRef(0);
   const hasRestoredScroll = useRef(false);
+  const searchTransitionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchDiscoverData();
@@ -120,6 +129,8 @@ export default function DiscoverPage() {
   useEffect(() => {
     if (!query.trim()) {
       setSearchResults([]);
+      setVisibleSearchResults([]);
+      setResultsPhase("in");
       return;
     }
     const timeout = setTimeout(() => {
@@ -128,8 +139,33 @@ export default function DiscoverPage() {
     return () => clearTimeout(timeout);
   }, [query]);
 
+  useEffect(() => {
+    if (!isSearchMode) {
+      setVisibleSearchResults([]);
+      setResultsPhase("in");
+      return;
+    }
+
+    if (searchTransitionRef.current) {
+      clearTimeout(searchTransitionRef.current);
+    }
+
+    setResultsPhase("out");
+    searchTransitionRef.current = setTimeout(() => {
+      setVisibleSearchResults(searchResults);
+      requestAnimationFrame(() => setResultsPhase("in"));
+    }, 140);
+
+    return () => {
+      if (searchTransitionRef.current) {
+        clearTimeout(searchTransitionRef.current);
+      }
+    };
+  }, [searchResults, isSearchMode]);
+
   const performSearch = async (q: string) => {
     setSearching(true);
+    setResultsPhase("out");
     try {
       const res = await fetch(`/api/tmdb/search?query=${encodeURIComponent(q)}`);
       const data = await res.json();
@@ -211,18 +247,18 @@ export default function DiscoverPage() {
           <ErrorState title="Failed to load" message="Couldn't load your discover feed." onRetry={fetchDiscoverData} />
         ) : isSearchMode ? (
           /* ── Search Mode ── */
-          <div>
-            {searching && searchResults.length === 0 ? (
+          <div className="ct-results-transition" data-phase={resultsPhase}>
+            {searching && visibleSearchResults.length === 0 ? (
               <BrandLogo variant="loading" className="py-20" />
-            ) : searchResults.length === 0 && !searching ? (
-              <div className="text-center py-20 text-muted-foreground">
-                <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg">No results found for "{query}"</p>
-                <p className="text-sm mt-2">Try a different search term.</p>
-              </div>
+            ) : visibleSearchResults.length === 0 && !searching ? (
+              <EmptyState
+                title={`No results found for "${query}"`}
+                description="Try a different title, person, or series name."
+                action={<Button variant="outline" onClick={() => setQuery("")}>Clear Search</Button>}
+              />
             ) : (
               <SearchResultsGrid
-                results={searchResults}
+                results={visibleSearchResults}
                 onSelect={handleOpenDetails}
               />
             )}
@@ -284,7 +320,7 @@ function SearchResultsGrid({
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      {results.map((r: any) => {
+      {results.map((r: any, index: number) => {
         const posterUrl = r.poster_path
           ? `https://image.tmdb.org/t/p/w342${r.poster_path}`
           : null;
@@ -294,23 +330,24 @@ function SearchResultsGrid({
           .filter(Boolean);
 
         return (
-          <MovieCard
-            key={r.id}
-            id={r.id}
-            title={r.title || r.name}
-            posterUrl={posterUrl}
-            mediaType={r.media_type === "tv" ? "tv" : "movie"}
-            releaseYear={
-              r.release_date
-                ? parseInt(r.release_date.split("-")[0], 10)
-                : r.first_air_date
-                ? parseInt(r.first_air_date.split("-")[0], 10)
-                : undefined
-            }
-            voteAverage={r.vote_average > 0 ? r.vote_average : undefined}
-            genres={genres}
-            onClick={onSelect}
-          />
+          <div key={r.id} className="ct-stagger-item" style={staggerStyle(index)}>
+            <MovieCard
+              id={r.id}
+              title={r.title || r.name}
+              posterUrl={posterUrl}
+              mediaType={r.media_type === "tv" ? "tv" : "movie"}
+              releaseYear={
+                r.release_date
+                  ? parseInt(r.release_date.split("-")[0], 10)
+                  : r.first_air_date
+                  ? parseInt(r.first_air_date.split("-")[0], 10)
+                  : undefined
+              }
+              voteAverage={r.vote_average > 0 ? r.vote_average : undefined}
+              genres={genres}
+              onClick={onSelect}
+            />
+          </div>
         );
       })}
     </div>
@@ -401,7 +438,7 @@ function DiscoveryFeed({
   }, [loadMore]);
 
   return (
-    <div className="space-y-10">
+    <div className="ct-discovery-feed space-y-10">
       {/* Recent Searches */}
       {recentSearches.length > 0 && (
         <section>

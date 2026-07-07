@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
@@ -8,6 +9,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Film, CheckCircle, Clock, Star, TrendingUp, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import {
   StatCardSkeleton,
@@ -20,6 +22,9 @@ import { useCountUp } from "@/hooks/useCountUp";
 
 
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+const staggerStyle = (index: number, step = 50) => ({
+  "--ct-stagger-delay": `${index * step}ms`,
+} as CSSProperties);
 
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
@@ -142,27 +147,27 @@ function DashboardContent({ data, loading }: { data: any; loading: boolean }) {
           Array.from({ length: 5 }).map((_, i) => <StatCardSkeleton key={i} />)
         ) : (
           <>
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
+            <div className="ct-stagger-item bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center" style={staggerStyle(0)}>
               <Film className="w-6 h-6 text-primary mb-2" />
               <p className="text-sm text-muted-foreground">Total Titles</p>
               <p className="text-2xl font-bold"><AnimatedStat value={stats.total} /></p>
             </div>
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
+            <div className="ct-stagger-item bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center" style={staggerStyle(1)}>
               <CheckCircle className="w-6 h-6 text-green-500 mb-2" />
               <p className="text-sm text-muted-foreground">Watched</p>
               <p className="text-2xl font-bold"><AnimatedStat value={stats.watched} /></p>
             </div>
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
+            <div className="ct-stagger-item bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center" style={staggerStyle(2)}>
               <Clock className="w-6 h-6 text-yellow-500 mb-2" />
               <p className="text-sm text-muted-foreground">Pending</p>
               <p className="text-2xl font-bold"><AnimatedStat value={stats.pending} /></p>
             </div>
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
+            <div className="ct-stagger-item bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center" style={staggerStyle(3)}>
               <Star className="w-6 h-6 text-accent mb-2" />
               <p className="text-sm text-muted-foreground">Avg Rating</p>
               <p className="text-2xl font-bold"><AnimatedStat value={stats.avgRating} decimals={1} /></p>
             </div>
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
+            <div className="ct-stagger-item bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center" style={staggerStyle(4)}>
               <TrendingUp className="w-6 h-6 text-primary mb-2" />
               <p className="text-sm text-muted-foreground">Completion</p>
               <p className="text-2xl font-bold"><AnimatedStat value={stats.completionPercentage} suffix="%" /></p>
@@ -182,13 +187,19 @@ function DashboardContent({ data, loading }: { data: any; loading: boolean }) {
               {Array.from({ length: 3 }).map((_, i) => <WatchRowSkeleton key={i} />)}
             </div>
           ) : next5.length === 0 ? (
-            <p className="text-muted-foreground">Your watchlist is empty.</p>
+            <EmptyState
+              title="Your library is waiting for its first masterpiece."
+              description="Add a movie or series to build your watch order."
+              action={<Link href="/discover"><Button size="sm">Add Movie</Button></Link>}
+              compact
+            />
           ) : (
             <div className="space-y-4">
               {next5.map((movie: any, idx: number) => (
                 <div
                   key={movie.id}
-                  className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition"
+                  className="ct-stagger-item flex items-center gap-4 p-3 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition"
+                  style={staggerStyle(idx)}
                   onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type === "series" ? "series" : "movie" })}
                 >
                   <span className="font-bold text-muted-foreground w-6 text-center">{idx + 1}</span>
@@ -223,7 +234,12 @@ function DashboardContent({ data, loading }: { data: any; loading: boolean }) {
               </div>
             </div>
           ) : favoriteGenres.length === 0 ? (
-            <p className="text-muted-foreground text-center flex-1 flex items-center justify-center">No data yet.</p>
+            <EmptyState
+              title="No taste profile yet"
+              description="Rate a few titles so CineTaste can learn your favorite genres."
+              action={<Link href="/movies"><Button size="sm" variant="outline">Open Library</Button></Link>}
+              compact
+            />
           ) : (
             <div className="flex-1">
               <div className="min-h-[200px] mb-4">
@@ -289,13 +305,19 @@ function DashboardContent({ data, loading }: { data: any; loading: boolean }) {
             {Array.from({ length: 3 }).map((_, i) => <RecPreviewSkeleton key={i} />)}
           </div>
         ) : recommendationPreview.length === 0 ? (
-          <p className="text-muted-foreground">Add and rate more movies to get personalized recommendations.</p>
+          <EmptyState
+            title="Recommendations are waiting for your taste."
+            description="Add and rate more titles to unlock a sharper CineTaste feed."
+            action={<Link href="/discover"><Button size="sm">Discover Titles</Button></Link>}
+            compact
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {recommendationPreview.map((rec: any) => (
+            {recommendationPreview.map((rec: any, index: number) => (
               <div
                 key={rec.movieId}
-                className="flex gap-4 p-4 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition"
+                className="ct-stagger-item flex gap-4 p-4 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition"
+                style={staggerStyle(index)}
                 onClick={() => setSelectedItem({ id: rec.movieId, type: rec.media_type === "tv" ? "series" : "movie" })}
               >
                 {rec.poster_url ? (

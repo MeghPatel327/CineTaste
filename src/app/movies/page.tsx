@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { MovieRow } from "@/features/movies/movieRepository";
 import { Button } from "@/components/ui/Button";
@@ -12,7 +13,10 @@ import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { Plus, Search, ArrowUp, ArrowDown } from "lucide-react";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
-import { RatingModal } from "@/components/RatingModal";
+
+const staggerStyle = (index: number, step = 50) => ({
+  "--ct-stagger-delay": `${index * step}ms`,
+} as CSSProperties);
 
 export default function MovieLibraryPage() {
   const [movies, setMovies] = useState<MovieRow[]>([]);
@@ -25,7 +29,6 @@ export default function MovieLibraryPage() {
   const [sortBy, setSortBy] = useState("added_desc");
   
   const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
-  const [ratingMovieId, setRatingMovieId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchMoviesAndSites();
@@ -43,59 +46,6 @@ export default function MovieLibraryPage() {
       toast.error("Error loading library");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleStatusUpdate = async (e: React.MouseEvent, id: number, newStatus: string) => {
-    e.stopPropagation();
-    if (newStatus === "completed") {
-      setRatingMovieId(id);
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/movies/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) {
-        toast.success("Status updated");
-        fetchMoviesAndSites();
-      }
-    } catch {
-      toast.error("Error updating status");
-    }
-  };
-
-  const handleRatingSubmit = async (rating: number) => {
-    if (!ratingMovieId) return;
-    try {
-      const res = await fetch(`/api/movies/${ratingMovieId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "completed", rating }),
-      });
-      if (res.ok) {
-        toast.success("Movie marked as completed");
-        fetchMoviesAndSites();
-      }
-    } catch {
-      toast.error("Error saving rating");
-    }
-  };
-
-  const handleDelete = async (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
-    if (!confirm("Are you sure?")) return;
-    try {
-      const res = await fetch(`/api/movies/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Movie deleted");
-        setMovies(movies.filter(m => m.id !== id));
-      }
-    } catch {
-      toast.error("Error deleting movie");
     }
   };
 
@@ -228,17 +178,21 @@ export default function MovieLibraryPage() {
 
             {filteredMovies.length === 0 ? (
               <EmptyState 
-                title="No movies found" 
-                description="You haven't added any movies matching these filters yet."
+                title="Your library is waiting for its first masterpiece."
+                description="Add a movie or series, or adjust your filters to reveal saved titles."
                 action={<Link href="/discover"><Button>Add Movie</Button></Link>}
               />
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredMovies.map(movie => (
-                  <div key={movie.id} className="bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer" onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type as any })}>
-                    <img src={movie.poster_url || ""} alt={movie.movie_name} className="w-full aspect-[2/3] object-cover" />
+                {filteredMovies.map((movie, index) => (
+                  <div key={movie.id} className="ct-stagger-item" style={staggerStyle(index)}>
+                    <div
+                      className="ct-library-card bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer"
+                      onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type as any })}
+                    >
+                      <LibraryPoster posterUrl={movie.poster_url} title={movie.movie_name} />
                     
-                    <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                       {movie.watch_link && (
                         <a href={movie.watch_link} target="_blank" rel="noreferrer" className="mb-4" onClick={(e) => e.stopPropagation()}>
                           <Button size="sm" variant="secondary" className="w-full">Watch Link</Button>
@@ -255,25 +209,21 @@ export default function MovieLibraryPage() {
                           </Button>
                         </div>
                       )}
-                      
-                      <Button size="sm" variant="outline" className="mb-2" onClick={(e) => handleStatusUpdate(e, movie.id, movie.status === 'pending' ? 'completed' : 'pending')}>
-                        Mark {movie.status === 'pending' ? 'Completed' : 'Pending'}
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={(e) => handleDelete(e, movie.id)}>Remove</Button>
                     </div>
 
                     <div className="p-3">
-                      <h3 className="font-semibold truncate" title={movie.movie_name}>{movie.movie_name}</h3>
-                      <div className="flex gap-2 items-center mt-1.5 mb-1.5">
+                      <h3 className="ct-card-title font-semibold truncate opacity-95" title={movie.movie_name}>{movie.movie_name}</h3>
+                      <div className="ct-card-meta flex gap-2 items-center mt-1.5 mb-1.5 opacity-85">
                         <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${movie.type === "series" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
                           {movie.type === "series" ? "Series" : "Movie"}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center text-xs text-muted-foreground">
+                      <div className="ct-card-meta flex justify-between items-center text-xs text-muted-foreground opacity-85">
                         <span className="capitalize">{movie.status}</span>
                         <span className="flex items-center text-yellow-500">★ {movie.rating}</span>
                       </div>
                     </div>
+                  </div>
                   </div>
                 ))}
               </div>
@@ -287,14 +237,40 @@ export default function MovieLibraryPage() {
         onClose={() => setSelectedItem(null)} 
         tmdbId={selectedItem?.id || 0} 
         type={selectedItem?.type || "movie"}
+        onUpdated={fetchMoviesAndSites}
         onNavigate={(id, type) => setSelectedItem({ id, type: type || "movie" })}
       />
-
-      <RatingModal 
-        isOpen={!!ratingMovieId} 
-        onClose={() => setRatingMovieId(null)} 
-        onSubmit={handleRatingSubmit} 
-      />
     </AppShell>
+  );
+}
+
+function LibraryPoster({ posterUrl, title }: { posterUrl?: string | null; title: string }) {
+  const [imgPhase, setImgPhase] = useState<"loading" | "revealed" | "loaded">(posterUrl ? "loading" : "loaded");
+
+  const handleImageLoad = () => {
+    setImgPhase("revealed");
+    setTimeout(() => setImgPhase("loaded"), 80);
+  };
+
+  return (
+    <div className="relative aspect-[2/3] overflow-hidden bg-secondary">
+      <div className={imgPhase === "loading" ? "absolute inset-0 ct-shimmer" : "absolute inset-0 opacity-0 pointer-events-none transition-opacity duration-300"} />
+      {posterUrl ? (
+        <>
+          <img
+            src={posterUrl}
+            alt={title}
+            loading="lazy"
+            decoding="async"
+            className={`ct-poster-img absolute inset-0 w-full h-full object-cover ${imgPhase === "loading" ? "opacity-0" : "opacity-100"} ${imgPhase !== "loaded" ? "ct-poster-img-blurred" : ""}`}
+            onLoad={handleImageLoad}
+            onError={() => setImgPhase("loaded")}
+          />
+          <div className={`absolute inset-0 pointer-events-none backdrop-blur-sm bg-black/10 transition-opacity duration-300 ${imgPhase === "loaded" ? "opacity-0" : "opacity-100"}`} />
+        </>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">No Poster</div>
+      )}
+    </div>
   );
 }

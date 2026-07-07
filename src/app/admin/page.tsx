@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { TableRowSkeleton, Skeleton } from "@/components/ui/Skeleton";
@@ -8,6 +9,10 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Users, Shield, Link as LinkIcon, Trash } from "lucide-react";
+
+const staggerStyle = (index: number, step = 45) => ({
+  "--ct-stagger-delay": `${index * step}ms`,
+} as CSSProperties);
 
 export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -173,8 +178,8 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(u => (
-                      <tr key={u.id} className="border-t border-border">
+                    {users.map((u, index) => (
+                      <tr key={u.id} className="ct-table-row-stagger border-t border-border" style={staggerStyle(index)}>
                         <td className="p-4 font-medium">{u.username}</td>
                         <td className="p-4 capitalize">
                           <span className={`px-2 py-1 rounded text-xs ${u.role === 'admin' ? 'bg-primary/20 text-primary' : 'bg-secondary'}`}>
@@ -229,8 +234,8 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sites.map(s => (
-                        <tr key={s.id} className="border-t border-border">
+                      {sites.map((s, index) => (
+                        <tr key={s.id} className="ct-table-row-stagger border-t border-border" style={staggerStyle(index)}>
                           <td className="p-4 font-medium">{s.name}</td>
                           <td className="p-4">
                             <Button size="sm" variant="outline" onClick={() => toggleSiteEnabled(s.id, s.enabled)}>

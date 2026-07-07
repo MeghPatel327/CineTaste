@@ -8,7 +8,7 @@ import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Skeleton } from "./ui/Skeleton";
 import { toast } from "sonner";
-import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X } from "lucide-react";
+import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Client-side cache for TMDB details to prevent duplicate fetching in same session
@@ -33,6 +33,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
   const [rating, setRating] = useState(0);
   const [watchOrder, setWatchOrder] = useState(0);
@@ -157,6 +158,28 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       toast.error("Error updating movie");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!data?.libraryData || removing) return;
+    if (!confirm("Remove this title from your library?")) return;
+
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/movies/${data.libraryData.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Removed from library");
+        detailsCache.delete(`${type}_${tmdbId}`);
+        if (onUpdated) onUpdated();
+        onClose();
+      } else {
+        toast.error("Failed to remove movie");
+      }
+    } catch {
+      toast.error("Error removing movie");
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -353,7 +376,13 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                     {/* Row 1: primary actions */}
                     <div className="flex flex-wrap justify-center md:justify-start gap-3">
                       {data.inLibrary ? (
-                        <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
+                        <>
+                          <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
+                          <Button variant="destructive" className="modal-btn-stagger" onClick={handleRemove} disabled={removing}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            {removing ? "Removing" : "Remove"}
+                          </Button>
+                        </>
                       ) : (
                         <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
                       )}

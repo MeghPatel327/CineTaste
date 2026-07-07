@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useId } from "react";
+import type { CSSProperties } from "react";
 import { MovieCard } from "./MovieCard";
-import { cn } from "@/lib/utils";
 
 export interface RowItem {
   id?: number;
@@ -23,6 +23,7 @@ interface HorizontalRowProps {
   subtitle?: string;
   items: RowItem[];
   showScore?: boolean;
+  entranceIndex?: number;
   onSelect: (id: number, type: "movie" | "series") => void;
 }
 
@@ -34,28 +35,13 @@ export function HorizontalRow({
   subtitle,
   items,
   showScore = false,
+  entranceIndex,
   onSelect,
 }: HorizontalRowProps) {
   const rowId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [visibleUntil, setVisibleUntil] = useState(PRELOAD_BUFFER);
-
-  // ── Wheel → horizontal scroll (direct, no smooth-behavior lag) ───────
-  const handleWheel = useCallback((e: WheelEvent) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // let trackpad pass
-    e.preventDefault();
-    el.scrollLeft += e.deltaY * 1.3;
-  }, []);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener("wheel", handleWheel, { passive: false });
-    return () => el.removeEventListener("wheel", handleWheel);
-  }, [handleWheel]);
 
   // ── Arrow key navigation ─────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -83,7 +69,11 @@ export function HorizontalRow({
   if (items.length === 0) return null;
 
   return (
-    <section aria-label={title}>
+    <section
+      aria-label={title}
+      className="ct-stagger-item"
+      style={entranceIndex === undefined ? undefined : ({ "--ct-stagger-delay": `${entranceIndex * 55}ms` } as CSSProperties)}
+    >
       <div className="mb-3">
         <h2 className="text-xl font-bold">{title}</h2>
         {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
@@ -106,7 +96,12 @@ export function HorizontalRow({
           const isVisible = index < visibleUntil;
 
           return (
-            <div key={`${rowId}-${id}-${index}`} role="listitem" className="snap-start shrink-0">
+            <div
+              key={`${rowId}-${id}-${index}`}
+              role="listitem"
+              className="ct-stagger-item snap-start shrink-0"
+              style={{ "--ct-stagger-delay": `${Math.min(index, 12) * 45}ms` } as CSSProperties}
+            >
               {isVisible ? (
                 <MovieCard
                   id={id}
