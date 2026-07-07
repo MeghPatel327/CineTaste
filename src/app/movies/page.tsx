@@ -156,10 +156,7 @@ export default function MovieLibraryPage() {
     return true;
   }).sort((a, b) => {
     if (sortBy === "added_desc") {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      if (dateB !== dateA) return dateB - dateA;
-      return b.id - a.id; // LIFO: higher ID = more recently added
+      return b.id - a.id;
     }
     if (sortBy === "rating_desc") return b.rating - a.rating;
     if (sortBy === "name_asc") return a.movie_name.localeCompare(b.movie_name);
@@ -282,7 +279,12 @@ export default function MovieLibraryPage() {
 
                     <div className="p-3">
                       <h3 className="font-semibold truncate" title={movie.movie_name}>{movie.movie_name}</h3>
-                      <div className="flex justify-between items-center mt-1 text-xs text-muted-foreground">
+                      <div className="flex gap-2 items-center mt-1.5 mb-1.5">
+                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${movie.type === "series" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
+                          {movie.type === "series" ? "Series" : "Movie"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-muted-foreground">
                         <span className="capitalize">{movie.status}</span>
                         <span className="flex items-center text-yellow-500">★ {movie.rating}</span>
                       </div>

@@ -426,9 +426,14 @@ function HorizontalSection({
               <p className="font-semibold text-sm mt-2 line-clamp-2 group-hover:text-primary transition-colors">
                 {item.title}
               </p>
-              {item.release_year > 0 && (
-                <p className="text-xs text-muted-foreground">{item.release_year}</p>
-              )}
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${item.media_type === "tv" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
+                  {item.media_type === "tv" ? "Series" : "Movie"}
+                </span>
+                {item.release_year > 0 && (
+                  <span className="text-xs text-muted-foreground">{item.release_year}</span>
+                )}
+              </div>
             </div>
           );
         })}

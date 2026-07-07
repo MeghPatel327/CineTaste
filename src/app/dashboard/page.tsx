@@ -115,7 +115,12 @@ function DashboardContent({ data }: { data: any }) {
                   ) : <div className="w-12 h-16 bg-secondary rounded" />}
                   <div className="flex-1">
                     <h3 className="font-semibold">{movie.movie_name}</h3>
-                    <p className="text-sm text-muted-foreground capitalize">{movie.type} • Rank {movie.watch_order_rank}</p>
+                    <div className="flex gap-2 items-center mt-1">
+                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${movie.type === "series" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
+                        {movie.type === "series" ? "Series" : "Movie"}
+                      </span>
+                      <span className="text-sm text-muted-foreground">Rank {movie.watch_order_rank}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -191,7 +196,12 @@ function DashboardContent({ data }: { data: any }) {
                 ) : <div className="w-16 h-24 bg-secondary rounded" />}
                 <div className="flex-1">
                   <h3 className="font-semibold line-clamp-1">{rec.title}</h3>
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded mt-1 inline-block">{rec.score}% Match</span>
+                  <div className="flex gap-2 items-center mt-1">
+                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${rec.media_type === "tv" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
+                      {rec.media_type === "tv" ? "Series" : "Movie"}
+                    </span>
+                    <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded inline-block">{rec.score}% Match</span>
+                  </div>
                   <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{rec.reasons[0]}</p>
                 </div>
               </div>

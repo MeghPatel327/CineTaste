@@ -52,7 +52,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
     try {
       const payload = {
         movie_name: data.title || "",
-        type: data.type === "tv" ? "series" : "movie",
+        type: data.type,
         status,
         rating,
         watch_order_rank: watchOrder,

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
 import { generateRecommendations, getUserTopGenres } from "@/features/recommendations/recommendationEngine";
+import { getUserMoviesService } from "@/features/movies/movieService";
 import { env } from "@/lib/env";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
   try {
     // Fetch everything in parallel
     const [
+      userMovies,
       allRecs,
       topGenres,
       trendingData,
@@ -39,6 +41,7 @@ export async function GET(req: NextRequest) {
       nowPlayingData,
       onTheAirData,
     ] = await Promise.all([
+      getUserMoviesService(session.username),
       generateRecommendations(session.username),
       getUserTopGenres(session.username),
       tmdbFetch("/trending/all/day"),
@@ -47,6 +50,8 @@ export async function GET(req: NextRequest) {
       tmdbFetch("/movie/now_playing"),
       tmdbFetch("/tv/on_the_air"),
     ]);
+
+    const libraryIds = new Set(userMovies.map(m => m.tmdb_id));
 
     // Top Picks - best recommendations
     const topPicks = allRecs.slice(0, 10);
@@ -62,7 +67,7 @@ export async function GET(req: NextRequest) {
       // Fetch genre-specific movies from TMDB
       const genreData = await tmdbFetch(`/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=100`);
       const items = (genreData?.results || [])
-        .filter((m: any) => !usedIds.has(m.id))
+        .filter((m: any) => !libraryIds.has(m.id) && !usedIds.has(m.id))
         .slice(0, 10)
         .map((m: any) => ({
           id: m.id,
@@ -89,7 +94,10 @@ export async function GET(req: NextRequest) {
       .slice(0, 10);
 
     // Format TMDB results
-    const formatTmdb = (items: any[]) => (items || []).slice(0, 15).map((m: any) => ({
+    const formatTmdb = (items: any[]) => (items || [])
+      .filter((m: any) => !libraryIds.has(m.id))
+      .slice(0, 15)
+      .map((m: any) => ({
       id: m.id,
       title: m.title || m.name,
       poster_url: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
