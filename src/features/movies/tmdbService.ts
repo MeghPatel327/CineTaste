@@ -29,9 +29,40 @@ export interface TMDBDetail {
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
+/**
+ * Retry-aware fetch wrapper for TMDB. Retries on network errors and 429/5xx.
+ * Uses exponential backoff: 500ms, 1000ms, 2000ms.
+ */
+async function tmdbFetchWithRetry(url: string, retries = 3): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url);
+
+      if ((response.status === 429 || response.status >= 500) && attempt < retries) {
+        const delay = 500 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt < retries) {
+        const delay = 500 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+    }
+  }
+
+  throw lastError || new Error("tmdbFetchWithRetry: all retries exhausted");
+}
+
 export async function searchTMDB(query: string): Promise<TMDBResult[]> {
   if (!env.TMDB_API_KEY) return [];
-  const res = await fetch(`${TMDB_BASE_URL}/search/multi?api_key=${env.TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+  const res = await tmdbFetchWithRetry(`${TMDB_BASE_URL}/search/multi?api_key=${env.TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
   if (!res.ok) throw new Error("TMDB search failed");
   const data = await res.json();
   return data.results.filter((r: any) => r.media_type === "movie" || r.media_type === "tv");
@@ -39,7 +70,7 @@ export async function searchTMDB(query: string): Promise<TMDBResult[]> {
 
 export async function getTMDBDetails(id: number, type: "movie" | "tv"): Promise<TMDBDetail | null> {
   if (!env.TMDB_API_KEY) return null;
-  const res = await fetch(`${TMDB_BASE_URL}/${type}/${id}?api_key=${env.TMDB_API_KEY}`);
+  const res = await tmdbFetchWithRetry(`${TMDB_BASE_URL}/${type}/${id}?api_key=${env.TMDB_API_KEY}`);
   if (!res.ok) throw new Error("TMDB details failed");
   return await res.json();
 }

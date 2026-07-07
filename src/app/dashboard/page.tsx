@@ -3,72 +3,71 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { AppShell } from "@/components/AppShell";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { Film, CheckCircle, Clock, Star, TrendingUp, Sparkles, LogOut, Settings } from "lucide-react";
+import { Film, CheckCircle, Clock, Star, TrendingUp, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { useRouter } from "next/navigation";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
-    fetchSession();
   }, []);
 
   const fetchDashboard = async () => {
+    setLoading(true);
+    setError(false);
     try {
       const res = await fetch("/api/dashboard");
       const json = await res.json();
-      if (res.ok) setData(json.data);
-      else toast.error("Failed to load dashboard");
+      if (res.ok) {
+        setData(json.data);
+      } else {
+        setError(true);
+        toast.error("Failed to load dashboard");
+      }
     } catch {
+      setError(true);
       toast.error("Error loading dashboard");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchSession = async () => {
-    try {
-      const res = await fetch("/api/auth/session");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data?.role === "admin") setIsAdmin(true);
-      }
-    } catch {}
-  };
+  return (
+    <AppShell>
+      <div className="p-4 md:p-8 max-w-6xl mx-auto">
+        {loading ? (
+          <LoadingState message="Loading your dashboard..." />
+        ) : error || !data ? (
+          <ErrorState
+            title="Dashboard failed to load"
+            message="We couldn't load your dashboard data. This might be a temporary issue with the server."
+            onRetry={fetchDashboard}
+          />
+        ) : (
+          <DashboardContent data={data} />
+        )}
+      </div>
+    </AppShell>
+  );
+}
 
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-  };
-
-  if (loading || !data) return <LoadingState message="Loading your dashboard..." />;
-
+function DashboardContent({ data }: { data: any }) {
   const { stats, next5, favoriteGenres, recommendationPreview } = data;
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Welcome back to your CineTaste.</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/movies/add"><Button variant="outline"><Film className="w-4 h-4 mr-2"/> Add Movie</Button></Link>
-          <Link href="/movies"><Button variant="outline">Library</Button></Link>
-          {isAdmin && (
-            <Link href="/admin"><Button variant="outline"><Settings className="w-4 h-4 mr-2"/>Admin</Button></Link>
-          )}
-          <Button variant="ghost" onClick={handleLogout}><LogOut className="w-4 h-4" /></Button>
-        </div>
+    <>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Welcome back to your CineTaste.</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -143,7 +142,7 @@ export default function DashboardPage() {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{backgroundColor: '#181b21', borderColor: '#334155'}} />
+                  <Tooltip contentStyle={{backgroundColor: 'var(--ct-card)', borderColor: 'var(--ct-border)', color: 'var(--ct-card-fg)'}} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -176,7 +175,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-
-    </div>
+    </>
   );
 }

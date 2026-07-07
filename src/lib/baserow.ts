@@ -29,6 +29,42 @@ function normalizeRow<T>(row: any): T {
   return normalized as T;
 }
 
+/**
+ * Retry-aware fetch wrapper. Retries on network errors and 429/5xx responses.
+ * Uses exponential backoff: 500ms, 1000ms, 2000ms.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // Retry on server errors or rate limiting
+      if ((response.status === 429 || response.status >= 500) && attempt < retries) {
+        const delay = 500 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt < retries) {
+        const delay = 500 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+    }
+  }
+
+  throw lastError || new Error("fetchWithRetry: all retries exhausted");
+}
+
 export async function baserowGet<T>(tableId: string, queryParams: Record<string, string> = {}): Promise<BaserowListResponse<T>> {
   const url = new URL(`${env.BASEROW_API_URL}/api/database/rows/table/${tableId}/`);
   url.searchParams.append("user_field_names", "true");
@@ -37,7 +73,7 @@ export async function baserowGet<T>(tableId: string, queryParams: Record<string,
     url.searchParams.append(key, value);
   }
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithRetry(url.toString(), {
     method: "GET",
     headers: defaultHeaders,
   });
@@ -56,7 +92,7 @@ export async function baserowGet<T>(tableId: string, queryParams: Record<string,
 export async function baserowCreate<T>(tableId: string, data: Record<string, any>): Promise<T> {
   const url = new URL(`${env.BASEROW_API_URL}/api/database/rows/table/${tableId}/?user_field_names=true`);
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithRetry(url.toString(), {
     method: "POST",
     headers: defaultHeaders,
     body: JSON.stringify(data),
@@ -73,7 +109,7 @@ export async function baserowCreate<T>(tableId: string, data: Record<string, any
 export async function baserowUpdate<T>(tableId: string, rowId: number, data: Record<string, any>): Promise<T> {
   const url = new URL(`${env.BASEROW_API_URL}/api/database/rows/table/${tableId}/${rowId}/?user_field_names=true`);
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithRetry(url.toString(), {
     method: "PATCH",
     headers: defaultHeaders,
     body: JSON.stringify(data),
@@ -90,7 +126,7 @@ export async function baserowUpdate<T>(tableId: string, rowId: number, data: Rec
 export async function baserowDelete(tableId: string, rowId: number): Promise<void> {
   const url = new URL(`${env.BASEROW_API_URL}/api/database/rows/table/${tableId}/${rowId}/`);
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithRetry(url.toString(), {
     method: "DELETE",
     headers: defaultHeaders,
   });
