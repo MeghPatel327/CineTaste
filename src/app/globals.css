@@ -45,58 +45,58 @@
 /* ── Dark Theme (default) ── */
 :root,
 .dark {
-  --ct-bg: #0f1115;
-  --ct-fg: #f8fafc;
+  --ct-bg: #0d1a12;
+  --ct-fg: #f0f7f2;
 
-  --ct-card: #181b21;
-  --ct-card-fg: #f8fafc;
+  --ct-card: #152019;
+  --ct-card-fg: #f0f7f2;
 
-  --ct-primary: #3b82f6;
+  --ct-primary: #2E6F40;
   --ct-primary-fg: #ffffff;
 
-  --ct-secondary: #1e293b;
-  --ct-secondary-fg: #f8fafc;
+  --ct-secondary: #1e3327;
+  --ct-secondary-fg: #f0f7f2;
 
-  --ct-muted: #1e293b;
-  --ct-muted-fg: #94a3b8;
+  --ct-muted: #1e3327;
+  --ct-muted-fg: #8fac96;
 
-  --ct-accent: #2563eb;
-  --ct-accent-fg: #ffffff;
+  --ct-accent: #68BA7F;
+  --ct-accent-fg: #0d1a12;
 
-  --ct-border: #334155;
+  --ct-border: #2a4a33;
 
-  --ct-sidebar: #0c0e12;
-  --ct-sidebar-fg: #e2e8f0;
-  --ct-sidebar-border: #1e293b;
-  --ct-sidebar-accent: rgba(59, 130, 246, 0.12);
+  --ct-sidebar: #0a1410;
+  --ct-sidebar-fg: #d4e8d9;
+  --ct-sidebar-border: #1e3327;
+  --ct-sidebar-accent: rgba(46, 111, 64, 0.15);
 }
 
 /* ── Light Theme ── */
 .light {
-  --ct-bg: #f8fafc;
-  --ct-fg: #0f172a;
+  --ct-bg: #f5faf6;
+  --ct-fg: #0d1a12;
 
   --ct-card: #ffffff;
-  --ct-card-fg: #0f172a;
+  --ct-card-fg: #0d1a12;
 
-  --ct-primary: #2563eb;
+  --ct-primary: #2E6F40;
   --ct-primary-fg: #ffffff;
 
-  --ct-secondary: #e2e8f0;
-  --ct-secondary-fg: #0f172a;
+  --ct-secondary: #dceede;
+  --ct-secondary-fg: #0d1a12;
 
-  --ct-muted: #f1f5f9;
-  --ct-muted-fg: #64748b;
+  --ct-muted: #e8f3ea;
+  --ct-muted-fg: #4a6b52;
 
-  --ct-accent: #3b82f6;
-  --ct-accent-fg: #ffffff;
+  --ct-accent: #68BA7F;
+  --ct-accent-fg: #0d1a12;
 
-  --ct-border: #cbd5e1;
+  --ct-border: #b8d4bc;
 
   --ct-sidebar: #ffffff;
-  --ct-sidebar-fg: #1e293b;
-  --ct-sidebar-border: #e2e8f0;
-  --ct-sidebar-accent: rgba(37, 99, 235, 0.08);
+  --ct-sidebar-fg: #1e3327;
+  --ct-sidebar-border: #dceede;
+  --ct-sidebar-accent: rgba(46, 111, 64, 0.10);
 }
 
 @layer base {

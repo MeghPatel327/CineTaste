@@ -12,7 +12,6 @@ export interface RecommendationExplanation {
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
-// Map TMDB genre IDs to names
 const TMDB_GENRES: Record<number, string> = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime", 99: "Documentary", 18: "Drama",
   10751: "Family", 14: "Fantasy", 36: "History", 27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance",
@@ -21,11 +20,23 @@ const TMDB_GENRES: Record<number, string> = {
   10766: "Soap", 10767: "Talk", 10768: "War & Politics"
 };
 
+const RATING_WEIGHTS: Record<number, number> = {
+  10: 2.0,
+  9: 1.5,
+  8: 1.0,
+  7: 0.5,
+  6: 0.0,
+  5: -0.25,
+  4: -0.5,
+  3: -1.0,
+  2: -1.5,
+  1: -2.0,
+};
+
 async function fetchCandidates(seedMovies: MovieRow[]): Promise<any[]> {
   if (!env.TMDB_API_KEY) return [];
 
   try {
-    // Cold start: If no seed movies, fetch popular
     if (seedMovies.length === 0) {
       const res = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${env.TMDB_API_KEY}`);
       if (!res.ok) return [];
@@ -33,25 +44,23 @@ async function fetchCandidates(seedMovies: MovieRow[]): Promise<any[]> {
       return data.results || [];
     }
 
-    // Fetch similar movies for the top 5 highest rated movies in parallel
-    const topMovies = [...seedMovies].sort((a, b) => b.rating - a.rating).slice(0, 5);
+    const topMovies = [...seedMovies].sort((a, b) => b.rating - a.rating).slice(0, 8);
     let candidates: any[] = [];
     
     const promises = topMovies.map(movie => {
       const type = movie.type === "series" ? "tv" : "movie";
-      return fetch(`${TMDB_BASE_URL}/${type}/${movie.tmdb_id}/similar?api_key=${env.TMDB_API_KEY}`)
-        .then(res => res.ok ? res.json() : null)
-        .catch(() => null); // Handle individual fetch failures gracefully
+      return Promise.all([
+        fetch(`${TMDB_BASE_URL}/${type}/${movie.tmdb_id}/similar?api_key=${env.TMDB_API_KEY}`).then(res => res.ok ? res.json() : null),
+        fetch(`${TMDB_BASE_URL}/${type}/${movie.tmdb_id}/recommendations?api_key=${env.TMDB_API_KEY}`).then(res => res.ok ? res.json() : null)
+      ]).catch(() => [null, null]);
     });
 
     const results = await Promise.all(promises);
-    for (const data of results) {
-      if (data && data.results) {
-        candidates = [...candidates, ...data.results];
-      }
+    for (const [similarData, recData] of results) {
+      if (similarData?.results) candidates = [...candidates, ...similarData.results];
+      if (recData?.results) candidates = [...candidates, ...recData.results];
     }
 
-    // Deduplicate candidates
     const unique = new Map();
     for (const c of candidates) {
       if (!unique.has(c.id)) unique.set(c.id, c);
@@ -65,125 +74,157 @@ async function fetchCandidates(seedMovies: MovieRow[]): Promise<any[]> {
 
 export async function generateRecommendations(username: string): Promise<RecommendationExplanation[]> {
   const userMovies = await getUserMovies(username);
-  
-  // Filter for rated movies only (rating > 0) to build taste profile
   const ratedMovies = userMovies.filter(m => m.rating > 0);
   
   const candidates = await fetchCandidates(ratedMovies);
   
+  const libraryTmdbIds = new Set(userMovies.map(m => m.tmdb_id));
+  const libraryNames = new Set(userMovies.map(m => m.movie_name.toLowerCase()));
+
+  const filteredCandidates = candidates.filter(c => {
+    if (libraryTmdbIds.has(c.id)) return false;
+    const title = (c.title || c.name || "").toLowerCase();
+    if (libraryNames.has(title)) return false;
+    return true;
+  });
+
   if (ratedMovies.length === 0) {
-    // Cold start scoring
-    return candidates.map(c => ({
+    return filteredCandidates.map(c => ({
       movieId: c.id,
       title: c.title || c.name,
       poster_url: c.poster_path ? `https://image.tmdb.org/t/p/w500${c.poster_path}` : null,
-      score: c.vote_average || 0,
+      score: Math.round((c.vote_average || 0) * 10),
       reasons: ["Popular right now"],
-    })).sort((a, b) => b.score - a.score).slice(0, 10);
+    })).sort((a, b) => b.score - a.score).slice(0, 15);
   }
 
-  // Build Taste Profile
   const genrePreferences: Record<string, number> = {};
   const industryPreferences: Record<string, number> = {};
   const yearPreferences: number[] = [];
   
   ratedMovies.forEach(movie => {
+    const weight = RATING_WEIGHTS[movie.rating] !== undefined ? RATING_WEIGHTS[movie.rating] : 0;
+    
     let genres: string[] = [];
     try { genres = JSON.parse(movie.genres); } catch { genres = movie.genres ? movie.genres.split(",") : []; }
     
     genres.forEach(g => {
-      genrePreferences[g] = (genrePreferences[g] || 0) + (movie.rating || 5);
+      genrePreferences[g] = (genrePreferences[g] || 0) + weight;
     });
     
     if (movie.language) {
       const industry = getFilmIndustry(movie.language);
-      industryPreferences[industry] = (industryPreferences[industry] || 0) + (movie.rating || 5);
+      industryPreferences[industry] = (industryPreferences[industry] || 0) + weight;
     }
 
-    if (movie.release_year) {
+    if (movie.release_year && weight > 0) {
       yearPreferences.push(movie.release_year);
     }
   });
 
-  // Normalize max genre score to 10
-  const maxGenreScore = Math.max(...Object.values(genrePreferences), 1);
-  const avgYear = yearPreferences.length > 0 ? yearPreferences.reduce((a,b) => a+b, 0) / yearPreferences.length : 0;
+  const maxGenreScore = Math.max(...Object.values(genrePreferences).map(Math.abs), 1);
+  const maxIndustryScore = Math.max(...Object.values(industryPreferences).map(Math.abs), 1);
+  const avgYear = yearPreferences.length > 0 ? Math.round(yearPreferences.reduce((a,b) => a+b, 0) / yearPreferences.length) : 0;
 
   const recommendations: RecommendationExplanation[] = [];
-  const existingTmdbIds = new Set(userMovies.map(m => m.tmdb_id));
 
-  for (const candidate of candidates) {
-    if (existingTmdbIds.has(candidate.id)) continue;
-
-    let score = 0;
+  for (const candidate of filteredCandidates) {
+    let compositeScore = 0;
     const reasons: string[] = [];
-    let matchCount = 0;
 
-    // 1. Genre Score (Weight: 40%)
+    // 1. Genre Score (Weight: 55%)
     const candidateGenres = (candidate.genre_ids || []).map((id: number) => TMDB_GENRES[id]).filter(Boolean);
     if (candidateGenres.length > 0) {
       let candidateGenreScore = 0;
+      let matchedFavoriteGenres: string[] = [];
+      let matchedDislikedGenres: string[] = [];
+
       candidateGenres.forEach((g: string) => {
         if (genrePreferences[g]) {
-          candidateGenreScore += (genrePreferences[g] / maxGenreScore) * 10;
+          const normalized = genrePreferences[g] / maxGenreScore; // [-1, 1]
+          candidateGenreScore += normalized;
+          if (normalized >= 0.5) matchedFavoriteGenres.push(g);
+          if (normalized <= -0.5) matchedDislikedGenres.push(g);
         }
       });
-      const avgCandidateGenreScore = candidateGenreScore / candidateGenres.length;
-      score += (avgCandidateGenreScore / 10) * 0.40;
-      if (avgCandidateGenreScore > 5) {
-        reasons.push(`Strong genre match (${candidateGenres.join(", ")})`);
-        matchCount++;
+      
+      const avgCandidateGenreScore = candidateGenreScore / candidateGenres.length; // [-1, 1]
+      compositeScore += avgCandidateGenreScore * 55;
+
+      if (avgCandidateGenreScore > 0.4 && matchedFavoriteGenres.length > 0) {
+        reasons.push(`Strong match with your favorite genres (${matchedFavoriteGenres.slice(0, 2).join(", ")})`);
+      } else if (avgCandidateGenreScore > 0) {
+        reasons.push(`Contains genres you generally enjoy`);
+      } else if (avgCandidateGenreScore < -0.4 && matchedDislikedGenres.length > 0) {
+        reasons.push(`Warning: Contains genres you dislike (${matchedDislikedGenres.slice(0, 2).join(", ")})`);
       }
     }
 
-    // 2. Industry Score (Weight: 20%)
+    // 2. Industry Score (Weight: 15%)
     if (candidate.original_language) {
       const industry = getFilmIndustry(candidate.original_language);
       if (industryPreferences[industry]) {
-        score += 0.20;
-        reasons.push(`Matches your preferred Film Industry (${industry})`);
-        matchCount++;
+        const normalized = industryPreferences[industry] / maxIndustryScore; // [-1, 1]
+        compositeScore += normalized * 15;
+        if (normalized >= 0.5) {
+          reasons.push(`Matches your preferred Film Industry (${industry})`);
+        }
       }
     }
 
-    // 3. Release Year Score (Weight: 20%)
+    // 3. Release Year Score (Weight: 15%)
     const releaseDate = candidate.release_date || candidate.first_air_date;
     if (releaseDate && avgYear > 0) {
       const year = parseInt(releaseDate.split("-")[0], 10);
       const diff = Math.abs(year - avgYear);
-      if (diff <= 10) {
-        score += 0.20 * (1 - (diff / 10)); // Closer to avg year = higher score
+      if (diff <= 15) {
+        const yearScore = 1 - (diff / 15); // [0, 1]
+        compositeScore += yearScore * 15;
         if (diff <= 5) {
           reasons.push(`Released in your preferred era (~${year})`);
-          matchCount++;
         }
       }
     }
 
-    // 4. Base Quality/Popularity (Weight: 20%)
-    const voteScore = (candidate.vote_average || 0) / 10;
-    score += voteScore * 0.20;
+    // 4. Base Quality/Popularity (Weight: 15%)
+    const voteScore = (candidate.vote_average || 0) / 10; // [0, 1]
+    compositeScore += voteScore * 15;
     if (candidate.vote_average > 7.5) {
       reasons.push("Highly rated globally");
-      matchCount++;
     }
 
-    if (matchCount === 0) {
-      reasons.push("Recommended based on your recent activity");
+    // Normalize final score to 0-100 range
+    // Composite max is 100, min is -70 (55*-1 + 15*-1 + 0 + 0). 
+    // Shift and scale to 0-100, or just floor at 0.
+    // Realistically, base score usually sits between 10 and 80.
+    // Let's add 20 to base and clamp to 100 to make good matches score ~85-95.
+    let finalScore = Math.round(compositeScore + 30); // Base boost for presentation
+    if (finalScore > 99) finalScore = 99;
+    if (finalScore < 0) finalScore = 0;
+
+    // Filter out weak matches
+    if (finalScore >= 60) {
+      if (reasons.length === 0) {
+        reasons.push("Recommended based on your overall taste profile");
+      }
+
+      recommendations.push({
+        movieId: candidate.id,
+        title: candidate.title || candidate.name,
+        poster_url: candidate.poster_path ? `https://image.tmdb.org/t/p/w500${candidate.poster_path}` : null,
+        score: finalScore,
+        reasons,
+      });
     }
-
-    // Scale final score to 10
-    const finalScore = parseFloat((score * 10).toFixed(2));
-
-    recommendations.push({
-      movieId: candidate.id,
-      title: candidate.title || candidate.name,
-      poster_url: candidate.poster_path ? `https://image.tmdb.org/t/p/w500${candidate.poster_path}` : null,
-      score: finalScore,
-      reasons,
-    });
   }
 
-  // Sort by score descending and return top 10
-  return recommendations.sort((a, b) => b.score - a.score).slice(0, 10);
+  // Deduplicate again just in case, sort by score descending
+  const uniqueRecs = new Map<number, RecommendationExplanation>();
+  for (const r of recommendations) {
+    if (!uniqueRecs.has(r.movieId) || uniqueRecs.get(r.movieId)!.score < r.score) {
+      uniqueRecs.set(r.movieId, r);
+    }
+  }
+
+  return Array.from(uniqueRecs.values()).sort((a, b) => b.score - a.score).slice(0, 15);
 }

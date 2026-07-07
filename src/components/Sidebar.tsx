@@ -11,6 +11,7 @@ import {
   PlusCircle,
   Sparkles,
   Shield,
+  User,
   LogOut,
   Sun,
   Moon,
@@ -43,6 +44,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/movies") return pathname === "/movies" || pathname.startsWith("/movies/edit");
     return pathname.startsWith(href);
   };
 
@@ -133,19 +135,28 @@ export function Sidebar({ isAdmin }: SidebarProps) {
           {theme === "dark" ? (
             <Sun className="w-[18px] h-[18px] text-yellow-500" />
           ) : (
-            <Moon className="w-[18px] h-[18px] text-indigo-400" />
+            <Moon className="w-[18px] h-[18px] text-primary" />
           )}
           <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
         </button>
 
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-all duration-200 w-full"
+        {/* Profile Link */}
+        <Link
+          href="/profile"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full",
+            isActive("/profile")
+              ? "bg-sidebar-accent text-primary shadow-sm"
+              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+          )}
         >
-          <LogOut className="w-[18px] h-[18px]" />
-          <span>Sign Out</span>
-        </button>
+          <User className="w-[18px] h-[18px] shrink-0" />
+          <span>Profile</span>
+          {isActive("/profile") && (
+            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          )}
+        </Link>
       </div>
     </div>
   );

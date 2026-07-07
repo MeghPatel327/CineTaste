@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const COLORS = ['#2E6F40', '#68BA7F', '#8fac96', '#CFFFDC', '#4a9e5e'];
 
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
@@ -89,12 +89,12 @@ function DashboardContent({ data }: { data: any }) {
           <p className="text-2xl font-bold">{stats.pending}</p>
         </div>
         <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
-          <Star className="w-6 h-6 text-purple-500 mb-2" />
+          <Star className="w-6 h-6 text-accent mb-2" />
           <p className="text-sm text-muted-foreground">Avg Rating</p>
           <p className="text-2xl font-bold">{stats.avgRating}</p>
         </div>
         <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center">
-          <TrendingUp className="w-6 h-6 text-blue-400 mb-2" />
+          <TrendingUp className="w-6 h-6 text-primary mb-2" />
           <p className="text-sm text-muted-foreground">Completion</p>
           <p className="text-2xl font-bold">{stats.completionPercentage}%</p>
         </div>
@@ -128,26 +128,27 @@ function DashboardContent({ data }: { data: any }) {
           {favoriteGenres.length === 0 ? (
             <p className="text-muted-foreground text-center flex-1 flex items-center justify-center">No data yet.</p>
           ) : (
-            <div className="flex-1 min-h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={favoriteGenres}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {favoriteGenres.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{backgroundColor: 'var(--ct-card)', borderColor: 'var(--ct-border)', color: 'var(--ct-card-fg)'}} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="flex-1">
+              {(() => {
+                const total = favoriteGenres.reduce((sum: number, g: any) => sum + g.value, 0);
+                return (
+                  <div className="space-y-3">
+                    {favoriteGenres.map((genre: any, index: number) => {
+                      const pct = total > 0 ? Math.round((genre.value / total) * 100) : 0;
+                      return (
+                        <div key={genre.name} className="flex items-center gap-3">
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                          <span className="text-sm font-medium flex-1">{genre.name}</span>
+                          <div className="flex-1 max-w-[120px] bg-secondary rounded-full h-2 overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: COLORS[index % COLORS.length] }} />
+                          </div>
+                          <span className="text-sm font-bold text-muted-foreground w-10 text-right">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -169,7 +170,7 @@ function DashboardContent({ data }: { data: any }) {
                 ) : <div className="w-16 h-24 bg-secondary rounded" />}
                 <div className="flex-1">
                   <h3 className="font-semibold line-clamp-1">{rec.title}</h3>
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded mt-1 inline-block">Score: {rec.score}</span>
+                  <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded mt-1 inline-block">{rec.score}% Match</span>
                   <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{rec.reasons[0]}</p>
                 </div>
               </div>

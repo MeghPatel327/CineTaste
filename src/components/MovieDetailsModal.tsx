@@ -23,6 +23,14 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [pirateSites, setPirateSites] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/pirate-sites")
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(json => setPirateSites(json.data || []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isOpen && tmdbId) {
@@ -119,6 +127,18 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                       <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0"><ExternalLink className="w-4 h-4 mr-2" /> Watch Now</Button>
                     </a>
                   )}
+                  {pirateSites.map(site => (
+                    <a 
+                      key={site.id} 
+                      href={site.search_url.replace("{query}", encodeURIComponent(data.title))} 
+                      target="_blank" 
+                      rel="noreferrer"
+                    >
+                      <Button variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
+                        <Globe className="w-4 h-4 mr-2" /> {site.name}
+                      </Button>
+                    </a>
+                  ))}
                 </div>
               </div>
             </div>

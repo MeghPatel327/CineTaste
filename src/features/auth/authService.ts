@@ -1,6 +1,6 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { findUserByUsername, createUser, updateUserLastLogin, UserRow } from "./userRepository";
+import { findUserByUsername, createUser, updateUserLastLogin, getUserById, updateUserPassword, UserRow } from "./userRepository";
 import { createSession } from "@/lib/session";
 import { ApiError } from "@/lib/ApiError";
 
@@ -68,4 +68,33 @@ export async function loginUser(body: any) {
   await createSession(user.id, user.username, user.role);
 
   return { id: user.id, username: user.username, role: user.role };
+}
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6),
+});
+
+export async function changePassword(userId: number, body: any) {
+  const result = changePasswordSchema.safeParse(body);
+  if (!result.success) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
+  }
+
+  const { currentPassword, newPassword } = result.data;
+  const user = await getUserById(userId);
+
+  if (!user) {
+    throw new ApiError(404, "USER_NOT_FOUND", "User not found");
+  }
+
+  const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!isMatch) {
+    throw new ApiError(401, "INVALID_CREDENTIALS", "Incorrect current password");
+  }
+
+  const new_password_hash = await bcrypt.hash(newPassword, 10);
+  await updateUserPassword(userId, new_password_hash);
+
+  return { success: true };
 }
