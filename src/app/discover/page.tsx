@@ -315,16 +315,17 @@ function DiscoveryFeed({
   onClearSearch: (term: string) => void;
   onSelect: (id: number, type: "movie" | "series") => void;
 }) {
-  // Infinite browsing: extra recommendation batches appended as user scrolls
   const [extraBatches, setExtraBatches] = useState<RowItem[][]>([]);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const offsetRef = useRef(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  // Keep a stable set of ids seen in the main feed to avoid duplicates
+  const loadingRef = useRef(false);
+  const hasMoreRef = useRef(true);
+  const offsetRef = useRef(0);
   const seenIds = useRef<Set<number>>(new Set());
+  // Mirror hasMore as state so the end-message renders
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  // Pre-populate seenIds from initial data
+  // Pre-populate seenIds from initial data once
   useEffect(() => {
     const allInitial = [
       ...data.topPicks,
@@ -337,52 +338,51 @@ function DiscoveryFeed({
       ...data.popularSeries,
       ...data.recentlyReleased,
     ];
-    allInitial.forEach(item => seenIds.current.add(item.movieId ?? item.id));
-    offsetRef.current = data.topPicks.length + data.recommendedMovies.length + data.recommendedSeries.length;
-  }, [data]);
+    allInitial.forEach(item => seenIds.current.add(item.movieId ?? item.id ?? 0));
+    offsetRef.current =
+      data.topPicks.length + data.recommendedMovies.length + data.recommendedSeries.length;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally run once
 
-  const loadMoreRecommendations = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+  const loadMore = useCallback(async () => {
+    if (loadingRef.current || !hasMoreRef.current) return;
+    loadingRef.current = true;
     setLoadingMore(true);
     try {
-      const res = await fetch(
-        `/api/recommendations?offset=${offsetRef.current}&limit=20`
-      );
-      if (!res.ok) { setHasMore(false); return; }
+      const res = await fetch(`/api/recommendations?offset=${offsetRef.current}&limit=20`);
+      if (!res.ok) { hasMoreRef.current = false; setHasMore(false); return; }
       const json = await res.json();
-      const items: RowItem[] = (json.data ?? json ?? []).filter(
-        (r: any) => !seenIds.current.has(r.movieId ?? r.id)
-      );
+      const raw: any[] = json.data ?? json ?? [];
+      const fresh: RowItem[] = raw.filter(r => !seenIds.current.has(r.movieId ?? r.id ?? 0));
 
-      if (items.length === 0) {
+      if (fresh.length === 0) {
+        hasMoreRef.current = false;
         setHasMore(false);
         return;
       }
-
-      items.forEach(r => seenIds.current.add(r.movieId ?? r.id ?? 0));
-      offsetRef.current += items.length;
-      setExtraBatches(prev => [...prev, items]);
+      fresh.forEach(r => seenIds.current.add(r.movieId ?? r.id ?? 0));
+      offsetRef.current += fresh.length;
+      setExtraBatches(prev => [...prev, fresh]);
     } catch {
+      hasMoreRef.current = false;
       setHasMore(false);
     } finally {
+      loadingRef.current = false;
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore]);
+  }, []); // stable — uses only refs
 
-  // Trigger load when sentinel comes into view
+  // Register observer once
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMoreRecommendations();
-      },
-      { rootMargin: "400px" }
+      ([entry]) => { if (entry.isIntersecting) loadMore(); },
+      { rootMargin: "600px" }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadMoreRecommendations]);
+  }, [loadMore]);
 
   return (
     <div className="space-y-10">
@@ -517,14 +517,8 @@ function DiscoveryFeed({
         </div>
       )}
 
-      {/* End of feed message */}
-      {!hasMore && extraBatches.length > 0 && (
-        <div className="text-center py-10 text-muted-foreground">
-          <p className="text-sm">You're all caught up! Rate more movies to improve your recommendations.</p>
-        </div>
-      )}
-
-      {!hasMore && extraBatches.length === 0 && (
+      {/* End of feed */}
+      {!hasMore && (
         <div className="text-center py-10 text-muted-foreground">
           <p className="text-sm">You're all caught up! Rate more movies to improve your recommendations.</p>
         </div>

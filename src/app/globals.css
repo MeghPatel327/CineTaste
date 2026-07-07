@@ -195,6 +195,10 @@
   .ct-card-interactive,
   .ct-movie-card,
   .ct-poster-img,
+  .ct-poster-gradient,
+  .ct-badge,
+  .ct-card-title,
+  .ct-card-meta,
   .poster-frame,
   .btn-interactive,
   .sidebar-nav-item {
@@ -287,7 +291,7 @@
   animation: skeletonPulse 1.5s ease-in-out infinite;
 }
 
-/* ── Interactive cards ── */
+/* ── Interactive cards (legacy utility — kept for non-MovieCard uses) ── */
 .ct-card-interactive {
   cursor: pointer;
   border-color: var(--ct-border-subtle);
@@ -304,77 +308,127 @@
   border-color: var(--ct-border-hover);
 }
 
-/* ── Premium MovieCard ── */
+/* ════════════════════════════════════════════════════════
+   Premium MovieCard — all animations GPU-accelerated
+   Only transform / opacity / filter ever change.
+   ════════════════════════════════════════════════════════ */
+
 .ct-movie-card {
-  /* Base border + shadow */
   border: 1px solid var(--ct-border-subtle);
   box-shadow: var(--ct-shadow-sm);
   border-radius: 0.75rem;
-
+  /* Single transition covers card lift + dim + click */
   transition:
     transform 200ms cubic-bezier(0, 0, 0.2, 1),
     box-shadow 200ms cubic-bezier(0, 0, 0.2, 1),
     border-color 200ms cubic-bezier(0, 0, 0.2, 1),
-    filter 200ms cubic-bezier(0, 0, 0.2, 1),
-    opacity 200ms cubic-bezier(0, 0, 0.2, 1);
-
-  will-change: transform, filter, opacity;
+    opacity 200ms cubic-bezier(0, 0, 0.2, 1),
+    filter 200ms cubic-bezier(0, 0, 0.2, 1);
+  will-change: transform;
 }
 
+/* Card lift on hover */
 .ct-movie-card:hover,
 .ct-movie-card:focus-visible {
   transform: translateY(-6px) scale(1.03);
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.2);
+    0 10px 28px rgba(0, 0, 0, 0.38),
+    0 3px 8px rgba(0, 0, 0, 0.22);
   border-color: var(--ct-accent);
   outline: none;
 }
 
-/* Signature CineTaste focus effect: dim neighbour cards */
-.ct-movie-card--dimmed {
-  filter: brightness(0.94);
-  opacity: 0.95;
+/* Click feedback — scale down slightly, handled by data attr so no style= conflict */
+.ct-movie-card[data-clicking="true"] {
+  transform: scale(0.97) !important;
+  transition-duration: 80ms !important;
 }
 
-/* Poster wrapper */
-.ct-poster-wrap {
-  position: relative;
-  border-radius: 0.75rem;
-  overflow: hidden;
+/* Signature focus effect: dim all sibling cards in the same row */
+.ct-movie-card[data-dimmed="true"] {
+  opacity: 0.92;
+  filter: brightness(0.91);
 }
 
-/* Skeleton inside poster */
-.ct-poster-skeleton {
-  z-index: 1;
-}
-
-/* Poster image transition: blur-in → sharp */
-.ct-poster-img {
-  display: block;
-  transition:
-    opacity 300ms ease-out,
-    transform 250ms cubic-bezier(0, 0, 0.2, 1),
-    filter 300ms ease-out;
-  will-change: transform, filter, opacity;
-}
-
-/* Focus-visible outline for keyboard users */
+/* Focus-visible ring for keyboard users */
 .ct-movie-card:focus-visible {
   box-shadow:
     var(--ct-focus-glow),
-    0 8px 24px rgba(0, 0, 0, 0.35);
+    0 10px 28px rgba(0, 0, 0, 0.38);
 }
 
-.ct-shadow-sm {
-  box-shadow: var(--ct-shadow-sm);
+/* ── Poster image — opacity reveal only; hover filter via CSS below ── */
+.ct-poster-img {
+  display: block;
+  transition:
+    opacity 280ms ease-out,
+    transform 200ms cubic-bezier(0, 0, 0.2, 1),
+    filter 200ms cubic-bezier(0, 0, 0.2, 1);
+  will-change: transform, filter;
 }
 
-.ct-shadow-md {
-  box-shadow: var(--ct-shadow-md);
+/* Poster zoom + brighten on card hover */
+.ct-movie-card:hover .ct-poster-img,
+.ct-movie-card:focus-visible .ct-poster-img {
+  transform: scale(1.04);
+  filter: brightness(1.05) contrast(1.03) saturate(1.02);
 }
 
-/* ── Poster hover ── */
+/* Bottom gradient: always on, intensifies on hover */
+.ct-poster-gradient {
+  transition: opacity 200ms cubic-bezier(0, 0, 0.2, 1);
+  opacity: 0.82;
+}
+
+.ct-movie-card:hover .ct-poster-gradient,
+.ct-movie-card:focus-visible .ct-poster-gradient {
+  opacity: 1;
+}
+
+/* Badge (score + TMDB rating) scale on card hover */
+.ct-badge {
+  transition:
+    transform 200ms cubic-bezier(0, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.ct-movie-card:hover .ct-badge,
+.ct-movie-card:focus-visible .ct-badge {
+  transform: scale(1.07);
+}
+
+/* Title: translate up + full opacity on hover */
+.ct-card-title {
+  transition:
+    transform 200ms cubic-bezier(0, 0, 0.2, 1),
+    opacity 200ms cubic-bezier(0, 0, 0.2, 1),
+    color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.ct-movie-card:hover .ct-card-title,
+.ct-movie-card:focus-visible .ct-card-title {
+  transform: translateY(-3px);
+  opacity: 1;
+  color: var(--ct-accent);
+}
+
+/* Metadata: fade in + translate up on hover */
+.ct-card-meta {
+  transition:
+    transform 200ms cubic-bezier(0, 0, 0.2, 1),
+    opacity 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.ct-movie-card:hover .ct-card-meta,
+.ct-movie-card:focus-visible .ct-card-meta {
+  transform: translateY(-2px);
+  opacity: 1;
+}
+
+.ct-shadow-sm { box-shadow: var(--ct-shadow-sm); }
+.ct-shadow-md { box-shadow: var(--ct-shadow-md); }
+
+/* ── Poster hover (legacy — used by MovieDetailsModal poster) ── */
 .poster-frame {
   overflow: hidden;
   transition: box-shadow var(--ct-duration-slow) var(--ct-ease-out);
@@ -385,15 +439,10 @@
   will-change: transform;
 }
 
-.group:hover .poster-frame {
-  box-shadow: var(--ct-shadow-hover);
-}
+.group:hover .poster-frame { box-shadow: var(--ct-shadow-hover); }
+.group:hover .poster-frame img { transform: scale(1.03); }
 
-.group:hover .poster-frame img {
-  transform: scale(1.03);
-}
-
-/* ── Match badge ── */
+/* ── Match badge (legacy, also used in modal) ── */
 .match-badge {
   background: linear-gradient(135deg, #3d8f55 0%, var(--ct-primary) 100%);
   box-shadow: 0 2px 6px rgba(46, 111, 64, 0.35);
@@ -402,9 +451,7 @@
     transform var(--ct-duration-fast) var(--ct-ease-out);
 }
 
-.match-badge:hover {
-  box-shadow: 0 2px 10px rgba(104, 186, 127, 0.45);
-}
+.match-badge:hover { box-shadow: 0 2px 10px rgba(104, 186, 127, 0.45); }
 
 /* ── Search input focus ── */
 .ct-search-input {
