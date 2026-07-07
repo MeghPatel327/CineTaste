@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 
-const COLORS = ['#2E6F40', '#68BA7F', '#8fac96', '#CFFFDC', '#4a9e5e'];
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
@@ -143,11 +143,10 @@ function DashboardContent({ data }: { data: any }) {
                       cy="50%"
                       innerRadius={55}
                       outerRadius={80}
-                      paddingAngle={4}
                       dataKey="value"
                     >
                       {favoriteGenres.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#ffffff" strokeWidth={1.5} />
                       ))}
                     </Pie>
                     <Tooltip contentStyle={{backgroundColor: 'var(--ct-card)', borderColor: 'var(--ct-border)', color: 'var(--ct-card-fg)'}} />
