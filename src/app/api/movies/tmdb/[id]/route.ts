@@ -13,7 +13,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const tmdbId = parseInt(params.id, 10);
   if (isNaN(tmdbId)) return errorResponse("Invalid ID", 400, "BAD_REQUEST");
 
-  const type = req.nextUrl.searchParams.get("type") as "movie" | "tv" || "movie";
+  const rawType = req.nextUrl.searchParams.get("type");
+  const type = rawType === "series" || rawType === "tv" ? "tv" : "movie";
 
   try {
     const tmdbData = await getTMDBDetails(tmdbId, type);

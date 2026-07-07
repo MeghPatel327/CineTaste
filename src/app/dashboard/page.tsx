@@ -63,7 +63,7 @@ export default function DashboardPage() {
 
 function DashboardContent({ data }: { data: any }) {
   const { stats, next5, favoriteGenres, recommendationPreview } = data;
-  const [selectedTmdbId, setSelectedTmdbId] = useState<number | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
 
   return (
     <>
@@ -108,7 +108,7 @@ function DashboardContent({ data }: { data: any }) {
           ) : (
             <div className="space-y-4">
               {next5.map((movie: any, idx: number) => (
-                <div key={movie.id} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition" onClick={() => setSelectedTmdbId(movie.tmdb_id)}>
+                <div key={movie.id} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition" onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type === "series" ? "series" : "movie" })}>
                   <span className="font-bold text-muted-foreground w-6 text-center">{idx + 1}</span>
                   {movie.poster_url ? (
                     <img src={movie.poster_url} className="w-12 h-16 object-cover rounded" alt="poster" />
@@ -129,23 +129,44 @@ function DashboardContent({ data }: { data: any }) {
             <p className="text-muted-foreground text-center flex-1 flex items-center justify-center">No data yet.</p>
           ) : (
             <div className="flex-1">
+              <div className="min-h-[200px] mb-4">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={favoriteGenres}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {favoriteGenres.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{backgroundColor: 'var(--ct-card)', borderColor: 'var(--ct-border)', color: 'var(--ct-card-fg)'}} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
               {(() => {
                 const total = favoriteGenres.reduce((sum: number, g: any) => sum + g.value, 0);
+                // Compute percentages that sum to exactly 100
+                const rawPcts = favoriteGenres.map((g: any) => (g.value / total) * 100);
+                const floored = rawPcts.map((p: number) => Math.floor(p));
+                let remainder = 100 - floored.reduce((a: number, b: number) => a + b, 0);
+                const remainders = rawPcts.map((p: number, i: number) => ({ i, r: p - floored[i] })).sort((a: any, b: any) => b.r - a.r);
+                remainders.forEach((item: any) => { if (remainder > 0) { floored[item.i]++; remainder--; } });
+
                 return (
-                  <div className="space-y-3">
-                    {favoriteGenres.map((genre: any, index: number) => {
-                      const pct = total > 0 ? Math.round((genre.value / total) * 100) : 0;
-                      return (
-                        <div key={genre.name} className="flex items-center gap-3">
-                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                          <span className="text-sm font-medium flex-1">{genre.name}</span>
-                          <div className="flex-1 max-w-[120px] bg-secondary rounded-full h-2 overflow-hidden">
-                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: COLORS[index % COLORS.length] }} />
-                          </div>
-                          <span className="text-sm font-bold text-muted-foreground w-10 text-right">{pct}%</span>
-                        </div>
-                      );
-                    })}
+                  <div className="space-y-2">
+                    {favoriteGenres.map((genre: any, index: number) => (
+                      <div key={genre.name} className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <span className="text-sm font-medium flex-1">{genre.name}</span>
+                        <span className="text-sm font-bold text-muted-foreground w-10 text-right">{floored[index]}%</span>
+                      </div>
+                    ))}
                   </div>
                 );
               })()}
@@ -157,14 +178,14 @@ function DashboardContent({ data }: { data: any }) {
       <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="text-yellow-500" /> Recommended For You</h2>
-          <Link href="/recommendations"><Button variant="outline" size="sm">View All</Button></Link>
+          <Link href="/discover"><Button variant="outline" size="sm">View All</Button></Link>
         </div>
         {recommendationPreview.length === 0 ? (
           <p className="text-muted-foreground">Add and rate more movies to get personalized recommendations.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {recommendationPreview.map((rec: any) => (
-              <div key={rec.movieId} className="flex gap-4 p-4 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition" onClick={() => setSelectedTmdbId(rec.movieId)}>
+              <div key={rec.movieId} className="flex gap-4 p-4 bg-background rounded-lg border border-border cursor-pointer hover:border-primary transition" onClick={() => setSelectedItem({ id: rec.movieId, type: rec.media_type === "tv" ? "series" : "movie" })}>
                 {rec.poster_url ? (
                   <img src={rec.poster_url} className="w-16 h-24 object-cover rounded" alt="poster" />
                 ) : <div className="w-16 h-24 bg-secondary rounded" />}
@@ -179,10 +200,11 @@ function DashboardContent({ data }: { data: any }) {
         )}
       </div>
       <MovieDetailsModal 
-        isOpen={!!selectedTmdbId} 
-        onClose={() => setSelectedTmdbId(null)} 
-        tmdbId={selectedTmdbId || 0} 
-        onNavigate={(id) => setSelectedTmdbId(id)}
+        isOpen={!!selectedItem} 
+        onClose={() => setSelectedItem(null)} 
+        tmdbId={selectedItem?.id || 0} 
+        type={selectedItem?.type || "movie"}
+        onNavigate={(id, type) => setSelectedItem({ id, type: type || "movie" })}
       />
     </>
   );

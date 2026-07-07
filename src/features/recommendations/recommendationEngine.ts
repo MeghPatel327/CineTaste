@@ -8,6 +8,10 @@ export interface RecommendationExplanation {
   poster_url: string | null;
   score: number;
   reasons: string[];
+  media_type?: "movie" | "tv";
+  genres?: string[];
+  release_year?: number;
+  vote_average?: number;
 }
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
@@ -72,7 +76,10 @@ async function fetchCandidates(seedMovies: MovieRow[]): Promise<any[]> {
   }
 }
 
-export async function generateRecommendations(username: string): Promise<RecommendationExplanation[]> {
+export async function generateRecommendations(
+  username: string,
+  options?: { offset?: number; limit?: number }
+): Promise<RecommendationExplanation[]> {
   const userMovies = await getUserMovies(username);
   const ratedMovies = userMovies.filter(m => m.rating > 0);
   
@@ -89,13 +96,22 @@ export async function generateRecommendations(username: string): Promise<Recomme
   });
 
   if (ratedMovies.length === 0) {
-    return filteredCandidates.map(c => ({
+    const all = filteredCandidates.map(c => ({
       movieId: c.id,
       title: c.title || c.name,
       poster_url: c.poster_path ? `https://image.tmdb.org/t/p/w500${c.poster_path}` : null,
       score: Math.round((c.vote_average || 0) * 10),
       reasons: ["Popular right now"],
-    })).sort((a, b) => b.score - a.score).slice(0, 15);
+      media_type: (c.media_type || (c.first_air_date ? "tv" : "movie")) as "movie" | "tv",
+      genres: (c.genre_ids || []).map((id: number) => TMDB_GENRES[id]).filter(Boolean),
+      release_year: parseInt((c.release_date || c.first_air_date || "0").split("-")[0], 10) || 0,
+      vote_average: c.vote_average || 0,
+    })).sort((a, b) => b.score - a.score);
+    
+    if (options?.offset !== undefined && options?.limit !== undefined) {
+      return all.slice(options.offset, options.offset + options.limit);
+    }
+    return all;
   }
 
   const genrePreferences: Record<string, number> = {};
@@ -141,14 +157,14 @@ export async function generateRecommendations(username: string): Promise<Recomme
 
       candidateGenres.forEach((g: string) => {
         if (genrePreferences[g]) {
-          const normalized = genrePreferences[g] / maxGenreScore; // [-1, 1]
+          const normalized = genrePreferences[g] / maxGenreScore;
           candidateGenreScore += normalized;
           if (normalized >= 0.5) matchedFavoriteGenres.push(g);
           if (normalized <= -0.5) matchedDislikedGenres.push(g);
         }
       });
       
-      const avgCandidateGenreScore = candidateGenreScore / candidateGenres.length; // [-1, 1]
+      const avgCandidateGenreScore = candidateGenreScore / candidateGenres.length;
       compositeScore += avgCandidateGenreScore * 55;
 
       if (avgCandidateGenreScore > 0.4 && matchedFavoriteGenres.length > 0) {
@@ -164,7 +180,7 @@ export async function generateRecommendations(username: string): Promise<Recomme
     if (candidate.original_language) {
       const industry = getFilmIndustry(candidate.original_language);
       if (industryPreferences[industry]) {
-        const normalized = industryPreferences[industry] / maxIndustryScore; // [-1, 1]
+        const normalized = industryPreferences[industry] / maxIndustryScore;
         compositeScore += normalized * 15;
         if (normalized >= 0.5) {
           reasons.push(`Matches your preferred Film Industry (${industry})`);
@@ -178,7 +194,7 @@ export async function generateRecommendations(username: string): Promise<Recomme
       const year = parseInt(releaseDate.split("-")[0], 10);
       const diff = Math.abs(year - avgYear);
       if (diff <= 15) {
-        const yearScore = 1 - (diff / 15); // [0, 1]
+        const yearScore = 1 - (diff / 15);
         compositeScore += yearScore * 15;
         if (diff <= 5) {
           reasons.push(`Released in your preferred era (~${year})`);
@@ -187,22 +203,16 @@ export async function generateRecommendations(username: string): Promise<Recomme
     }
 
     // 4. Base Quality/Popularity (Weight: 15%)
-    const voteScore = (candidate.vote_average || 0) / 10; // [0, 1]
+    const voteScore = (candidate.vote_average || 0) / 10;
     compositeScore += voteScore * 15;
     if (candidate.vote_average > 7.5) {
       reasons.push("Highly rated globally");
     }
 
-    // Normalize final score to 0-100 range
-    // Composite max is 100, min is -70 (55*-1 + 15*-1 + 0 + 0). 
-    // Shift and scale to 0-100, or just floor at 0.
-    // Realistically, base score usually sits between 10 and 80.
-    // Let's add 20 to base and clamp to 100 to make good matches score ~85-95.
-    let finalScore = Math.round(compositeScore + 30); // Base boost for presentation
+    let finalScore = Math.round(compositeScore + 30);
     if (finalScore > 99) finalScore = 99;
     if (finalScore < 0) finalScore = 0;
 
-    // Filter out weak matches
     if (finalScore >= 60) {
       if (reasons.length === 0) {
         reasons.push("Recommended based on your overall taste profile");
@@ -214,11 +224,15 @@ export async function generateRecommendations(username: string): Promise<Recomme
         poster_url: candidate.poster_path ? `https://image.tmdb.org/t/p/w500${candidate.poster_path}` : null,
         score: finalScore,
         reasons,
+        media_type: (candidate.media_type || (candidate.first_air_date ? "tv" : "movie")) as "movie" | "tv",
+        genres: candidateGenres,
+        release_year: parseInt((candidate.release_date || candidate.first_air_date || "0").split("-")[0], 10) || 0,
+        vote_average: candidate.vote_average || 0,
       });
     }
   }
 
-  // Deduplicate again just in case, sort by score descending
+  // Deduplicate, sort by score descending
   const uniqueRecs = new Map<number, RecommendationExplanation>();
   for (const r of recommendations) {
     if (!uniqueRecs.has(r.movieId) || uniqueRecs.get(r.movieId)!.score < r.score) {
@@ -226,5 +240,32 @@ export async function generateRecommendations(username: string): Promise<Recomme
     }
   }
 
-  return Array.from(uniqueRecs.values()).sort((a, b) => b.score - a.score).slice(0, 15);
+  const sorted = Array.from(uniqueRecs.values()).sort((a, b) => b.score - a.score);
+
+  if (options?.offset !== undefined && options?.limit !== undefined) {
+    return sorted.slice(options.offset, options.offset + options.limit);
+  }
+  return sorted;
 }
+
+/**
+ * Returns the user's top genre names (sorted by preference weight descending).
+ */
+export async function getUserTopGenres(username: string): Promise<string[]> {
+  const userMovies = await getUserMovies(username);
+  const ratedMovies = userMovies.filter(m => m.rating > 0);
+  
+  const genreCounts: Record<string, number> = {};
+  ratedMovies.forEach(movie => {
+    const weight = RATING_WEIGHTS[movie.rating] !== undefined ? RATING_WEIGHTS[movie.rating] : 0;
+    if (weight <= 0) return;
+    let genres: string[] = [];
+    try { genres = JSON.parse(movie.genres); } catch { genres = movie.genres ? movie.genres.split(",") : []; }
+    genres.forEach(g => { genreCounts[g] = (genreCounts[g] || 0) + weight; });
+  });
+
+  return Object.entries(genreCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
+}
+

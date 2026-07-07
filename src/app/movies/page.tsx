@@ -25,7 +25,7 @@ export default function MovieLibraryPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState("added_desc");
   
-  const [selectedTmdbId, setSelectedTmdbId] = useState<number | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
   const [ratingMovieId, setRatingMovieId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -155,7 +155,12 @@ export default function MovieLibraryPage() {
     if (typeFilter !== "all" && m.type !== typeFilter) return false;
     return true;
   }).sort((a, b) => {
-    if (sortBy === "added_desc") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (sortBy === "added_desc") {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      if (dateB !== dateA) return dateB - dateA;
+      return b.id - a.id; // LIFO: higher ID = more recently added
+    }
     if (sortBy === "rating_desc") return b.rating - a.rating;
     if (sortBy === "name_asc") return a.movie_name.localeCompare(b.movie_name);
     if (sortBy === "watch_order") return (a.watch_order_rank || Infinity) - (b.watch_order_rank || Infinity);
@@ -177,7 +182,7 @@ export default function MovieLibraryPage() {
           <>
             <div className="flex justify-between items-center mb-8">
               <h1 className="text-3xl font-bold">Library</h1>
-              <Link href="/movies/add">
+              <Link href="/discover">
                 <Button><Plus className="w-4 h-4 mr-2" /> Add Movie</Button>
               </Link>
             </div>
@@ -227,12 +232,12 @@ export default function MovieLibraryPage() {
               <EmptyState 
                 title="No movies found" 
                 description="You haven't added any movies matching these filters yet."
-                action={<Link href="/movies/add"><Button>Add Movie</Button></Link>}
+                action={<Link href="/discover"><Button>Add Movie</Button></Link>}
               />
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {filteredMovies.map(movie => (
-                  <div key={movie.id} className="bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer" onClick={() => setSelectedTmdbId(movie.tmdb_id)}>
+                  <div key={movie.id} className="bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer" onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type as any })}>
                     <img src={movie.poster_url || ""} alt={movie.movie_name} className="w-full aspect-[2/3] object-cover" />
                     
                     <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
@@ -291,10 +296,11 @@ export default function MovieLibraryPage() {
       </div>
 
       <MovieDetailsModal 
-        isOpen={!!selectedTmdbId} 
-        onClose={() => setSelectedTmdbId(null)} 
-        tmdbId={selectedTmdbId || 0} 
-        onNavigate={(id) => setSelectedTmdbId(id)}
+        isOpen={!!selectedItem} 
+        onClose={() => setSelectedItem(null)} 
+        tmdbId={selectedItem?.id || 0} 
+        type={selectedItem?.type || "movie"}
+        onNavigate={(id, type) => setSelectedItem({ id, type: type || "movie" })}
       />
 
       <RatingModal 

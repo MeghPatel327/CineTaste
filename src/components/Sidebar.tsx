@@ -8,8 +8,7 @@ import {
   Film,
   LayoutDashboard,
   Library,
-  PlusCircle,
-  Sparkles,
+  Compass,
   Shield,
   User,
   LogOut,
@@ -27,8 +26,7 @@ interface SidebarProps {
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/movies", label: "Library", icon: Library },
-  { href: "/movies/add", label: "Add Movie", icon: PlusCircle },
-  { href: "/recommendations", label: "For You", icon: Sparkles },
+  { href: "/discover", label: "Discover", icon: Compass },
 ];
 
 export function Sidebar({ isAdmin }: SidebarProps) {

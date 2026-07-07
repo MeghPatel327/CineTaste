@@ -5,7 +5,9 @@ import { Modal } from "./ui/Modal";
 import { LoadingState } from "./ui/LoadingState";
 import { ErrorState } from "./ui/ErrorState";
 import { Button } from "./ui/Button";
-import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play } from "lucide-react";
+import { Input } from "./ui/Input";
+import { toast } from "sonner";
+import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, Loader2, X } from "lucide-react";
 
 // Client-side cache for TMDB details to prevent duplicate fetching in same session
 const detailsCache = new Map<string, any>();
@@ -16,7 +18,7 @@ interface MovieDetailsModalProps {
   tmdbId: number;
   type?: "movie" | "series";
   onUpdated?: () => void;
-  onNavigate?: (tmdbId: number) => void;
+  onNavigate?: (tmdbId: number, type?: "movie" | "series") => void;
 }
 
 export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onUpdated, onNavigate }: MovieDetailsModalProps) {
@@ -24,6 +26,68 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [pirateSites, setPirateSites] = useState<any[]>([]);
+
+  // Form State
+  const [isAdding, setIsAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
+  const [rating, setRating] = useState(0);
+  const [watchOrder, setWatchOrder] = useState(0);
+  const [watchLink, setWatchLink] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsAdding(false);
+      setStatus("pending");
+      setRating(0);
+      setWatchOrder(0);
+      setWatchLink("");
+    }
+  }, [isOpen]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data) return;
+    setSaving(true);
+    try {
+      const payload = {
+        movie_name: data.title || "",
+        type: data.type === "tv" ? "series" : "movie",
+        status,
+        rating,
+        watch_order_rank: watchOrder,
+        watch_link: watchLink || null,
+        tmdb_id: data.tmdb_id,
+        genres: JSON.stringify(data.genres ? data.genres.split(", ").map((g: string) => g.trim()) : []),
+        release_year: data.release_year,
+        runtime: data.runtime,
+        language: data.original_language,
+        poster_url: data.poster_url || "",
+        overview: data.overview,
+      };
+
+      const res = await fetch("/api/movies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (res.ok) {
+        toast.success("Added to library");
+        setIsAdding(false);
+        detailsCache.delete(`${type}_${tmdbId}`);
+        fetchDetails(`${type}_${tmdbId}`);
+        if (onUpdated) onUpdated();
+      } else {
+        toast.error(result.message || "Failed to add movie");
+      }
+    } catch (err) {
+      toast.error("Error adding movie");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/pirate-sites")
@@ -116,30 +180,75 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                 
                 <p className="text-white/80 mb-6">{data.genres}</p>
                 
-                <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                  {data.inLibrary ? (
-                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { window.location.href = `/movies/edit/${data.libraryData?.id}`; onClose(); }}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
-                  ) : (
-                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { window.location.href = `/movies/add?tmdbId=${tmdbId}&type=${data.type}`; onClose(); }}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
-                  )}
-                  {data.inLibrary && data.libraryData?.watch_link && (
-                    <a href={data.libraryData.watch_link} target="_blank" rel="noreferrer">
-                      <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0"><ExternalLink className="w-4 h-4 mr-2" /> Watch Now</Button>
-                    </a>
-                  )}
-                  {pirateSites.map(site => (
-                    <a 
-                      key={site.id} 
-                      href={site.search_url.replace("{query}", encodeURIComponent(data.title))} 
-                      target="_blank" 
-                      rel="noreferrer"
-                    >
-                      <Button variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
-                        <Globe className="w-4 h-4 mr-2" /> {site.name}
+                {isAdding ? (
+                  <form onSubmit={handleSave} className="bg-black/60 p-4 rounded-xl border border-white/10 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300 w-full max-w-md mx-auto md:mx-0">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-bold text-lg">Add to Library</h4>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-white hover:bg-white/20" onClick={() => setIsAdding(false)}>
+                        <X className="w-4 h-4" />
                       </Button>
-                    </a>
-                  ))}
-                </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-left">
+                      <div>
+                        <label className="text-xs font-medium mb-1 block text-white/70">Status</label>
+                        <select 
+                          className="flex h-9 w-full rounded-md border border-white/20 bg-black/50 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                          value={status} 
+                          onChange={e => setStatus(e.target.value as any)}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="completed">Completed</option>
+                          <option value="dropped">Dropped</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium mb-1 block text-white/70">Rating (0-10)</label>
+                        <Input type="number" min="0" max="10" value={rating} onChange={e => setRating(parseFloat(e.target.value) || 0)} className="h-9 bg-black/50 border-white/20 text-white" />
+                      </div>
+                    </div>
+                    {status === "pending" && (
+                      <div className="text-left">
+                        <label className="text-xs font-medium mb-1 block text-white/70">Watch Order Rank</label>
+                        <Input type="number" value={watchOrder} onChange={e => setWatchOrder(parseInt(e.target.value) || 0)} className="h-9 bg-black/50 border-white/20 text-white" />
+                      </div>
+                    )}
+                    <div className="text-left">
+                      <label className="text-xs font-medium mb-1 block text-white/70">Personal Watch Link (Optional)</label>
+                      <Input type="url" placeholder="https://..." value={watchLink} onChange={e => setWatchLink(e.target.value)} className="h-9 bg-black/50 border-white/20 text-white" />
+                    </div>
+                    <div className="pt-2">
+                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={saving}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                        Save to Library
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                    {data.inLibrary ? (
+                      <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => { window.location.href = `/movies/edit/${data.libraryData?.id}`; onClose(); }}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
+                    ) : (
+                      <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
+                    )}
+                    {data.inLibrary && data.libraryData?.watch_link && (
+                      <a href={data.libraryData.watch_link} target="_blank" rel="noreferrer">
+                        <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0"><ExternalLink className="w-4 h-4 mr-2" /> Watch Now</Button>
+                      </a>
+                    )}
+                    {pirateSites.map(site => (
+                      <a 
+                        key={site.id} 
+                        href={site.search_url.replace("{query}", encodeURIComponent(data.title))} 
+                        target="_blank" 
+                        rel="noreferrer"
+                      >
+                        <Button variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border border-white/20">
+                          <Globe className="w-4 h-4 mr-2" /> {site.name}
+                        </Button>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -198,7 +307,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                       <div 
                         key={s.tmdb_id} 
                         className="w-32 shrink-0 snap-start cursor-pointer group"
-                        onClick={() => onNavigate && onNavigate(s.tmdb_id)}
+                        onClick={() => onNavigate && onNavigate(s.tmdb_id, type)}
                       >
                         {s.poster_url ? (
                           <img src={s.poster_url} alt={s.title} className="w-full aspect-[2/3] object-cover rounded-lg mb-2 shadow-sm group-hover:ring-2 ring-primary transition" />
