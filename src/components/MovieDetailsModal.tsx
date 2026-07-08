@@ -10,8 +10,9 @@ import { Skeleton } from "./ui/Skeleton";
 import { toast } from "sonner";
 import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/lib/appStore";
 
-// Client-side cache for TMDB details to prevent duplicate fetching in same session
+// Shared TMDB detail cache (module-level, persists across navigations)
 const detailsCache = new Map<string, any>();
 
 interface MovieDetailsModalProps {
@@ -24,6 +25,7 @@ interface MovieDetailsModalProps {
 }
 
 export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onUpdated, onNavigate }: MovieDetailsModalProps) {
+  const { getPirateSites } = useAppStore();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -183,12 +185,10 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
     }
   };
 
+  // Use shared store for pirate sites — no redundant fetch on every open
   useEffect(() => {
-    fetch("/api/pirate-sites")
-      .then(res => res.ok ? res.json() : { data: [] })
-      .then(json => setPirateSites(json.data || []))
-      .catch(() => {});
-  }, []);
+    getPirateSites().then(sites => setPirateSites(sites)).catch(() => {});
+  }, [getPirateSites]);
 
   useEffect(() => {
     if (isOpen && tmdbId) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -12,7 +12,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 
 interface SidebarProps {
@@ -27,7 +27,15 @@ const navItems = [
 
 export function Sidebar({ isAdmin }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Prefetch all app routes once on mount so navigation feels instant
+  useEffect(() => {
+    const routes = ["/dashboard", "/movies", "/discover", "/profile"];
+    if (isAdmin) routes.push("/admin");
+    routes.forEach(r => router.prefetch(r));
+  }, [isAdmin, router]);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";

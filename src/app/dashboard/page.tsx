@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -18,7 +18,12 @@ import {
   RecPreviewSkeleton,
   Skeleton,
 } from "@/components/ui/Skeleton";
+import { useAppStore } from "@/lib/appStore";
 import { useCountUp } from "@/hooks/useCountUp";
+
+// Module-level dashboard cache — survives navigation
+let dashboardCacheRef: { data: any; fetchedAt: number } | null = null;
+const DASHBOARD_TTL = 60_000;
 
 
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
@@ -27,29 +32,35 @@ const staggerStyle = (index: number, step = 50) => ({
 } as CSSProperties);
 
 export default function DashboardPage() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(dashboardCacheRef?.data ?? null);
+  const [loading, setLoading] = useState(!dashboardCacheRef?.data);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
-
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async (force = false) => {
+    // Return cached data if fresh
+    if (!force && dashboardCacheRef && Date.now() - dashboardCacheRef.fetchedAt < DASHBOARD_TTL) {
+      setData(dashboardCacheRef.data);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(false);
     try {
       const res = await fetch("/api/dashboard");
       const json = await res.json();
-      if (res.ok) setData(json.data);
-      else { setError(true); toast.error("Failed to load dashboard"); }
+      if (res.ok) {
+        dashboardCacheRef = { data: json.data, fetchedAt: Date.now() };
+        setData(json.data);
+      } else { setError(true); toast.error("Failed to load dashboard"); }
     } catch {
       setError(true);
       toast.error("Error loading dashboard");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
   return (
     <AppShell>
@@ -58,7 +69,7 @@ export default function DashboardPage() {
           <ErrorState
             title="Dashboard failed to load"
             message="We couldn't load your dashboard data. This might be a temporary issue with the server."
-            onRetry={fetchDashboard}
+            onRetry={() => fetchDashboard(true)}
           />
         ) : (
           <DashboardContent data={data} loading={loading} />

@@ -5,14 +5,19 @@ import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import { HorizontalRow, type RowItem } from "@/components/HorizontalRow";
 import { MovieCard } from "@/components/MovieCard";
 import { MovieCardSkeleton } from "@/components/ui/Skeleton";
 import { Search, Clock, Compass, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
+import { useAppStore } from "@/lib/appStore";
+
+// Module-level discover cache — survives navigation, only reset on explicit refresh
+let discoverCacheRef: { data: any; fetchedAt: number } | null = null;
+const DISCOVER_TTL = 5 * 60_000;
 
 const TMDB_GENRES: Record<number, string> = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime", 99: "Documentary", 18: "Drama",
@@ -43,8 +48,8 @@ const staggerStyle = (index: number, step = 50) => ({
 } as CSSProperties);
 
 export default function DiscoverPage() {
-  const [discoverData, setDiscoverData] = useState<DiscoverData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [discoverData, setDiscoverData] = useState<DiscoverData | null>(discoverCacheRef?.data ?? null);
+  const [loading, setLoading] = useState(!discoverCacheRef?.data);
   const [error, setError] = useState(false);
 
   // Search state
@@ -71,48 +76,19 @@ export default function DiscoverPage() {
   const hasRestoredScroll = useRef(false);
   const searchTransitionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    fetchDiscoverData();
-    try {
-      const saved = localStorage.getItem("cinetaste-recent-searches");
-      if (saved) setRecentSearches(JSON.parse(saved));
-    } catch {}
-  }, []);
-
-  // Restore scroll position after data loads
-  useEffect(() => {
-    if (discoverData && !hasRestoredScroll.current) {
-      hasRestoredScroll.current = true;
-      const pos = parseInt(sessionStorage.getItem(SCROLL_KEY) ?? "0", 10);
-      if (pos > 0) {
-        requestAnimationFrame(() => {
-          window.scrollTo(0, pos);
-        });
-      }
+  const fetchDiscoverData = useCallback(async (force = false) => {
+    if (!force && discoverCacheRef && Date.now() - discoverCacheRef.fetchedAt < DISCOVER_TTL) {
+      setDiscoverData(discoverCacheRef.data);
+      setLoading(false);
+      return;
     }
-  }, [discoverData]);
-
-  // Persist scroll on unload / navigation
-  useEffect(() => {
-    const saveScroll = () => {
-      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
-    };
-    window.addEventListener("beforeunload", saveScroll);
-    return () => window.removeEventListener("beforeunload", saveScroll);
-  }, []);
-
-  // Persist query
-  useEffect(() => {
-    sessionStorage.setItem(QUERY_KEY, query);
-  }, [query]);
-
-  const fetchDiscoverData = async () => {
     setLoading(true);
     setError(false);
     try {
       const res = await fetch("/api/discover");
       const json = await res.json();
       if (res.ok) {
+        discoverCacheRef = { data: json.data, fetchedAt: Date.now() };
         setDiscoverData(json.data);
       } else {
         setError(true);
@@ -123,7 +99,32 @@ export default function DiscoverPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchDiscoverData();
+    try {
+      const saved = localStorage.getItem("cinetaste-recent-searches");
+      if (saved) setRecentSearches(JSON.parse(saved));
+    } catch {}
+  }, [fetchDiscoverData]);
+
+  // Restore scroll position after data loads
+  useEffect(() => {
+    if (discoverData && !hasRestoredScroll.current) {
+      hasRestoredScroll.current = true;
+      const pos = parseInt(sessionStorage.getItem(SCROLL_KEY) ?? "0", 10);
+      if (pos > 0) requestAnimationFrame(() => window.scrollTo(0, pos));
+    }
+  }, [discoverData]);
+
+  useEffect(() => {
+    const saveScroll = () => sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    window.addEventListener("beforeunload", saveScroll);
+    return () => window.removeEventListener("beforeunload", saveScroll);
+  }, []);
+
+  useEffect(() => { sessionStorage.setItem(QUERY_KEY, query); }, [query]);
 
   // Debounced search
   useEffect(() => {
@@ -244,7 +245,7 @@ export default function DiscoverPage() {
         {loading && !isSearchMode ? (
           <DiscoverSkeleton />
         ) : error && !isSearchMode ? (
-          <ErrorState title="Failed to load" message="Couldn't load your discover feed." onRetry={fetchDiscoverData} />
+          <ErrorState title="Failed to load" message="Couldn't load your discover feed." onRetry={() => fetchDiscoverData(true)} />
         ) : isSearchMode ? (
           /* ── Search Mode ── */
           <div className="ct-results-transition" data-phase={resultsPhase}>
