@@ -33,22 +33,22 @@
 /* ── Dark Theme (default) ── */
 :root,
 .dark {
-  --ct-bg: #0d1a12;
+  --ct-bg: #111111;
   --ct-fg: #f0f7f2;
-  --ct-card: #152019;
+  --ct-card: #1a1a1a;
   --ct-card-fg: #f0f7f2;
   --ct-primary: #2E6F40;
   --ct-primary-fg: #ffffff;
-  --ct-secondary: #1e3327;
+  --ct-secondary: #242424;
   --ct-secondary-fg: #f0f7f2;
-  --ct-muted: #1e3327;
+  --ct-muted: #242424;
   --ct-muted-fg: #8fac96;
   --ct-accent: #68BA7F;
-  --ct-accent-fg: #0d1a12;
-  --ct-border: #2a4a33;
-  --ct-sidebar: #0a1410;
+  --ct-accent-fg: #111111;
+  --ct-border: #2a2a2a;
+  --ct-sidebar: #0a0a0a;
   --ct-sidebar-fg: #d4e8d9;
-  --ct-sidebar-border: #1e3327;
+  --ct-sidebar-border: #1e1e1e;
   --ct-sidebar-accent: rgba(46, 111, 64, 0.15);
 
   /* Animation tokens */
@@ -69,9 +69,9 @@
   --ct-focus-glow:      0 0 0 3px rgba(46, 111, 64, 0.25);
 
   /* Shimmer gradient for dark mode */
-  --ct-shimmer-base:     #1a2e22;
-  --ct-shimmer-shine:    #223629;
-  --ct-shimmer-bg:       #152019;
+  --ct-shimmer-base:     #1e1e1e;
+  --ct-shimmer-shine:    #2a2a2a;
+  --ct-shimmer-bg:       #1a1a1a;
 }
 
 /* ── Light Theme ── */
@@ -376,7 +376,7 @@
 .ct-card-lift-wrapper {
   position: relative;
   z-index: 0;
-  transition: z-index 0s 200ms; /* delay z-index reset until after transition */
+  transition: z-index 0s 200ms;
 }
 .ct-card-lift-wrapper:has(.ct-movie-card:hover),
 .ct-card-lift-wrapper:has(.ct-movie-card:focus-visible) {
@@ -400,24 +400,15 @@
   will-change: transform, box-shadow;
 }
 
-/* Default hover — neutral shadow fallback */
 .ct-movie-card:hover,
 .ct-movie-card:focus-visible {
   transform: translateY(-6px) scale(1.04);
   border-color: var(--ct-border-hover);
   outline: none;
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.30),
-    0 8px 20px rgba(0, 0, 0, 0.18);
-}
-
-/* Ambient shadow — activated when dominant color has been extracted */
-.ct-movie-card[data-has-ambient="true"]:hover,
-.ct-movie-card[data-has-ambient="true"]:focus-visible {
-  box-shadow:
-    0 20px 60px rgba(var(--ct-ambient-rgb, 0 0 0) / 0.28),
-    0 8px 24px rgba(var(--ct-ambient-rgb, 0 0 0) / 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.14);
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 10px 24px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(104, 186, 127, 0.20);
 }
 
 /* Click feedback */
@@ -428,7 +419,7 @@
 
 /* Focus-visible keyboard ring */
 .ct-movie-card:focus-visible {
-  box-shadow: var(--ct-focus-glow), 0 20px 60px rgba(0, 0, 0, 0.30);
+  box-shadow: var(--ct-focus-glow), 0 24px 60px rgba(0, 0, 0, 0.45);
 }
 
 /* ── Poster image ── */
