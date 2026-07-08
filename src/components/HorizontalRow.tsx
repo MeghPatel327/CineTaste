@@ -85,7 +85,9 @@ export function HorizontalRow({
         aria-label={`${title} scroll list`}
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory hide-scrollbar focus:outline-none"
+        // py-4 gives lifted cards room to breathe vertically without being clipped
+        // overflow-y-visible would fight overflow-x-auto, so we use padding instead
+        className="flex gap-4 overflow-x-auto py-4 -my-4 snap-x snap-mandatory hide-scrollbar focus:outline-none"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {items.map((item, index) => {
@@ -99,7 +101,7 @@ export function HorizontalRow({
             <div
               key={`${rowId}-${id}-${index}`}
               role="listitem"
-              className="ct-stagger-item snap-start shrink-0"
+              className="ct-stagger-item snap-start shrink-0 ct-card-lift-wrapper"
               style={{ "--ct-stagger-delay": `${Math.min(index, 12) * 45}ms` } as CSSProperties}
             >
               {isVisible ? (
