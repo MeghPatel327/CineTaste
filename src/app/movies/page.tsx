@@ -11,7 +11,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { LibraryCardSkeleton } from "@/components/ui/Skeleton";
 import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
-import { Plus, Search, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import { useAppStore } from "@/lib/appStore";
 
@@ -220,42 +220,11 @@ export default function MovieLibraryPage() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {filteredMovies.map((movie, index) => (
-                  <div key={movie.id} className="ct-stagger-item" style={staggerStyle(index)}>
-                    <div
-                      className="ct-library-card bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer"
+                  <div key={movie.id} className="ct-stagger-item ct-card-lift-wrapper" style={staggerStyle(index)}>
+                    <LibraryCard
+                      movie={movie}
                       onClick={() => { handleSaveScroll(); setSelectedItem({ id: movie.tmdb_id, type: movie.type as any }); }}
-                    >
-                      <LibraryPoster posterUrl={movie.poster_url} title={movie.movie_name} />
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                        {movie.watch_link && (
-                          <a href={movie.watch_link} target="_blank" rel="noreferrer" className="mb-4" onClick={e => e.stopPropagation()}>
-                            <Button size="sm" variant="secondary" className="w-full">Watch Link</Button>
-                          </a>
-                        )}
-                        {movie.status === "pending" && sortBy === "watch_order" && (
-                          <div className="flex gap-2 mb-2">
-                            <Button size="sm" variant="secondary" className="flex-1" onClick={e => handleMove(e, movie.id, "up")} title="Move Up"><ArrowUp className="w-4 h-4" /></Button>
-                            <Button size="sm" variant="secondary" className="flex-1" onClick={e => handleMove(e, movie.id, "down")} title="Move Down"><ArrowDown className="w-4 h-4" /></Button>
-                          </div>
-                        )}
-                        <Button size="sm" variant="outline" className="mb-2" onClick={e => handleStatusUpdate(e, movie.id, movie.status === "pending" ? "completed" : "pending")}>
-                          Mark {movie.status === "pending" ? "Completed" : "Pending"}
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={e => handleDelete(e, movie.id)}>Remove</Button>
-                      </div>
-                      <div className="p-3">
-                        <h3 className="ct-card-title font-semibold truncate opacity-95" title={movie.movie_name}>{movie.movie_name}</h3>
-                        <div className="ct-card-meta flex gap-2 items-center mt-1.5 mb-1.5 opacity-85">
-                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${movie.type === "series" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
-                            {movie.type === "series" ? "Series" : "Movie"}
-                          </span>
-                        </div>
-                        <div className="ct-card-meta flex justify-between items-center text-xs text-muted-foreground opacity-85">
-                          <span className="capitalize">{movie.status}</span>
-                          <span className="flex items-center text-yellow-500">★ {movie.rating}</span>
-                        </div>
-                      </div>
-                    </div>
+                    />
                   </div>
                 ))}
               </div>
@@ -276,24 +245,97 @@ export default function MovieLibraryPage() {
   );
 }
 
-function LibraryPoster({ posterUrl, title }: { posterUrl?: string | null; title: string }) {
-  const [imgPhase, setImgPhase] = useState<"loading" | "revealed" | "loaded">(posterUrl ? "loading" : "loaded");
+function LibraryCard({ movie, onClick }: { movie: MovieRow; onClick: () => void }) {
+  const [imgPhase, setImgPhase] = useState<"loading" | "revealed" | "loaded">(movie.poster_url ? "loading" : "loaded");
+  const [ambientRgb, setAmbientRgb] = useState("");
+  const extractedRef = useRef(false);
+
+  useEffect(() => {
+    if (!movie.poster_url || extractedRef.current) return;
+    const t = setTimeout(() => {
+      extractedRef.current = true;
+      // Reuse the same extraction logic from MovieCard via a hidden Image
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      const sep = movie.poster_url!.includes("?") ? "&" : "?";
+      img.src = movie.poster_url! + sep + "_c=1";
+      img.onload = () => {
+        try {
+          const SIZE = 24;
+          const canvas = document.createElement("canvas");
+          canvas.width = SIZE; canvas.height = SIZE;
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
+          if (!ctx) return;
+          ctx.drawImage(img, 0, 0, SIZE, SIZE);
+          const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+          type Bucket = { n: number; r: number; g: number; b: number; score: number };
+          const buckets = new Map<string, Bucket>();
+          for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] < 180) continue;
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const rn = r / 255, gn = g / 255, bn = b / 255;
+            const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+            const l = (max + min) / 2;
+            const d = max - min;
+            const s = d === 0 ? 0 : l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            if (l < 0.07 || l > 0.92 || s < 0.12) continue;
+            const key = `${r >> 3}-${g >> 3}-${b >> 3}`;
+            const cur = buckets.get(key) ?? { n: 0, r: 0, g: 0, b: 0, score: 0 };
+            cur.n++; cur.r += r; cur.g += g; cur.b += b;
+            cur.score += 1 + s * 0.6;
+            buckets.set(key, cur);
+          }
+          let best: Bucket | null = null;
+          for (const bk of buckets.values()) { if (!best || bk.score > best.score) best = bk; }
+          if (!best || best.n === 0) return;
+          setAmbientRgb(`${Math.round(best.r / best.n)},${Math.round(best.g / best.n)},${Math.round(best.b / best.n)}`);
+        } catch { /* CORS failed — no ambient */ }
+      };
+    }, 400);
+    return () => clearTimeout(t);
+  }, [movie.poster_url]);
+
+  const cardStyle = ambientRgb
+    ? ({ "--ct-ambient-rgb": ambientRgb } as React.CSSProperties)
+    : undefined;
+
   return (
-    <div className="relative aspect-[2/3] overflow-hidden bg-secondary">
-      <div className={imgPhase === "loading" ? "absolute inset-0 ct-shimmer" : "absolute inset-0 opacity-0 pointer-events-none transition-opacity duration-300"} />
-      {posterUrl ? (
-        <>
-          <img
-            src={posterUrl} alt={title} loading="lazy" decoding="async"
-            className={`ct-poster-img absolute inset-0 w-full h-full object-cover ${imgPhase === "loading" ? "opacity-0" : "opacity-100"}`}
-            onLoad={() => { setImgPhase("revealed"); setTimeout(() => setImgPhase("loaded"), 80); }}
-            onError={() => setImgPhase("loaded")}
-          />
-          <div className={`absolute inset-0 pointer-events-none backdrop-blur-sm bg-black/10 transition-opacity duration-300 ${imgPhase === "loaded" ? "opacity-0" : "opacity-100"}`} />
-        </>
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">No Poster</div>
-      )}
+    <div
+      className="ct-library-card bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer"
+      data-ambient={ambientRgb ? "true" : undefined}
+      style={cardStyle}
+      onClick={onClick}
+    >
+      {/* Poster */}
+      <div className="relative aspect-[2/3] overflow-hidden bg-secondary">
+        <div className={imgPhase === "loading" ? "absolute inset-0 ct-shimmer" : "absolute inset-0 opacity-0 pointer-events-none transition-opacity duration-300"} />
+        {movie.poster_url ? (
+          <>
+            <img
+              src={movie.poster_url} alt={movie.movie_name} loading="lazy" decoding="async"
+              className={`ct-poster-img absolute inset-0 w-full h-full object-cover ${imgPhase === "loading" ? "opacity-0" : "opacity-100"}`}
+              onLoad={() => { setImgPhase("revealed"); setTimeout(() => setImgPhase("loaded"), 80); }}
+              onError={() => setImgPhase("loaded")}
+            />
+            <div className={`absolute inset-0 pointer-events-none backdrop-blur-sm bg-black/10 transition-opacity duration-300 ${imgPhase === "loaded" ? "opacity-0" : "opacity-100"}`} />
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">No Poster</div>
+        )}
+      </div>
+      {/* Info */}
+      <div className="p-3">
+        <h3 className="ct-card-title font-semibold truncate opacity-95" title={movie.movie_name}>{movie.movie_name}</h3>
+        <div className="ct-card-meta flex gap-2 items-center mt-1.5 mb-1.5 opacity-85">
+          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${movie.type === "series" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
+            {movie.type === "series" ? "Series" : "Movie"}
+          </span>
+        </div>
+        <div className="ct-card-meta flex justify-between items-center text-xs text-muted-foreground opacity-85">
+          <span className="capitalize">{movie.status}</span>
+          <span className="flex items-center text-yellow-500">★ {movie.rating}</span>
+        </div>
+      </div>
     </div>
   );
 }
