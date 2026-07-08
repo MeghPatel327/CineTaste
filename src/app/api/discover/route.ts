@@ -51,7 +51,14 @@ export async function GET(req: NextRequest) {
       tmdbFetch("/tv/on_the_air"),
     ]);
 
-    const libraryIds = new Set(userMovies.map(m => m.tmdb_id));
+    const libraryIds   = new Set(userMovies.map(m => m.tmdb_id));
+    const libraryNames = new Set(userMovies.map(m => m.movie_name.toLowerCase().trim()));
+
+    const inLibrary = (item: any): boolean => {
+      if (libraryIds.has(item.id)) return true;
+      const title = (item.title || item.name || "").toLowerCase().trim();
+      return libraryNames.has(title);
+    };
 
     // Top Picks - best recommendations
     const topPicks = allRecs.slice(0, 10);
@@ -67,7 +74,7 @@ export async function GET(req: NextRequest) {
       // Fetch genre-specific movies from TMDB
       const genreData = await tmdbFetch(`/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=100`);
       const items = (genreData?.results || [])
-        .filter((m: any) => !libraryIds.has(m.id) && !usedIds.has(m.id))
+        .filter((m: any) => !inLibrary(m) && !usedIds.has(m.id))
         .slice(0, 10)
         .map((m: any) => ({
           id: m.id,
@@ -93,18 +100,18 @@ export async function GET(req: NextRequest) {
       .filter(r => (r.vote_average || 0) >= 7 && (r.vote_average || 0) <= 8.5)
       .slice(0, 10);
 
-    // Format TMDB results
+    // Format TMDB results — filter library items by both id and title, then slice
     const formatTmdb = (items: any[]) => (items || [])
-      .filter((m: any) => !libraryIds.has(m.id))
+      .filter((m: any) => !inLibrary(m))
       .slice(0, 15)
       .map((m: any) => ({
-      id: m.id,
-      title: m.title || m.name,
-      poster_url: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
-      media_type: m.media_type || (m.first_air_date ? "tv" : "movie"),
-      release_year: parseInt((m.release_date || m.first_air_date || "0").split("-")[0], 10) || 0,
-      vote_average: m.vote_average || 0,
-    }));
+        id: m.id,
+        title: m.title || m.name,
+        poster_url: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+        media_type: m.media_type || (m.first_air_date ? "tv" : "movie"),
+        release_year: parseInt((m.release_date || m.first_air_date || "0").split("-")[0], 10) || 0,
+        vote_average: m.vote_average || 0,
+      }));
 
     const trending = formatTmdb(trendingData?.results);
     const popularMovies = formatTmdb(popularMoviesData?.results);
