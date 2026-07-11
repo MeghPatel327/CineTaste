@@ -8,7 +8,7 @@ import { TableRowSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Users, Shield, Link as LinkIcon, Trash } from "lucide-react";
+import { Users, Shield, Link as LinkIcon, Trash, KeyRound } from "lucide-react";
 
 const staggerStyle = (index: number, step = 45) => ({
   "--ct-stagger-delay": `${index * step}ms`,
@@ -22,6 +22,9 @@ export default function AdminPage() {
   
   const [newSiteName, setNewSiteName] = useState("");
   const [newSiteUrl, setNewSiteUrl] = useState("");
+  // Reset password state: key = user id, value = input string
+  const [resetPasswords, setResetPasswords] = useState<Record<number, string>>({});
+  const [resettingId, setResettingId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchAdminData();
@@ -84,6 +87,27 @@ export default function AdminPage() {
     }
   };
 
+  const resetPassword = async (id: number) => {
+    const newPassword = resetPasswords[id]?.trim();
+    if (!newPassword || newPassword.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    setResettingId(id);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword }),
+      });
+      if (res.ok) {
+        toast.success("Password reset successfully");
+        setResetPasswords(prev => { const n = { ...prev }; delete n[id]; return n; });
+      } else {
+        const json = await res.json();
+        toast.error(json.message || "Failed to reset password");
+      }
+    } catch { toast.error("Error resetting password"); }
+    finally { setResettingId(null); }
+  };
+
   const addSite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSiteName || !newSiteUrl) return;
@@ -132,8 +156,8 @@ export default function AdminPage() {
               <Skeleton className="h-7 w-32 mb-4" />
               <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <table className="w-full">
-                  <thead className="bg-secondary"><tr>{Array.from({length:5}).map((_,i)=><th key={i} className="p-4"><Skeleton className="h-4 w-full"/></th>)}</tr></thead>
-                  <tbody>{Array.from({length:4}).map((_,i)=><TableRowSkeleton key={i} cols={5}/>)}</tbody>
+                  <thead className="bg-secondary"><tr>{Array.from({length:6}).map((_,i)=><th key={i} className="p-4"><Skeleton className="h-4 w-full"/></th>)}</tr></thead>
+                  <tbody>{Array.from({length:4}).map((_,i)=><TableRowSkeleton key={i} cols={6}/>)}</tbody>
                 </table>
               </div>
             </section>
@@ -175,8 +199,7 @@ export default function AdminPage() {
                       <th className="p-4">Status</th>
                       <th className="p-4">Joined</th>
                       <th className="p-4">Actions</th>
-                    </tr>
-                  </thead>
+                    </tr>                  </thead>
                   <tbody>
                     {users.map((u, index) => (
                       <tr key={u.id} className="ct-table-row-stagger border-t border-border" style={staggerStyle(index)}>
@@ -190,13 +213,25 @@ export default function AdminPage() {
                           {u.blocked ? <span className="text-destructive">Blocked</span> : <span className="text-green-500">Active</span>}
                         </td>
                         <td className="p-4 text-sm text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</td>
-                        <td className="p-4 flex gap-2">
+                        <td className="p-4 flex gap-2 flex-wrap">
                           <Button size="sm" variant="outline" onClick={() => updateUserRole(u.id, u.role)}>
                             Make {u.role === 'admin' ? 'User' : 'Admin'}
                           </Button>
                           <Button size="sm" variant={u.blocked ? "default" : "destructive"} onClick={() => toggleUserBlock(u.id, u.blocked)}>
                             {u.blocked ? 'Unblock' : 'Block'}
                           </Button>
+                          <div className="flex gap-1 items-center mt-1 w-full">
+                            <input
+                              type="password"
+                              placeholder="New password"
+                              value={resetPasswords[u.id] ?? ""}
+                              onChange={e => setResetPasswords(prev => ({ ...prev, [u.id]: e.target.value }))}
+                              className="h-8 text-xs rounded-md border border-input bg-background px-2 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <Button size="sm" variant="secondary" disabled={resettingId === u.id} onClick={() => resetPassword(u.id)}>
+                              <KeyRound className="w-3.5 h-3.5 mr-1" />{resettingId === u.id ? "..." : "Reset"}
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}

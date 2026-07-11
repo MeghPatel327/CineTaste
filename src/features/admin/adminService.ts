@@ -1,5 +1,7 @@
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { getAllUsers, updateUserAdmin, getPirateSites, addPirateSite, updatePirateSite, deletePirateSite } from "./adminRepository";
+import { updateUserPassword } from "../auth/userRepository";
 import { ApiError } from "@/lib/ApiError";
 
 const updateUserSchema = z.object({
@@ -27,23 +29,23 @@ export async function getAllUsersService() {
     role: u.role,
     blocked: u.blocked,
     created_at: u.created_at,
-    last_login: u.last_login
+    last_login: u.last_login,
   }));
 }
 
 export async function updateUserService(id: number, body: any) {
   const result = updateUserSchema.safeParse(body);
-  if (!result.success) {
-    throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
-  }
-
+  if (!result.success) throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
   const updatedUser = await updateUserAdmin(id, result.data);
-  return {
-    id: updatedUser.id,
-    username: updatedUser.username,
-    role: updatedUser.role,
-    blocked: updatedUser.blocked
-  };
+  return { id: updatedUser.id, username: updatedUser.username, role: updatedUser.role, blocked: updatedUser.blocked };
+}
+
+export async function resetUserPasswordService(id: number, newPassword: string) {
+  if (!newPassword || newPassword.length < 6) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Password must be at least 6 characters");
+  }
+  const hash = await bcrypt.hash(newPassword, 10);
+  await updateUserPassword(id, hash);
 }
 
 export async function getPirateSitesService() {
@@ -52,17 +54,13 @@ export async function getPirateSitesService() {
 
 export async function addPirateSiteService(body: any) {
   const result = addSiteSchema.safeParse(body);
-  if (!result.success) {
-    throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
-  }
+  if (!result.success) throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
   return await addPirateSite(result.data);
 }
 
 export async function updatePirateSiteService(id: number, body: any) {
   const result = updateSiteSchema.safeParse(body);
-  if (!result.success) {
-    throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
-  }
+  if (!result.success) throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
   return await updatePirateSite(id, result.data);
 }
 
