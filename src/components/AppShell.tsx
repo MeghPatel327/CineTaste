@@ -28,7 +28,8 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="flex min-h-screen">
       <Sidebar isAdmin={isAdmin} />
-      <main className="flex-1 min-w-0 overflow-x-hidden">
+      {/* On mobile, left-pad main to clear the fixed hamburger button (left-4 ~44px) */}
+      <main className="flex-1 min-w-0 overflow-x-hidden pl-14 md:pl-0">
         {children}
       </main>
     </div>
