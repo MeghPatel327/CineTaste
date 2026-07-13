@@ -32,7 +32,7 @@ export async function getDashboardStatsService(username: string) {
   const favoriteGenres = Object.entries(genreCounts)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
+    .slice(0, 7);
 
   // Get 3 recommendation previews
   const recommendations = await generateRecommendations(username);

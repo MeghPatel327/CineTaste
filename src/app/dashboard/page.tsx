@@ -26,7 +26,7 @@ let dashboardCacheRef: { data: any; fetchedAt: number } | null = null;
 const DASHBOARD_TTL = 60_000;
 
 
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6"];
 const staggerStyle = (index: number, step = 50) => ({
   "--ct-stagger-delay": `${index * step}ms`,
 } as CSSProperties);
