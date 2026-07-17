@@ -137,9 +137,9 @@ npm install
 1. Create a free account at [themoviedb.org](https://www.themoviedb.org)
 2. Go to **Settings → API** and request an API key (v3 auth)
 
-### 4. Create `.env.local`
+### 4. Create `.env`
 
-Create a `.env.local` file in the project root:
+Create a `.env` file in the project root:
 
 ```env
 # App
