@@ -8,7 +8,7 @@ import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Skeleton } from "./ui/Skeleton";
 import { toast } from "sonner";
-import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X, Trash2 } from "lucide-react";
+import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/appStore";
 
@@ -36,6 +36,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [movingRank, setMovingRank] = useState(false);
   const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
   const [rating, setRating] = useState(0);
   const [watchLink, setWatchLink] = useState("");
@@ -155,6 +156,33 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       toast.error("Error updating movie");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleMoveRank = async (direction: "up" | "down") => {
+    if (!data?.libraryData || movingRank) return;
+    setMovingRank(true);
+    try {
+      const res = await fetch(`/api/queue/${data.libraryData.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction }),
+      });
+      if (res.ok) {
+        toast.success(direction === "up" ? "Moved up in queue" : "Moved down in queue");
+        // Refresh modal data so the displayed rank updates
+        const cacheKey = `${type}_${tmdbId}`;
+        detailsCache.delete(cacheKey);
+        fetchDetails(cacheKey);
+        if (onUpdated) onUpdated();
+      } else {
+        const result = await res.json();
+        toast.error(result.message || "Failed to move movie");
+      }
+    } catch {
+      toast.error("Error moving movie in queue");
+    } finally {
+      setMovingRank(false);
     }
   };
 
@@ -499,9 +527,29 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                       </div>
                     )}
                     {data.libraryData.status === 'pending' && (
-                      <div className="flex flex-col">
+                      <div className="flex flex-col gap-1">
                         <span className="text-muted-foreground text-xs uppercase tracking-wider">Watch Order</span>
-                        <span className="font-bold">#{data.libraryData.watch_order_rank}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">#{data.libraryData.watch_order_rank}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              onClick={() => handleMoveRank("up")}
+                              disabled={movingRank || data.libraryData.watch_order_rank <= 1}
+                              title="Move up in queue"
+                              className="p-0.5 rounded hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-primary"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleMoveRank("down")}
+                              disabled={movingRank}
+                              title="Move down in queue"
+                              className="p-0.5 rounded hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-primary"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
