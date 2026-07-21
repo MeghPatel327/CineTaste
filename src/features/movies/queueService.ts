@@ -32,7 +32,7 @@ export async function renumberQueue(username: string): Promise<void> {
  * Move a movie up in the queue (swap with previous)
  * Returns the updated movie
  */
-export async function moveMovieUp(movieId: number, username: string): Promise<MovieRow> {
+export async function moveMovieUp(movieId: number, username: string): Promise<{ moved: MovieRow; swapped: MovieRow }> {
   const movies = await getUserMovies(username);
   const movie = movies.find((m) => m.id === movieId);
   
@@ -55,23 +55,24 @@ export async function moveMovieUp(movieId: number, username: string): Promise<Mo
   const currentRank = movie.watch_order_rank || 0;
   const previousRank = previousMovie.watch_order_rank || 0;
   
-  // Swap ranks
-  await updateMovie(previousMovie.id, { watch_order_rank: currentRank });
-  await updateMovie(movieId, { watch_order_rank: previousRank });
+  // Swap ranks in Baserow
+  await Promise.all([
+    updateMovie(previousMovie.id, { watch_order_rank: currentRank }),
+    updateMovie(movieId, { watch_order_rank: previousRank }),
+  ]);
   
-  // Fetch and return updated movie
-  const updated = await getUserMovies(username);
-  const result = updated.find((m) => m.id === movieId);
-  if (!result) throw new ApiError(500, "INTERNAL_ERROR", "Failed to update movie");
-  
-  return result;
+  // Return updated objects built from known data — no extra fetch needed
+  return {
+    moved:   { ...movie,         watch_order_rank: previousRank },
+    swapped: { ...previousMovie, watch_order_rank: currentRank  },
+  };
 }
 
 /**
  * Move a movie down in the queue (swap with next)
  * Returns the updated movie
  */
-export async function moveMovieDown(movieId: number, username: string): Promise<MovieRow> {
+export async function moveMovieDown(movieId: number, username: string): Promise<{ moved: MovieRow; swapped: MovieRow }> {
   const movies = await getUserMovies(username);
   const movie = movies.find((m) => m.id === movieId);
   
@@ -94,16 +95,17 @@ export async function moveMovieDown(movieId: number, username: string): Promise<
   const currentRank = movie.watch_order_rank || 0;
   const nextRank = nextMovie.watch_order_rank || 0;
   
-  // Swap ranks
-  await updateMovie(nextMovie.id, { watch_order_rank: currentRank });
-  await updateMovie(movieId, { watch_order_rank: nextRank });
+  // Swap ranks in Baserow
+  await Promise.all([
+    updateMovie(nextMovie.id, { watch_order_rank: currentRank }),
+    updateMovie(movieId, { watch_order_rank: nextRank }),
+  ]);
   
-  // Fetch and return updated movie
-  const updated = await getUserMovies(username);
-  const result = updated.find((m) => m.id === movieId);
-  if (!result) throw new ApiError(500, "INTERNAL_ERROR", "Failed to update movie");
-  
-  return result;
+  // Return updated objects built from known data — no extra fetch needed
+  return {
+    moved:   { ...movie,     watch_order_rank: nextRank    },
+    swapped: { ...nextMovie, watch_order_rank: currentRank },
+  };
 }
 
 /**

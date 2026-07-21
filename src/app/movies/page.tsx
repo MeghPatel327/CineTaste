@@ -151,6 +151,21 @@ export default function MovieLibraryPage() {
     } catch { toast.error("Error updating watch order"); refresh(); }
   };
 
+  // Targeted 2-row update after a rank swap from the modal — no full reload
+  const handleRankChanged = useCallback((
+    movedId: number, movedNewRank: number | null,
+    swappedId: number, swappedNewRank: number | null
+  ) => {
+    const patch = (prev: MovieRow[]) => prev.map(m => {
+      if (m.id === movedId)   return { ...m, watch_order_rank: movedNewRank };
+      if (m.id === swappedId) return { ...m, watch_order_rank: swappedNewRank };
+      return m;
+    });
+    setMovies(patch);
+    dispatch({ type: "UPDATE_LIBRARY_ITEM", payload: { id: movedId,   updates: { watch_order_rank: movedNewRank   } } });
+    dispatch({ type: "UPDATE_LIBRARY_ITEM", payload: { id: swappedId, updates: { watch_order_rank: swappedNewRank } } });
+  }, [dispatch]);
+
   const filteredMovies = movies.filter(m => {
     if (search && !m.movie_name.toLowerCase().includes(search.toLowerCase())) return false;
     if (statusFilter !== "all" && m.status !== statusFilter) return false;
@@ -239,6 +254,7 @@ export default function MovieLibraryPage() {
         tmdbId={selectedItem?.id || 0}
         type={selectedItem?.type || "movie"}
         onUpdated={refresh}
+        onRankChanged={handleRankChanged}
         onNavigate={(id, type) => setSelectedItem({ id, type: type || "movie" })}
       />
     </AppShell>

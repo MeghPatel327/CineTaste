@@ -21,10 +21,11 @@ interface MovieDetailsModalProps {
   tmdbId: number;
   type?: "movie" | "series";
   onUpdated?: () => void;
+  onRankChanged?: (movedId: number, movedNewRank: number | null, swappedId: number, swappedNewRank: number | null) => void;
   onNavigate?: (tmdbId: number, type?: "movie" | "series") => void;
 }
 
-export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onUpdated, onNavigate }: MovieDetailsModalProps) {
+export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onUpdated, onRankChanged, onNavigate }: MovieDetailsModalProps) {
   const { getPirateSites } = useAppStore();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -169,12 +170,31 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
         body: JSON.stringify({ direction }),
       });
       if (res.ok) {
-        toast.success(direction === "up" ? "Moved up in queue" : "Moved down in queue");
-        // Refresh modal data so the displayed rank updates
+        const json = await res.json();
+        const { moved, swapped } = json.data as { moved: any; swapped: any };
+
+        // Patch modal state directly — no full refetch needed
+        setData((prev: any) => ({
+          ...prev,
+          libraryData: { ...prev.libraryData, watch_order_rank: moved.watch_order_rank },
+        }));
+
+        // Keep the detail cache in sync too
         const cacheKey = `${type}_${tmdbId}`;
-        detailsCache.delete(cacheKey);
-        fetchDetails(cacheKey);
-        if (onUpdated) onUpdated();
+        if (detailsCache.has(cacheKey)) {
+          const cached = detailsCache.get(cacheKey);
+          detailsCache.set(cacheKey, {
+            ...cached,
+            libraryData: { ...cached.libraryData, watch_order_rank: moved.watch_order_rank },
+          });
+        }
+
+        toast.success(direction === "up" ? "Moved up in queue" : "Moved down in queue");
+
+        // Notify parent to do a targeted 2-row update (no full reload)
+        if (onRankChanged) {
+          onRankChanged(moved.id, moved.watch_order_rank, swapped.id, swapped.watch_order_rank);
+        }
       } else {
         const result = await res.json();
         toast.error(result.message || "Failed to move movie");
