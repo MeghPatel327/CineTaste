@@ -106,7 +106,7 @@ export default function UpNextPage() {
         ) : queue.length === 0 ? (
           <EmptyState
             title="Queue is Empty"
-            message="You don't have any pending movies. Add one from the Discover page!"
+            description="You don't have any pending movies. Add one from the Discover page!"
             action={<Link href="/discover" className="inline-block"><Button>Explore Movies</Button></Link>}
           />
         ) : (
