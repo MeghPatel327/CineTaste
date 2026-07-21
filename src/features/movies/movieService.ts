@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { getUserMovies, addMovie, updateMovie, deleteMovie, getMovieById, MovieRow } from "./movieRepository";
 import { ApiError } from "@/lib/ApiError";
+import { getNextWatchOrderRank, handleStatusChange } from "./queueService";
 
 const addMovieSchema = z.object({
   movie_name: z.string().min(1),
   type: z.enum(["movie", "series"]),
   status: z.enum(["completed", "pending", "dropped"]),
   rating: z.number().min(0).max(10),
-  watch_order_rank: z.number().int(),
+  watch_order_rank: z.number().int().optional(), // No longer required
   watch_link: z.string().nullable().optional(),
   tmdb_id: z.number(),
   genres: z.string(),
@@ -42,8 +43,17 @@ export async function addMovieService(username: string, body: any) {
     throw new ApiError(409, "DUPLICATE_MOVIE", "Movie already exists in your library");
   }
 
+  // Determine watch_order_rank based on status
+  let watchOrderRank: number | null = null;
+  if (result.data.status === "pending") {
+    // Auto-assign next watch order position
+    watchOrderRank = await getNextWatchOrderRank(username);
+  }
+  // For completed or dropped, watch_order_rank remains null
+
   return await addMovie({
     ...result.data,
+    watch_order_rank: watchOrderRank,
     watch_link: result.data.watch_link || null,
     username,
   });
@@ -61,6 +71,11 @@ export async function updateMovieService(id: number, username: string, body: any
   const result = updateMovieSchema.safeParse(body);
   if (!result.success) {
     throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
+  }
+
+  // Handle status changes for queue management
+  if (result.data.status && result.data.status !== movie.status) {
+    await handleStatusChange(id, username, movie.status, result.data.status);
   }
 
   return await updateMovie(id, result.data);

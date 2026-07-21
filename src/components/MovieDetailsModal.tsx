@@ -38,7 +38,6 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   const [removing, setRemoving] = useState(false);
   const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
   const [rating, setRating] = useState(0);
-  const [watchOrder, setWatchOrder] = useState(0);
   const [watchLink, setWatchLink] = useState("");
   const [isFormExiting, setIsFormExiting] = useState(false);
 
@@ -69,7 +68,6 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       finishFormClose();
       setStatus("pending");
       setRating(0);
-      setWatchOrder(0);
       setWatchLink("");
     }
   }, [isOpen]);
@@ -83,9 +81,8 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
         movie_name: data.title || "",
         type: data.type,
         status,
-        rating,
-        watch_order_rank: watchOrder,
-        watch_link: watchLink || null,
+        rating: status === "completed" || status === "dropped" ? rating : 0,
+        watch_link: status === "pending" ? (watchLink || null) : null,
         tmdb_id: data.tmdb_id,
         genres: JSON.stringify(data.genres ? data.genres.split(", ").map((g: string) => g.trim()) : []),
         release_year: data.release_year,
@@ -123,7 +120,6 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
     const lib = data.libraryData;
     setStatus(lib.status || "pending");
     setRating(lib.rating || 0);
-    setWatchOrder(lib.watch_order_rank || 0);
     setWatchLink(lib.watch_link || "");
     setIsEditing(true);
   };
@@ -135,9 +131,8 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
     try {
       const payload = {
         status,
-        rating,
-        watch_order_rank: watchOrder,
-        watch_link: watchLink || null,
+        rating: status === "completed" || status === "dropped" ? rating : 0,
+        watch_link: status === "pending" ? (watchLink || null) : null,
       };
 
       const res = await fetch(`/api/movies/${data.libraryData.id}`, {
@@ -349,21 +344,19 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                           <option value="dropped">Dropped</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="text-xs font-medium mb-1 block text-white/70">Rating (0-10)</label>
-                        <Input type="number" min="0" max="10" value={rating} onChange={e => setRating(parseFloat(e.target.value) || 0)} className="h-9 bg-black/50 border-white/20 text-white" />
-                      </div>
+                      {(status === "completed" || status === "dropped") && (
+                        <div>
+                          <label className="text-xs font-medium mb-1 block text-white/70">Rating (0-10)</label>
+                          <Input type="number" min="0" max="10" value={rating} onChange={e => setRating(parseFloat(e.target.value) || 0)} className="h-9 bg-black/50 border-white/20 text-white" />
+                        </div>
+                      )}
                     </div>
                     {status === "pending" && (
                       <div className="text-left">
-                        <label className="text-xs font-medium mb-1 block text-white/70">Watch Order Rank</label>
-                        <Input type="number" value={watchOrder} onChange={e => setWatchOrder(parseInt(e.target.value) || 0)} className="h-9 bg-black/50 border-white/20 text-white" />
+                        <label className="text-xs font-medium mb-1 block text-white/70">Personal Watch Link (Optional)</label>
+                        <Input type="url" placeholder="https://..." value={watchLink} onChange={e => setWatchLink(e.target.value)} className="h-9 bg-black/50 border-white/20 text-white" />
                       </div>
                     )}
-                    <div className="text-left">
-                      <label className="text-xs font-medium mb-1 block text-white/70">Personal Watch Link (Optional)</label>
-                      <Input type="url" placeholder="https://..." value={watchLink} onChange={e => setWatchLink(e.target.value)} className="h-9 bg-black/50 border-white/20 text-white" />
-                    </div>
                     <div className="pt-2">
                       <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={saving}>
                         {saving ? <BrandLogo variant="compact" className="w-4 h-4 mr-2" imageClassName="animate-[spin_2.5s_linear_infinite]" /> : isEditing ? <Edit className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}

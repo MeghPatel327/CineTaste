@@ -22,7 +22,6 @@ export default function EditMoviePage() {
   // Form State
   const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
   const [rating, setRating] = useState(0);
-  const [watchOrder, setWatchOrder] = useState(0);
   const [watchLink, setWatchLink] = useState("");
 
   useEffect(() => {
@@ -44,7 +43,6 @@ export default function EditMoviePage() {
           setMovie(found);
           setStatus(found.status);
           setRating(found.rating || 0);
-          setWatchOrder(found.watch_order_rank || 0);
           setWatchLink(found.watch_link || "");
         } else {
           setError(true);
@@ -66,9 +64,8 @@ export default function EditMoviePage() {
     try {
       const payload = {
         status,
-        rating,
-        watch_order_rank: watchOrder,
-        watch_link: watchLink || null,
+        rating: status === "completed" || status === "dropped" ? rating : 0,
+        watch_link: status === "pending" ? (watchLink || null) : null,
       };
 
       const res = await fetch(`/api/movies/${movie.id}`, {
@@ -137,23 +134,20 @@ export default function EditMoviePage() {
                       <option value="dropped">Dropped</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Rating (0-10)</label>
-                    <Input type="number" min="0" max="10" value={rating} onChange={e => setRating(parseFloat(e.target.value) || 0)} />
-                  </div>
+                  {(status === "completed" || status === "dropped") && (
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Rating (0-10)</label>
+                      <Input type="number" min="0" max="10" value={rating} onChange={e => setRating(parseFloat(e.target.value) || 0)} />
+                    </div>
+                  )}
                 </div>
 
                 {status === "pending" && (
                   <div>
-                    <label className="text-sm font-medium mb-1 block">Watch Order Rank</label>
-                    <Input type="number" value={watchOrder} onChange={e => setWatchOrder(parseInt(e.target.value) || 0)} />
+                    <label className="text-sm font-medium mb-1 block">Personal Watch Link (Optional)</label>
+                    <Input type="url" placeholder="https://..." value={watchLink} onChange={e => setWatchLink(e.target.value)} />
                   </div>
                 )}
-
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Personal Watch Link (Optional)</label>
-                  <Input type="url" placeholder="https://..." value={watchLink} onChange={e => setWatchLink(e.target.value)} />
-                </div>
 
                 <div className="flex gap-4 pt-4">
                   <Button type="button" variant="outline" onClick={() => router.back()} className="flex-1">Cancel</Button>
