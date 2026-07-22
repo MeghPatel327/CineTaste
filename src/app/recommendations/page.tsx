@@ -10,12 +10,14 @@ import { MovieRow } from "@/features/movies/movieRepository";
 import { Button } from "@/components/ui/Button";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 
 export default function UpNextPage() {
   const [queue, setQueue] = useState<MovieRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [movingId, setMovingId] = useState<number | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
 
   useEffect(() => {
     fetchQueue();
@@ -114,7 +116,8 @@ export default function UpNextPage() {
             {queue.map((movie, index) => (
               <div
                 key={movie.id}
-                className="flex items-center gap-4 bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow group"
+                onClick={() => setSelectedItem({ id: movie.tmdb_id, type: (movie.type as any) || "movie" })}
+                className="flex items-center gap-4 bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow group cursor-pointer"
               >
                 {/* Position Badge */}
                 <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -147,6 +150,7 @@ export default function UpNextPage() {
                     href={movie.watch_link}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
                     className="text-primary hover:underline text-sm font-medium flex-shrink-0"
                   >
                     Watch →
@@ -156,7 +160,7 @@ export default function UpNextPage() {
                 {/* Move Buttons */}
                 <div className="flex gap-2 flex-shrink-0">
                   <button
-                    onClick={() => handleMoveUp(movie.id, index)}
+                    onClick={(e) => { e.stopPropagation(); handleMoveUp(movie.id, index); }}
                     disabled={index === 0 || movingId === movie.id}
                     className="p-2 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     title="Move up"
@@ -165,7 +169,7 @@ export default function UpNextPage() {
                     <ChevronUp className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => handleMoveDown(movie.id, index)}
+                    onClick={(e) => { e.stopPropagation(); handleMoveDown(movie.id, index); }}
                     disabled={index === queue.length - 1 || movingId === movie.id}
                     className="p-2 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     title="Move down"
@@ -179,6 +183,14 @@ export default function UpNextPage() {
           </div>
         )}
       </div>
+      <MovieDetailsModal
+        isOpen={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        tmdbId={selectedItem?.id || 0}
+        type={selectedItem?.type || "movie"}
+        onUpdated={fetchQueue}
+        onNavigate={(id, type) => setSelectedItem({ id, type: type || "movie" })}
+      />
     </AppShell>
   );
 }
