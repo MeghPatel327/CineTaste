@@ -117,7 +117,7 @@ export default function UpNextPage() {
               <div
                 key={movie.id}
                 onClick={() => setSelectedItem({ id: movie.tmdb_id, type: (movie.type as any) || "movie" })}
-                className="flex items-center gap-4 bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer"
+                className="flex items-center gap-4 bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-[0_8px_24px_rgba(46,111,64,0.4)] hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 group cursor-pointer"
               >
                 {/* Position Badge */}
                 <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
