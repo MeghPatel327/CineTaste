@@ -73,12 +73,20 @@ export async function updateMovieService(id: number, username: string, body: any
     throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
   }
 
-  // Handle status changes for queue management
+  // Apply the data change FIRST so the movie's new status is committed to the
+  // database before any queue-renumbering logic runs.  Previously the order was
+  // reversed: handleStatusChange → renumberQueue would still see this movie as
+  // "pending" (old status) and assign it rank 1, then updateMovie would stamp
+  // status = "completed" but leave watch_order_rank = 1 in the row.
+  const updatedMovie = await updateMovie(id, result.data);
+
+  // Now handle queue changes — the DB already reflects the new status so
+  // getPendingQueue / renumberQueue will see the correct picture.
   if (result.data.status && result.data.status !== movie.status) {
     await handleStatusChange(id, username, movie.status, result.data.status);
   }
 
-  return await updateMovie(id, result.data);
+  return updatedMovie;
 }
 
 export async function deleteMovieService(id: number, username: string) {
@@ -90,5 +98,22 @@ export async function deleteMovieService(id: number, username: string) {
     throw new ApiError(403, "FORBIDDEN", "Forbidden");
   }
 
-  await deleteMovie(id);
+  // If the movie was pending, repair the queue after deletion:
+  // shift all higher-ranked pending movies down by one to close the gap.
+  if (movie.status === "pending" && movie.watch_order_rank) {
+    const deletedRank = movie.watch_order_rank;
+    await deleteMovie(id);
+    // Now shift all remaining pending movies that were ranked below the deleted one
+    const remaining = await getUserMovies(username);
+    const below = remaining.filter(
+      (m) => m.status === "pending" && (m.watch_order_rank ?? 0) > deletedRank
+    );
+    await Promise.all(
+      below.map((m) =>
+        updateMovie(m.id, { watch_order_rank: (m.watch_order_rank ?? 0) - 1 })
+      )
+    );
+  } else {
+    await deleteMovie(id);
+  }
 }

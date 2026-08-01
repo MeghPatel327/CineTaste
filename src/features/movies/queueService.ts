@@ -119,11 +119,17 @@ export async function getNextWatchOrderRank(username: string): Promise<number> {
 }
 
 /**
- * Handle status change: update queue accordingly
- * - Pending → Completed: remove from queue (set rank to NULL), renumber
- * - Pending → Dropped: remove from queue (set rank to NULL), renumber
- * - Completed/Dropped → Pending: append to end of queue
- * - Other transitions: no queue changes
+ * Handle status change: update queue accordingly.
+ *
+ * IMPORTANT: by the time this function is called, the movie's new status
+ * has already been committed to the DB (updateMovie was called first in
+ * updateMovieService). This means getPendingQueue will NOT include the
+ * transitioning movie, so renumbering is safe.
+ *
+ * - Pending → Completed/Dropped: clear rank on the removed movie, then
+ *   shift all movies that were ranked below it down by one to close the gap.
+ * - Completed/Dropped → Pending: append to end of queue.
+ * - Other transitions: no queue changes.
  */
 export async function handleStatusChange(
   movieId: number,
@@ -132,24 +138,37 @@ export async function handleStatusChange(
   newStatus: string
 ): Promise<void> {
   if (oldStatus === newStatus) return;
-  
-  const movies = await getUserMovies(username);
-  const movie = movies.find((m) => m.id === movieId);
-  if (!movie) return;
-  
-  // Pending → Completed or Pending → Dropped: Remove from queue and renumber
+
+  // Pending → Completed or Pending → Dropped
   if (oldStatus === "pending" && (newStatus === "completed" || newStatus === "dropped")) {
-    await updateMovie(movieId, { watch_order_rank: null as any });
-    await renumberQueue(username);
+    const movies = await getUserMovies(username);
+    const movie = movies.find((m) => m.id === movieId);
+    const removedRank = movie?.watch_order_rank ?? 0;
+
+    // Clear the rank on the removed movie (status already updated in DB)
+    if (removedRank) {
+      await updateMovie(movieId, { watch_order_rank: null as any });
+    }
+
+    // Shift every pending movie ranked above the removed one down by 1
+    const below = movies.filter(
+      (m) => m.status === "pending" && (m.watch_order_rank ?? 0) > removedRank
+    );
+    await Promise.all(
+      below.map((m) =>
+        updateMovie(m.id, { watch_order_rank: (m.watch_order_rank ?? 0) - 1 })
+      )
+    );
+    return;
   }
-  
-  // Completed/Dropped → Pending: Append to end of queue
+
+  // Completed/Dropped → Pending: append to end of queue
   if ((oldStatus === "completed" || oldStatus === "dropped") && newStatus === "pending") {
     const nextRank = await getNextWatchOrderRank(username);
     await updateMovie(movieId, { watch_order_rank: nextRank });
   }
-  
-  // Completed → Dropped or Dropped → Completed: No queue change
+
+  // Completed → Dropped or Dropped → Completed: no queue change
 }
 
 /**
