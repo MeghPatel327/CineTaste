@@ -171,7 +171,7 @@ export function MovieCard({
       data-image-ready={imgPhase === "loaded" ? "true" : undefined}
       data-ambient={ambientRgb ? "true" : undefined}
       className={cn(
-        "ct-movie-card group relative w-36 md:w-44 shrink-0 rounded-xl cursor-pointer select-none outline-none",
+        "ct-movie-card group relative w-28 md:w-36 shrink-0 rounded-xl cursor-pointer select-none outline-none",
         "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className
       )}

@@ -174,7 +174,7 @@ export function HorizontalRow({
                   onClick={onSelect}
                 />
               ) : (
-                <div className="w-36 md:w-44 shrink-0" aria-hidden="true">
+                <div className="w-28 md:w-36 shrink-0" aria-hidden="true">
                   <div className="w-full aspect-[2/3] rounded-xl ct-shimmer" />
                   <div className="h-3 w-3/4 rounded ct-shimmer mt-2" />
                 </div>
