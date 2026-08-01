@@ -1,4 +1,4 @@
-import { baserowCreate, baserowDelete, baserowGet, baserowUpdate } from "@/lib/baserow";
+import { baserowCreate, baserowDelete, baserowGetAll, baserowUpdate } from "@/lib/baserow";
 import { env } from "@/lib/env";
 
 export interface MovieRow {
@@ -22,10 +22,10 @@ export interface MovieRow {
 }
 
 export async function getUserMovies(username: string): Promise<MovieRow[]> {
-  const response = await baserowGet<MovieRow>(env.BASEROW_MOVIES_TABLE_ID, {
+  const results = await baserowGetAll<MovieRow>(env.BASEROW_MOVIES_TABLE_ID, {
     search: username, // Manual filter below to ensure exact match
   });
-  return response.results.filter((m) => m.username === username);
+  return results.filter((m) => m.username === username);
 }
 
 export async function addMovie(data: Omit<MovieRow, "id" | "created_at" | "updated_at">): Promise<MovieRow> {

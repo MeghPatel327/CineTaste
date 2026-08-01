@@ -1,4 +1,4 @@
-import { baserowGet, baserowCreate, baserowUpdate } from "@/lib/baserow";
+import { baserowGetAll, baserowCreate, baserowUpdate } from "@/lib/baserow";
 import { env } from "@/lib/env";
 
 export interface UserRow {
@@ -12,10 +12,10 @@ export interface UserRow {
 }
 
 export async function findUserByUsername(username: string): Promise<UserRow | null> {
-  const response = await baserowGet<UserRow>(env.BASEROW_USERS_TABLE_ID, {
+  const results = await baserowGetAll<UserRow>(env.BASEROW_USERS_TABLE_ID, {
     search: username,
   });
-  return response.results.find((u) => u.username === username) || null;
+  return results.find((u) => u.username === username) || null;
 }
 
 export async function createUser(data: Omit<UserRow, "id">): Promise<UserRow> {

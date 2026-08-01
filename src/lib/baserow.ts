@@ -69,28 +69,36 @@ async function fetchWithRetry(
   throw lastError || new Error("fetchWithRetry: all retries exhausted");
 }
 
-export async function baserowGet<T>(tableId: string, queryParams: Record<string, string> = {}): Promise<BaserowListResponse<T>> {
+export async function baserowGetAll<T>(tableId: string, queryParams: Record<string, string> = {}): Promise<T[]> {
+  let allResults: T[] = [];
   const url = new URL(`${env.BASEROW_API_URL}/api/database/rows/table/${tableId}/`);
   url.searchParams.append("user_field_names", "true");
+  url.searchParams.append("size", "200"); // Maximum allowed size per request
   
   for (const [key, value] of Object.entries(queryParams)) {
     url.searchParams.append(key, value);
   }
 
-  const response = await fetchWithRetry(url.toString(), {
-    method: "GET",
-    headers: defaultHeaders,
-  });
+  let currentUrl: string | null = url.toString();
 
-  if (!response.ok) {
-    throw new Error(`Baserow GET Error: ${response.status} ${response.statusText}`);
+  while (currentUrl) {
+    const response = await fetchWithRetry(currentUrl, {
+      method: "GET",
+      headers: defaultHeaders,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Baserow GET Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const normalizedResults = data.results.map((row: any) => normalizeRow<T>(row));
+    allResults = allResults.concat(normalizedResults);
+
+    currentUrl = data.next;
   }
 
-  const data = await response.json();
-  return {
-    ...data,
-    results: data.results.map((row: any) => normalizeRow<T>(row)),
-  };
+  return allResults;
 }
 
 export async function baserowCreate<T>(tableId: string, data: Record<string, any>): Promise<T> {

@@ -1,4 +1,4 @@
-import { baserowGet, baserowCreate, baserowUpdate, baserowDelete } from "@/lib/baserow";
+import { baserowGetAll, baserowCreate, baserowUpdate, baserowDelete } from "@/lib/baserow";
 import { env } from "@/lib/env";
 import { UserRow } from "@/features/auth/userRepository";
 
@@ -11,8 +11,8 @@ export interface PirateSiteRow {
 
 // User Admin Operations
 export async function getAllUsers(): Promise<UserRow[]> {
-  const response = await baserowGet<UserRow>(env.BASEROW_USERS_TABLE_ID);
-  return response.results;
+  const results = await baserowGetAll<UserRow>(env.BASEROW_USERS_TABLE_ID);
+  return results;
 }
 
 export async function updateUserAdmin(id: number, data: Partial<UserRow>): Promise<UserRow> {
@@ -21,8 +21,8 @@ export async function updateUserAdmin(id: number, data: Partial<UserRow>): Promi
 
 // Pirate Site Operations
 export async function getPirateSites(): Promise<PirateSiteRow[]> {
-  const response = await baserowGet<PirateSiteRow>(env.BASEROW_PIRATES_TABLE_ID);
-  return response.results;
+  const results = await baserowGetAll<PirateSiteRow>(env.BASEROW_PIRATES_TABLE_ID);
+  return results;
 }
 
 export async function addPirateSite(data: Omit<PirateSiteRow, "id">): Promise<PirateSiteRow> {
