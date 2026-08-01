@@ -1,9 +1,9 @@
-"use client";
-
 import { useRef, useState, useEffect, useCallback, useId } from "react";
 import type { CSSProperties } from "react";
 import { MovieCard } from "./MovieCard";
 import type { FeedbackAction } from "./MovieCard";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface RowItem {
   id?: number;
@@ -45,6 +45,8 @@ export function HorizontalRow({
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [visibleUntil, setVisibleUntil] = useState(PRELOAD_BUFFER);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
 
   // ── Arrow key navigation ─────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -52,6 +54,34 @@ export function HorizontalRow({
     if (!el) return;
     if (e.key === "ArrowRight") { e.preventDefault(); el.scrollLeft += CARD_SCROLL_STEP; }
     else if (e.key === "ArrowLeft") { e.preventDefault(); el.scrollLeft -= CARD_SCROLL_STEP; }
+  }, []);
+
+  // ── Click navigation ─────────────────────────────────────────────────
+  const scrollRow = useCallback((direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el || el.children.length === 0) return;
+    
+    // The cards are flex items with gap-4 (16px)
+    const cardEl = el.children[0] as HTMLElement;
+    if (!cardEl) return;
+    
+    const cardWidth = cardEl.offsetWidth + 16; // width + gap
+    const visibleCards = Math.floor(el.clientWidth / cardWidth);
+    const cardsToScroll = Math.max(1, visibleCards - 1);
+    const scrollAmount = cardsToScroll * cardWidth;
+
+    el.scrollBy({
+      left: direction === "right" ? scrollAmount : -scrollAmount,
+      behavior: "smooth"
+    });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowLeftArrow(el.scrollLeft > 10);
+    // tolerance of 10px for rounding
+    setShowRightArrow(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
   }, []);
 
   // ── Smart preloading ─────────────────────────────────────────────────
@@ -82,17 +112,41 @@ export function HorizontalRow({
         {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
 
-      <div
-        ref={scrollRef}
-        role="list"
-        aria-label={`${title} scroll list`}
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        // py-4 gives lifted cards room to breathe vertically without being clipped
-        // overflow-y-visible would fight overflow-x-auto, so we use padding instead
-        className="flex gap-4 overflow-x-auto py-4 -my-4 snap-x snap-mandatory hide-scrollbar focus:outline-none"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
+      <div className="relative group">
+        {/* Left Arrow */}
+        {showLeftArrow && (
+          <button
+            onClick={() => scrollRow("left")}
+            className="absolute left-0 top-[45%] -translate-y-1/2 -ml-4 z-10 hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-background/80 backdrop-blur-md border border-border shadow-lg opacity-0 group-hover:opacity-100 transition-opacity text-foreground hover:bg-secondary hover:scale-110 active:scale-95"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Right Arrow */}
+        {showRightArrow && (
+          <button
+            onClick={() => scrollRow("right")}
+            className="absolute right-0 top-[45%] -translate-y-1/2 -mr-4 z-10 hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-background/80 backdrop-blur-md border border-border shadow-lg opacity-0 group-hover:opacity-100 transition-opacity text-foreground hover:bg-secondary hover:scale-110 active:scale-95"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        )}
+
+        <div
+          ref={scrollRef}
+          role="list"
+          aria-label={`${title} scroll list`}
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
+          onScroll={handleScroll}
+          // py-4 gives lifted cards room to breathe vertically without being clipped
+          // overflow-y-visible would fight overflow-x-auto, so we use padding instead
+          className="flex gap-4 overflow-x-auto py-4 -my-4 snap-x snap-mandatory hide-scrollbar focus:outline-none"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
         {items.map((item, index) => {
           const id = item.movieId ?? item.id ?? 0;
           const posterUrl =
@@ -132,6 +186,7 @@ export function HorizontalRow({
         })}
 
         <div ref={sentinelRef} className="shrink-0 w-px h-px self-center" aria-hidden="true" />
+      </div>
       </div>
     </section>
   );

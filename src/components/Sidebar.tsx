@@ -12,6 +12,8 @@ import {
   Menu,
   X,
   ListTodo,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -31,6 +33,22 @@ export function Sidebar({ isAdmin }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("ct_sidebar_collapsed");
+    if (saved === "true") setIsCollapsed(true);
+    setMounted(true);
+  }, []);
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem("ct_sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   // Prefetch all app routes once on mount so navigation feels instant
   useEffect(() => {
@@ -45,21 +63,40 @@ export function Sidebar({ isAdmin }: SidebarProps) {
     return pathname.startsWith(href);
   };
 
-  const sidebarContent = (
-    <div className="flex flex-col h-full">
-      {/* Brand */}
-      <div className="p-5 pb-6 border-b border-sidebar-border">
+  const sidebarContent = (isDesktop: boolean) => (
+    <div className="flex flex-col h-full relative">
+      {/* Brand & Toggle */}
+      <div className={cn(
+        "p-5 pb-6 border-b border-sidebar-border flex items-center",
+        isDesktop && isCollapsed ? "justify-center px-0" : "justify-between"
+      )}>
         <Link
           href="/dashboard"
-          className="flex items-center group pl-2"
+          className={cn("flex items-center group", !isDesktop || !isCollapsed ? "pl-2" : "")}
           onClick={() => setMobileOpen(false)}
         >
-          <BrandLogo variant="full" className="w-36" />
+          {isDesktop && isCollapsed ? (
+            <img src="/circle_logo.png" alt="CineTaste" className="w-8 h-8" />
+          ) : (
+            <BrandLogo variant="full" className="w-36" />
+          )}
         </Link>
+        {isDesktop && (
+          <button
+            onClick={toggleCollapse}
+            className={cn(
+              "p-1.5 rounded-md hover:bg-sidebar-accent/60 text-muted-foreground hover:text-foreground transition-colors hidden md:block",
+              isCollapsed ? "absolute -right-3 top-6 bg-sidebar border border-sidebar-border shadow-sm z-10 rounded-full p-1" : ""
+            )}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-5 h-5" />}
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => {
           const active = isActive(item.href);
           return (
@@ -67,8 +104,10 @@ export function Sidebar({ isAdmin }: SidebarProps) {
               key={item.href}
               href={item.href}
               onClick={() => setMobileOpen(false)}
+              title={isDesktop && isCollapsed ? item.label : undefined}
               className={cn(
-                "sidebar-nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium",
+                "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300",
+                isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
                 active
                   ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
                   : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
@@ -80,7 +119,9 @@ export function Sidebar({ isAdmin }: SidebarProps) {
                   active ? "text-primary" : "text-muted-foreground"
                 )}
               />
-              <span>{item.label}</span>
+              {(!isDesktop || !isCollapsed) && (
+                <span className="whitespace-nowrap">{item.label}</span>
+              )}
             </Link>
           );
         })}
@@ -91,8 +132,10 @@ export function Sidebar({ isAdmin }: SidebarProps) {
             <Link
               href="/admin"
               onClick={() => setMobileOpen(false)}
+              title={isDesktop && isCollapsed ? "Admin" : undefined}
               className={cn(
-                "sidebar-nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium",
+                "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300",
+                isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
                 isActive("/admin")
                   ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
                   : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
@@ -104,7 +147,9 @@ export function Sidebar({ isAdmin }: SidebarProps) {
                   isActive("/admin") ? "text-primary" : "text-muted-foreground"
                 )}
               />
-              <span>Admin</span>
+              {(!isDesktop || !isCollapsed) && (
+                <span className="whitespace-nowrap">Admin</span>
+              )}
             </Link>
           </>
         )}
@@ -115,15 +160,19 @@ export function Sidebar({ isAdmin }: SidebarProps) {
         <Link
           href="/profile"
           onClick={() => setMobileOpen(false)}
+          title={isDesktop && isCollapsed ? "Profile" : undefined}
           className={cn(
-            "sidebar-nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full",
+            "sidebar-nav-item flex items-center rounded-lg text-sm font-medium w-full transition-all duration-300",
+            isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
             isActive("/profile")
               ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
               : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
           )}
         >
           <User className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
-          <span>Profile</span>
+          {(!isDesktop || !isCollapsed) && (
+            <span className="whitespace-nowrap">Profile</span>
+          )}
         </Link>
       </div>
     </div>
@@ -162,12 +211,15 @@ export function Sidebar({ isAdmin }: SidebarProps) {
         >
           <X className="w-5 h-5" />
         </button>
-        {sidebarContent}
+        {sidebarContent(false)}
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col md:w-64 md:shrink-0 h-screen sticky top-0 bg-sidebar border-r border-sidebar-border">
-        {sidebarContent}
+      <aside className={cn(
+        "hidden md:flex md:flex-col md:shrink-0 h-screen sticky top-0 bg-sidebar border-r border-sidebar-border transition-[width] duration-300 ease-in-out",
+        mounted && isCollapsed ? "md:w-20" : "md:w-64"
+      )}>
+        {sidebarContent(true)}
       </aside>
     </>
   );
