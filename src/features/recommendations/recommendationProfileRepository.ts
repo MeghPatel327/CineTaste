@@ -15,7 +15,7 @@ export interface RecommendationProfileRow {
   updated_at: string;
 }
 
-export const PROFILE_TABLE_ID = "1109767";
+export const PROFILE_TABLE_ID = env.BASEROW_RECOMMENDATION_PROFILE_TABLE_ID;
 
 export async function getRecommendationProfile(username: string): Promise<RecommendationProfileRow | null> {
   const results = await baserowGetAll<RecommendationProfileRow>(PROFILE_TABLE_ID, {

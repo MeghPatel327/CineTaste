@@ -8,4 +8,5 @@ export const env = {
   BASEROW_PIRATES_TABLE_ID: process.env.BASEROW_PIRATES_TABLE_ID || '',
   TMDB_API_KEY: process.env.TMDB_API_KEY || '',
   AUTH_SECRET: process.env.AUTH_SECRET || 'my_development_secret_key_change_me',
+  BASEROW_RECOMMENDATION_PROFILE_TABLE_ID: process.env.BASEROW_RECOMMENDATION_PROFILE_TABLE_ID || '',
 };
