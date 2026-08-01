@@ -2,6 +2,7 @@ import { getUserMovies } from "@/features/movies/movieRepository";
 import { generateRecommendations } from "@/features/recommendations/recommendationEngine";
 import { getRecommendationProfile } from "@/features/recommendations/recommendationProfileRepository";
 import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
+import { after } from "next/server";
 
 export async function getDashboardStatsService(username: string) {
   const movies = await getUserMovies(username);
@@ -68,7 +69,7 @@ export async function getDashboardStatsService(username: string) {
     } catch { /* skip */ }
   } else {
     // No profile yet — trigger background generation
-    Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
+    after(() => { generateProfileAsync(username).catch(console.error); });
 
     // Fallback genre computation from live data
     const genreCounts: Record<string, number> = {};

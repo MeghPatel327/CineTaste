@@ -3,6 +3,7 @@ import { getUserMovies, addMovie, updateMovie, deleteMovie, getMovieById, MovieR
 import { ApiError } from "@/lib/ApiError";
 import { getNextWatchOrderRank, handleStatusChange } from "./queueService";
 import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
+import { after } from "next/server";
 
 const addMovieSchema = z.object({
   movie_name: z.string().min(1),
@@ -58,7 +59,7 @@ export async function addMovieService(username: string, body: any) {
     watch_link: result.data.watch_link || null,
     username,
   });
-  Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
+  after(() => { generateProfileAsync(username).catch(console.error); });
   return finalMovie;
 }
 
@@ -89,7 +90,7 @@ export async function updateMovieService(id: number, username: string, body: any
     await handleStatusChange(id, username, movie.status, result.data.status);
   }
 
-  Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
+  after(() => { generateProfileAsync(username).catch(console.error); });
   return updatedMovie;
 }
 
@@ -120,5 +121,5 @@ export async function deleteMovieService(id: number, username: string) {
   } else {
     await deleteMovie(id);
   }
-  Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
+  after(() => { generateProfileAsync(username).catch(console.error); });
 }
