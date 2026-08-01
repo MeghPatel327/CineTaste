@@ -76,7 +76,7 @@ export async function getDashboardStatsService(username: string) {
   } else {
     // No profile yet — trigger background generation
     logger.info({ module: "dashboardService", action: "TRIGGER_PROFILE_GEN", status: "STARTED", message: "No profile found, triggering background generation" });
-    after(() => { generateProfileAsync(username).catch(console.error); });
+    after(() => { generateProfileAsync(username).catch((err) => logger.error({ module: "dashboardService", action: "GENERATE_PROFILE", status: "FAILED", error: err })); });
 
     // Fallback genre computation from live data
     const genreCounts: Record<string, number> = {};

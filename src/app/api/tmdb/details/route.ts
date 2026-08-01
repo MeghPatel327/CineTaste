@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { getTMDBDetails } from "@/features/movies/tmdbService";
 import { successResponse, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
+import { logger } from "@/lib/logger";
 
 export const GET = withLogger(async (req: NextRequest) => {
   const session = await getSession();
@@ -17,7 +18,7 @@ export const GET = withLogger(async (req: NextRequest) => {
     const details = await getTMDBDetails(parseInt(id, 10), type);
     return successResponse(details);
   } catch (error: any) {
-    console.error("TMDB Details Error:", error);
+    logger.error({ module: "tmdbService", action: "FETCH_DETAILS", status: "FAILED", error, message: "TMDB Details Error" });
     return errorResponse("Internal server error", 500, "INTERNAL_ERROR");
   }
 }, "tmdb-details");
