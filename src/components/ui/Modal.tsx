@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "./Button";
 import { cn } from "@/lib/utils";
@@ -63,7 +64,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = "max-w-2xl"
 
   if (!mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center md:p-4 lg:p-6">
       {/* Backdrop */}
       <div
@@ -104,6 +105,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = "max-w-2xl"
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
