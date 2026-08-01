@@ -1,18 +1,23 @@
 import { baserowCreate, baserowGetAll, baserowUpdate } from "@/lib/baserow";
 import { env } from "@/lib/env";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Row interface — matches the Baserow table schema exactly
+// ─────────────────────────────────────────────────────────────────────────────
 export interface RecommendationProfileRow {
   id?: number;
-  username: string; // Primary Key
-  recommendation_profile: string; // Long Text (JSON)
-  dashboard_cache: string; // Long Text (JSON)
-  recommendation_confidence: number;
+  username: string;
+  favorite_genres: string;              // JSON: Record<string, number>
+  disliked_genres: string;              // JSON: Record<string, number>
+  favorite_actors: string;              // JSON: Record<string, number>
+  favorite_directors: string;           // JSON: Record<string, number>
+  favorite_production_companies: string;// JSON: Record<string, number>
+  favorite_industries: string;          // JSON: Record<string, number>
+  favorite_eras: string;                // JSON: Record<string, number>
+  language_preferences: string;         // JSON: Record<string, number>
   library_hash: string;
-  engine_version: string;
-  generation_status: "Ready" | "Updating" | "Failed";
-  last_error: string;
   generated_at: string;
-  updated_at: string;
+  engine_version: string;
 }
 
 export const PROFILE_TABLE_ID = env.BASEROW_RECOMMENDATION_PROFILE_TABLE_ID;
@@ -34,13 +39,11 @@ export async function saveRecommendationProfile(
   if (existing && existing.id) {
     return baserowUpdate<RecommendationProfileRow>(PROFILE_TABLE_ID, existing.id, {
       ...data,
-      updated_at: now,
     });
   } else {
     return baserowCreate<RecommendationProfileRow>(PROFILE_TABLE_ID, {
       ...data,
       generated_at: data.generated_at || now,
-      updated_at: now,
     });
   }
 }

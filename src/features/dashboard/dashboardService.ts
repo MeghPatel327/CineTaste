@@ -4,71 +4,105 @@ import { getRecommendationProfile } from "@/features/recommendations/recommendat
 import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
 
 export async function getDashboardStatsService(username: string) {
-  const profileRecord = await getRecommendationProfile(username);
-  
-  let dashboardCache: any = null;
-  let favoriteGenres: { name: string; value: number }[] = [];
-
-  if (profileRecord && profileRecord.generation_status === "Ready" && profileRecord.dashboard_cache) {
-    try {
-      dashboardCache = JSON.parse(profileRecord.dashboard_cache);
-      const profileData = JSON.parse(profileRecord.recommendation_profile);
-      
-      const genreCounts = profileData.genres || {};
-      favoriteGenres = Object.entries(genreCounts)
-        .map(([name, value]) => ({ name, value: value as number }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 7);
-    } catch (e) {
-      console.error("Failed to parse profile cache", e);
-    }
-  } else {
-    // Fire off a background generation if it doesn't exist
-    Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
-  }
-
   const movies = await getUserMovies(username);
 
-  // If cache is missing, compute basic fallback stats
-  if (!dashboardCache) {
-    const total = movies.length;
-    const watched = movies.filter(m => m.status === "completed").length;
-    const pending = movies.filter(m => m.status === "pending").length;
-    const completionPercentage = total > 0 ? Math.round((watched / total) * 100) : 0;
-    
-    const next5 = movies
-      .filter(m => m.status === "pending")
-      .sort((a, b) => (a.watch_order_rank || Infinity) - (b.watch_order_rank || Infinity))
-      .slice(0, 5);
+  // ── Basic Stats (always computed from live data for accuracy) ──
+  const total = movies.length;
+  const watched = movies.filter(m => m.status === "completed").length;
+  const pending = movies.filter(m => m.status === "pending").length;
+  const completionPercentage = total > 0 ? Math.round((watched / total) * 100) : 0;
 
-    dashboardCache = {
-      stats: { total, watched, pending, completionPercentage },
-      next5,
-      insights: []
-    };
-    
-    // Basic genres fallback
-    const genreCountsFallback: Record<string, number> = {};
+  const ratedMovies = movies.filter(m => m.rating > 0);
+  const avgRating = ratedMovies.length > 0
+    ? parseFloat((ratedMovies.reduce((acc, m) => acc + Number(m.rating || 0), 0) / ratedMovies.length).toFixed(1))
+    : 0;
+
+  const next5 = movies
+    .filter(m => m.status === "pending")
+    .sort((a, b) => (a.watch_order_rank || Infinity) - (b.watch_order_rank || Infinity))
+    .slice(0, 5);
+
+  // ── Insights (reuse Recommendation Profile when available) ──
+  const profileRecord = await getRecommendationProfile(username);
+  const insights: { title: string; value: string; description: string }[] = [];
+  let favoriteGenres: { name: string; value: number }[] = [];
+
+  if (profileRecord) {
+    // Parse favorite genres from the profile
+    try {
+      const genres: Record<string, number> = JSON.parse(profileRecord.favorite_genres || "{}");
+      const sorted = Object.entries(genres).sort((a, b) => b[1] - a[1]);
+
+      favoriteGenres = sorted.slice(0, 7).map(([name, value]) => ({ name, value }));
+
+      if (sorted.length > 0) {
+        insights.push({ title: "Favorite Genre", value: sorted[0][0], description: "Based on your ratings" });
+      }
+    } catch { /* skip */ }
+
+    // Favorite era
+    try {
+      const eras: Record<string, number> = JSON.parse(profileRecord.favorite_eras || "{}");
+      const sorted = Object.entries(eras).sort((a, b) => b[1] - a[1]);
+      if (sorted.length > 0) {
+        insights.push({ title: "Favorite Era", value: `${sorted[0][0]} Cinema`, description: "Most rated decade" });
+      }
+    } catch { /* skip */ }
+
+    // Favorite director
+    try {
+      const directors: Record<string, number> = JSON.parse(profileRecord.favorite_directors || "{}");
+      const sorted = Object.entries(directors).sort((a, b) => b[1] - a[1]);
+      if (sorted.length > 0) {
+        insights.push({ title: "Top Director", value: sorted[0][0], description: "Director you rate highest" });
+      }
+    } catch { /* skip */ }
+
+    // Favorite industry
+    try {
+      const industries: Record<string, number> = JSON.parse(profileRecord.favorite_industries || "{}");
+      const sorted = Object.entries(industries).sort((a, b) => b[1] - a[1]);
+      if (sorted.length > 0) {
+        insights.push({ title: "Top Industry", value: sorted[0][0], description: "Your preferred film industry" });
+      }
+    } catch { /* skip */ }
+  } else {
+    // No profile yet — trigger background generation
+    Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
+
+    // Fallback genre computation from live data
+    const genreCounts: Record<string, number> = {};
     movies.forEach(m => {
       let genres: string[] = [];
       try { genres = JSON.parse(m.genres); } catch { genres = m.genres ? m.genres.split(",") : []; }
       genres.forEach(g => {
-        genreCountsFallback[g] = (genreCountsFallback[g] || 0) + 1;
+        genreCounts[g] = (genreCounts[g] || 0) + 1;
       });
     });
-    favoriteGenres = Object.entries(genreCountsFallback)
+    favoriteGenres = Object.entries(genreCounts)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 7);
   }
 
-  // Get 3 recommendation previews (now uses cached profile natively)
+  // Always add average rating as an insight
+  insights.push({ title: "Average Rating", value: avgRating.toString(), description: "Your overall taste" });
+
+  // Get 3 recommendation previews
   const recommendations = await generateRecommendations(username, { allMovies: movies });
   const recommendationPreview = recommendations.slice(0, 3);
 
   return {
-    ...dashboardCache,
+    stats: {
+      total,
+      watched,
+      pending,
+      completionPercentage,
+      avgRating,
+    },
+    next5,
     favoriteGenres,
+    insights,
     recommendationPreview,
   };
 }
