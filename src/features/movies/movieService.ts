@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getUserMovies, addMovie, updateMovie, deleteMovie, getMovieById, MovieRow } from "./movieRepository";
 import { ApiError } from "@/lib/ApiError";
 import { getNextWatchOrderRank, handleStatusChange } from "./queueService";
+import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
 
 const addMovieSchema = z.object({
   movie_name: z.string().min(1),
@@ -51,12 +52,14 @@ export async function addMovieService(username: string, body: any) {
   }
   // For completed or dropped, watch_order_rank remains null
 
-  return await addMovie({
+  const finalMovie = await addMovie({
     ...result.data,
     watch_order_rank: watchOrderRank,
     watch_link: result.data.watch_link || null,
     username,
   });
+  Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
+  return finalMovie;
 }
 
 export async function updateMovieService(id: number, username: string, body: any) {
@@ -86,6 +89,7 @@ export async function updateMovieService(id: number, username: string, body: any
     await handleStatusChange(id, username, movie.status, result.data.status);
   }
 
+  Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
   return updatedMovie;
 }
 
@@ -116,4 +120,5 @@ export async function deleteMovieService(id: number, username: string) {
   } else {
     await deleteMovie(id);
   }
+  Promise.resolve().then(() => generateProfileAsync(username)).catch(console.error);
 }

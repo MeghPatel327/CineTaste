@@ -1,4 +1,5 @@
 import { MovieRow, getUserMovies } from "@/features/movies/movieRepository";
+import { getRecommendationProfile } from "./recommendationProfileRepository";
 import { env } from "@/lib/env";
 import { getFilmIndustry } from "@/lib/utils";
 
@@ -51,7 +52,6 @@ const TMDB_GENRES: Record<number, string> = {
 // In-process caches (per server instance, resets on redeploy)
 // ─────────────────────────────────────────────────────────────────────────────
 const tmdbMetaCache = new Map<string, any>();          // TMDB detail responses
-const tasteProfileCache = new Map<string, TasteProfile>(); // per username
 
 interface CachedRecommendations {
   hash: string;
@@ -116,63 +116,7 @@ async function getKeywords(tmdbId: number, type: "movie" | "tv"): Promise<string
   return list.map((k: any) => k.name?.toLowerCase()).filter(Boolean);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Build Taste Profile from ALL rated movies
-// ─────────────────────────────────────────────────────────────────────────────
-async function buildTasteProfile(ratedMovies: MovieRow[]): Promise<TasteProfile> {
-  const profile = emptyProfile();
 
-  // Fetch TMDB detail for each rated movie in parallel (with concurrency limit)
-  const BATCH = 20;
-  for (let i = 0; i < ratedMovies.length; i += BATCH) {
-    const batch = ratedMovies.slice(i, i + BATCH);
-    await Promise.all(batch.map(async (m) => {
-      const w = RATING_WEIGHTS[m.rating] ?? 0;
-      const type: "movie" | "tv" = m.type === "series" ? "tv" : "movie";
-
-      // ── Genres (stored locally) ──
-      let genres: string[] = [];
-      try { genres = JSON.parse(m.genres); }
-      catch { genres = m.genres ? m.genres.split(",").map(s => s.trim()) : []; }
-      genres.forEach(g => addWeighted(profile.genres, g, w));
-
-      // ── Decade ──
-      if (m.release_year > 0) {
-        const decade = `${Math.floor(m.release_year / 10) * 10}s`;
-        addWeighted(profile.decades, decade, w);
-      }
-
-      // ── Runtime (only positive ratings) ──
-      if (m.runtime > 0 && w > 0) profile.runtimes.push(m.runtime);
-
-      // ── Film Industry ──
-      const industry = getFilmIndustry(m.language || "en");
-      addWeighted(profile.industries, industry, w);
-
-      // ── TMDB detail for keywords, director, cast ──
-      const detail = await getMovieDetail(m.tmdb_id, type);
-      if (!detail) return;
-
-      // Keywords
-      const kwList = detail?.keywords?.keywords || detail?.keywords?.results || [];
-      kwList.forEach((k: any) => {
-        if (k.name) addWeighted(profile.keywords, k.name.toLowerCase(), w);
-      });
-
-      // Director (from crew, job === "Director")
-      const crew: any[] = detail?.credits?.crew || [];
-      crew.filter((c: any) => c.job === "Director")
-          .forEach((c: any) => addWeighted(profile.directors, c.name, w));
-
-      // Top 5 cast
-      const cast: any[] = (detail?.credits?.cast || []).slice(0, 5);
-      cast.forEach((a: any) => addWeighted(profile.actors, a.name, w));
-    }));
-  }
-
-  profile.builtAt = Date.now();
-  return profile;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Candidate Pool — merge from many TMDB sources
@@ -487,15 +431,16 @@ export async function generateRecommendations(
   const libraryIds = new Set(allMovies.map(m => m.tmdb_id));
   const libraryNames = new Set(allMovies.map(m => m.movie_name.toLowerCase().trim()));
 
-  // ── Taste Profile (cache unless cold start) ──
-  let profile: TasteProfile;
-  if (tasteProfileCache.has(username)) {
-    profile = tasteProfileCache.get(username)!;
-  } else {
-    profile = ratedMovies.length > 0
-      ? await buildTasteProfile(ratedMovies)
-      : emptyProfile();
-    tasteProfileCache.set(username, profile);
+  // ── Taste Profile (loaded from DB) ──
+  const dbProfile = await getRecommendationProfile(username);
+  let profile: TasteProfile = emptyProfile();
+  
+  if (dbProfile && dbProfile.generation_status === "Ready") {
+    try {
+      profile = JSON.parse(dbProfile.recommendation_profile);
+    } catch {
+      profile = emptyProfile();
+    }
   }
 
   // Pre-normalize all profile maps
@@ -630,6 +575,5 @@ export async function getUserTopGenres(username: string): Promise<string[]> {
 // invalidateTasteProfile — call after user rates/edits/deletes a movie
 // ─────────────────────────────────────────────────────────────────────────────
 export function invalidateTasteProfile(username: string): void {
-  tasteProfileCache.delete(username);
   recommendationsCache.delete(username);
 }
