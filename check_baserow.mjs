@@ -1,0 +1,1 @@
+import { env } from './src/lib/env.js'; fetch(env.BASEROW_API_URL + '/api/database/fields/table/' + env.BASEROW_MOVIES_TABLE_ID + '/', { headers: { Authorization: 'Token ' + env.BASEROW_API_TOKEN } }).then(r => r.json()).then(console.log);  

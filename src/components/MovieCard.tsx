@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
-import { Star, ThumbsUp, ThumbsDown, CheckCircle } from "lucide-react";
+import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Color extraction ─────────────────────────────────────────────────────────
@@ -86,7 +86,6 @@ function extractColor(url: string): Promise<string> {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export type FeedbackAction = "interested" | "not_interested" | "already_watched";
 
 interface MovieCardProps {
   id: number;
@@ -99,7 +98,6 @@ interface MovieCardProps {
   showScore?: boolean;
   genres?: string[];
   onClick: (id: number, type: "movie" | "series") => void;
-  onFeedback?: (id: number, type: "movie" | "series", action: FeedbackAction) => void;
   dimmed?: boolean;
   onFocusEnter?: () => void;
   onFocusLeave?: () => void;
@@ -118,14 +116,12 @@ export function MovieCard({
   showScore = false,
   genres,
   onClick,
-  onFeedback,
   className,
   style,
 }: MovieCardProps) {
   const [imgPhase, setImgPhase] = useState<"loading" | "revealed" | "loaded">("loading");
   const [clicking, setClicking] = useState(false);
   const [ambientRgb, setAmbientRgb] = useState<string>("");
-  const [feedbackDone, setFeedbackDone] = useState<FeedbackAction | null>(null);
   const extractedRef = useRef(false);
   const isSeries = mediaType === "tv";
 
@@ -152,13 +148,6 @@ export function MovieCard({
     setTimeout(() => setClicking(false), 140);
     onClick(id, isSeries ? "series" : "movie");
   }, [id, isSeries, clicking, onClick]);
-
-  const handleFeedback = useCallback((e: React.MouseEvent, action: FeedbackAction) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setFeedbackDone(action);
-    onFeedback?.(id, isSeries ? "series" : "movie", action);
-  }, [id, isSeries, onFeedback]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); }
@@ -231,58 +220,7 @@ export function MovieCard({
         {/* Gradient overlay */}
         <div className="ct-poster-gradient absolute inset-x-0 bottom-0 h-[55%] rounded-b-xl pointer-events-none bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
 
-        {/* Feedback action buttons — visible on hover on desktop, always visible on mobile */}
-        {onFeedback && (
-          <div className="absolute inset-0 rounded-xl flex flex-col items-center justify-end pb-2 md:pb-2 pb-3 gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-            <div className="flex gap-2 md:gap-1.5 flex-wrap justify-center pointer-events-auto w-full px-1">
-              <button
-                id={`feedback-interested-${id}`}
-                onClick={e => handleFeedback(e, "interested")}
-                aria-label="Interested"
-                title="Interested — boosts similar movies"
-                className={cn(
-                  "w-9 h-9 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white transition-all duration-150",
-                  "backdrop-blur-sm hover:scale-110 active:scale-95",
-                  feedbackDone === "interested"
-                    ? "bg-green-500 shadow-lg shadow-green-500/40"
-                    : "bg-black/60 hover:bg-green-500/80"
-                )}
-              >
-                <ThumbsUp className="w-4 h-4 md:w-3.5 md:h-3.5" />
-              </button>
-              <button
-                id={`feedback-not-interested-${id}`}
-                onClick={e => handleFeedback(e, "not_interested")}
-                aria-label="Not Interested"
-                title="Not Interested — removes and suppresses similar movies"
-                className={cn(
-                  "w-9 h-9 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white transition-all duration-150",
-                  "backdrop-blur-sm hover:scale-110 active:scale-95",
-                  feedbackDone === "not_interested"
-                    ? "bg-red-500 shadow-lg shadow-red-500/40"
-                    : "bg-black/60 hover:bg-red-500/80"
-                )}
-              >
-                <ThumbsDown className="w-4 h-4 md:w-3.5 md:h-3.5" />
-              </button>
-              <button
-                id={`feedback-watched-${id}`}
-                onClick={e => handleFeedback(e, "already_watched")}
-                aria-label="Already Watched Elsewhere"
-                title="Already Watched — add to library with a rating"
-                className={cn(
-                  "w-9 h-9 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white transition-all duration-150",
-                  "backdrop-blur-sm hover:scale-110 active:scale-95",
-                  feedbackDone === "already_watched"
-                    ? "bg-yellow-500 shadow-lg shadow-yellow-500/40"
-                    : "bg-black/60 hover:bg-yellow-500/80"
-                )}
-              >
-                <CheckCircle className="w-4 h-4 md:w-3.5 md:h-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
+
 
         {showScore && score !== undefined && (
           <div className="match-badge ct-badge absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold text-white">

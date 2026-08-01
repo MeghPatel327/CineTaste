@@ -64,47 +64,61 @@ export function Sidebar({ isAdmin }: SidebarProps) {
   const sidebarContent = (isDesktop: boolean) => (
     <div className="flex flex-col h-full relative">
       {/* Brand & Toggle */}
-      <div className={cn(
-        "p-5 pb-6 border-b border-sidebar-border flex items-center",
-        isDesktop && isCollapsed ? "justify-center px-0" : "justify-between"
-      )}>
+      <div className="p-5 pb-6 border-b border-sidebar-border flex items-center justify-between relative h-[88px]">
         <Link
           href="/dashboard"
-          className={cn("flex items-center group", !isDesktop || !isCollapsed ? "pl-2" : "")}
+          className="flex items-center group pl-1 relative w-full h-full"
           onClick={() => setMobileOpen(false)}
         >
-          {isDesktop && isCollapsed ? (
-            <img src="/branding/circle_logo.png" alt="CineTaste" className="w-8 h-8" />
+          {isDesktop ? (
+            <>
+              {/* Collapsed Logo */}
+              <img
+                src="/branding/circle_logo.png"
+                alt="CineTaste"
+                className={cn(
+                  "absolute left-1/2 -translate-x-1/2 w-8 h-8 transition-all duration-300",
+                  isCollapsed ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
+                )}
+              />
+              {/* Expanded Logo */}
+              <div className={cn(
+                "absolute left-1 transition-all duration-300",
+                isCollapsed ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"
+              )}>
+                <BrandLogo variant="full" className="w-36" />
+              </div>
+            </>
           ) : (
-            <BrandLogo variant="full" className="w-36" />
+            <BrandLogo variant="full" className="w-36 absolute left-1" />
           )}
         </Link>
         {isDesktop && (
           <button
             onClick={toggleCollapse}
             className={cn(
-              "p-1.5 rounded-md hover:bg-sidebar-accent/60 text-muted-foreground hover:text-foreground transition-colors hidden md:block",
-              isCollapsed ? "absolute -right-3 top-6 bg-sidebar border border-sidebar-border shadow-sm z-10 rounded-full p-1" : ""
+              "absolute top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-sidebar border border-sidebar-border shadow-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-all z-20",
+              isCollapsed ? "-right-3" : "right-2"
             )}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-5 h-5" />}
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
+      <nav className={cn("flex-1 p-3 space-y-1", isDesktop ? "overflow-visible" : "overflow-y-auto")}>
         {navItems.map((item) => {
           const active = isActive(item.href);
           return (
-            <div key={item.href} className="relative group/navitem">
+            <div key={item.href} className="relative group/navitem flex justify-center">
               <Link
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300",
-                  isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
+                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+                  isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
                   active
                     ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
                     : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
@@ -116,12 +130,15 @@ export function Sidebar({ isAdmin }: SidebarProps) {
                     active ? "text-primary" : "text-muted-foreground"
                   )}
                 />
-                {(!isDesktop || !isCollapsed) && (
-                  <span className="whitespace-nowrap">{item.label}</span>
-                )}
+                <span className={cn(
+                  "whitespace-nowrap transition-all duration-300",
+                  isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+                )}>
+                  {item.label}
+                </span>
               </Link>
               {isDesktop && isCollapsed && (
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-opacity shadow-xl z-50 whitespace-nowrap">
+                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
                   {item.label}
                 </div>
               )}
@@ -132,13 +149,13 @@ export function Sidebar({ isAdmin }: SidebarProps) {
         {isAdmin && (
           <>
             <div className="my-3 border-t border-sidebar-border" />
-            <div className="relative group/navitem">
+            <div className="relative group/navitem flex justify-center">
               <Link
                 href="/admin"
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300",
-                  isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
+                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+                  isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
                   isActive("/admin")
                     ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
                     : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
@@ -150,12 +167,15 @@ export function Sidebar({ isAdmin }: SidebarProps) {
                     isActive("/admin") ? "text-primary" : "text-muted-foreground"
                   )}
                 />
-                {(!isDesktop || !isCollapsed) && (
-                  <span className="whitespace-nowrap">Admin</span>
-                )}
+                <span className={cn(
+                  "whitespace-nowrap transition-all duration-300",
+                  isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+                )}>
+                  Admin
+                </span>
               </Link>
               {isDesktop && isCollapsed && (
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-opacity shadow-xl z-50 whitespace-nowrap">
+                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
                   Admin
                 </div>
               )}
@@ -166,25 +186,28 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
       {/* Bottom actions */}
       <div className="p-3 border-t border-sidebar-border space-y-1">
-        <div className="relative group/navitem">
+        <div className="relative group/navitem flex justify-center">
           <Link
             href="/profile"
             onClick={() => setMobileOpen(false)}
             className={cn(
-              "sidebar-nav-item flex items-center rounded-lg text-sm font-medium w-full transition-all duration-300",
-              isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
+              "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+              isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
               isActive("/profile")
                 ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
                 : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
             )}
           >
             <User className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
-            {(!isDesktop || !isCollapsed) && (
-              <span className="whitespace-nowrap">Profile</span>
-            )}
+            <span className={cn(
+              "whitespace-nowrap transition-all duration-300",
+              isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+            )}>
+              Profile
+            </span>
           </Link>
           {isDesktop && isCollapsed && (
-            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-opacity shadow-xl z-50 whitespace-nowrap">
+            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
               Profile
             </div>
           )}

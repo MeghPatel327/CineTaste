@@ -22,19 +22,10 @@ export interface RecommendationExplanation {
 // ─────────────────────────────────────────────────────────────────────────────
 const TMDB = "https://api.themoviedb.org/3";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Feedback tag — stored in watch_link to distinguish feedback rows from library
-// ─────────────────────────────────────────────────────────────────────────────
-export const FEEDBACK_TAG = "__FEEDBACK__";
 
 const RATING_WEIGHTS: Record<number, number> = {
   10: 2.0, 9: 1.5, 8: 1.0, 7: 0.5, 6: 0.0,
   5: -0.25, 4: -0.5, 3: -1.0, 2: -1.5, 1: -2.0,
-  // Feedback-only signals (stored with status=dropped, watch_link=FEEDBACK_TAG)
-  // -1 = "Not Interested": strong negative signal, suppresses similar movies
-  // -2 = "Interested":  positive signal, boosts similar movies
-  [-1]: -2.5,
-  [-2]: 1.8,
 };
 
 const SCORE_WEIGHTS = {
@@ -489,27 +480,12 @@ export async function generateRecommendations(
     }
   }
 
-  // Include both completed rated movies AND feedback rows (dropped + FEEDBACK_TAG)
-  // Feedback rows carry negative ratings (-1 = Not Interested, -2 = Interested mapped to positive)
-  const ratedMovies = allMovies.filter(
-    m => (m.status === "completed" && m.rating > 0) ||
-         (m.watch_link === FEEDBACK_TAG && m.rating !== 0)
-  );
+  // Use completed, rated movies for building the taste profile
+  const ratedMovies = allMovies.filter(m => m.status === "completed" && m.rating > 0);
 
-  // IDs/names already in library — feedback rows are excluded from the watched list
-  // but still influence scoring, so we only block actual library entries
-  const libraryIds = new Set(
-    allMovies.filter(m => m.watch_link !== FEEDBACK_TAG).map(m => m.tmdb_id)
-  );
-  const libraryNames = new Set(
-    allMovies.filter(m => m.watch_link !== FEEDBACK_TAG).map(m => m.movie_name.toLowerCase().trim())
-  );
-  const feedbackIds = new Set(
-    allMovies.filter(m => m.watch_link === FEEDBACK_TAG).map(m => m.tmdb_id)
-  );
-  const notInterestedIds = new Set(
-    allMovies.filter(m => m.watch_link === FEEDBACK_TAG && m.rating === -1).map(m => m.tmdb_id)
-  );
+  // Exclude anything already in the user's library
+  const libraryIds = new Set(allMovies.map(m => m.tmdb_id));
+  const libraryNames = new Set(allMovies.map(m => m.movie_name.toLowerCase().trim()));
 
   // ── Taste Profile (cache unless cold start) ──
   let profile: TasteProfile;
@@ -534,18 +510,14 @@ export async function generateRecommendations(
   // ── Candidate pool ──
   const rawCandidates = await fetchCandidates(ratedMovies);
 
-  // Hard filter: remove actual library entries and "Not Interested" feedback
+  // Hard filter: remove actual library entries
   let candidates = rawCandidates.filter(c => {
     if (!c?.id) return false;
     if (libraryIds.has(c.id)) return false;
-    if (notInterestedIds.has(c.id)) return false;
     const title = (c.title || c.name || "").toLowerCase().trim();
     if (libraryNames.has(title)) return false;
     return true;
   });
-
-  // Also use feedback rows in ratedMovies for taste profile & profile building
-  // (already included because getUserMovies returns all rows including feedback ones)
 
   // Limit candidates via Fast Heuristic Pre-Scoring (Stage 1)
   candidates = candidates
