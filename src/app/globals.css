@@ -676,3 +676,71 @@
     border-color var(--ct-duration-slow) var(--ct-ease-out);
 }
 .btn-interactive:active:not(:disabled) { transform: translateY(1px); }
+
+/* ════════════════════════════════════════════════════════
+   GRADIENT ACCENT BORDER — premium section containers
+   ════════════════════════════════════════════════════════ */
+.ct-accent-border {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--ct-card);
+  border: 1px solid var(--ct-border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: var(--ct-shadow-sm);
+  transition: box-shadow var(--ct-duration-slow) var(--ct-ease-out),
+              border-color var(--ct-duration-slow) var(--ct-ease-out);
+}
+.ct-accent-border::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ct-primary), #a855f7, var(--ct-accent));
+  opacity: 0.85;
+  transition: opacity var(--ct-duration-slow) var(--ct-ease-out);
+}
+.ct-accent-border::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  width: 80%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ct-accent), transparent);
+  box-shadow: 0 0 12px 2px rgba(104, 186, 127, 0.2),
+              0 0 30px 4px rgba(104, 186, 127, 0.08);
+  opacity: 0.6;
+  transition: opacity var(--ct-duration-slow) var(--ct-ease-out);
+}
+.ct-accent-border:hover::before {
+  opacity: 1;
+}
+.ct-accent-border:hover::after {
+  opacity: 1;
+}
+.ct-accent-border:hover {
+  border-color: rgba(46, 111, 64, 0.3);
+  box-shadow: var(--ct-shadow-sm), 0 -2px 20px -4px rgba(104, 186, 127, 0.15);
+}
+
+/* Inline variant — no bg/padding/border of its own (for sections already in a wrapper) */
+.ct-accent-border-inline {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  padding-top: 1.5rem;
+}
+.ct-accent-border-inline::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ct-primary), #a855f7, var(--ct-accent));
+  opacity: 0.7;
+}

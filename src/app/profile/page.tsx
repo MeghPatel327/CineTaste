@@ -127,7 +127,7 @@ export default function ProfilePage() {
             
             {/* Left Column: User Info & Stats */}
             <div className="space-y-8">
-              <div className="bg-card border border-border p-6 rounded-xl shadow-sm">
+              <div className="ct-accent-border">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-16 h-16 bg-primary/20 text-primary rounded-full flex items-center justify-center text-2xl font-bold uppercase">
                     {profile.username.charAt(0)}
@@ -164,7 +164,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="bg-card border border-border p-6 rounded-xl shadow-sm">
+              <div className="ct-accent-border">
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Sun className="w-5 h-5"/> Preferences</h3>
                 <div className="flex justify-between items-center">
                   <span className="font-medium">App Theme</span>
@@ -194,7 +194,7 @@ export default function ProfilePage() {
 
             {/* Right Column: Security & Actions */}
             <div className="space-y-8">
-              <div className="bg-card border border-border p-6 rounded-xl shadow-sm">
+              <div className="ct-accent-border">
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><KeyRound className="w-5 h-5"/> Change Password</h3>
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <div>

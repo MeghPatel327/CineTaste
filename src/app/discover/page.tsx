@@ -464,7 +464,7 @@ function DiscoveryFeed({
       )}
 
       {data.topPicks.length > 0 && (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           title="⭐ Top Picks For You"
           subtitle="The highest quality personalized recommendations"
           items={filterItems(data.topPicks)}
@@ -474,7 +474,7 @@ function DiscoveryFeed({
       )}
 
       {data.genreSections.map(section => (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           key={section.genre}
           title={`🎬 Because You Like ${section.genre}`}
           items={filterItems(section.items)}
@@ -483,7 +483,7 @@ function DiscoveryFeed({
       ))}
 
       {data.recommendedMovies.length > 0 && (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           title="🎥 Recommended Movies"
           subtitle="Movies tailored to your taste"
           items={filterItems(data.recommendedMovies)}
@@ -493,7 +493,7 @@ function DiscoveryFeed({
       )}
 
       {data.recommendedSeries.length > 0 && (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           title="📺 Recommended Series"
           subtitle="TV series you'll love"
           items={filterItems(data.recommendedSeries)}
@@ -503,7 +503,7 @@ function DiscoveryFeed({
       )}
 
       {data.hiddenGems.length > 0 && (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           title="🍿 Hidden Gems"
           subtitle="Less popular but highly recommended"
           items={filterItems(data.hiddenGems)}
@@ -513,7 +513,7 @@ function DiscoveryFeed({
       )}
 
       {data.trending.length > 0 && (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           title="🔥 Trending Today"
           subtitle="What's hot right now"
           items={filterItems(data.trending)}
@@ -522,7 +522,7 @@ function DiscoveryFeed({
       )}
 
       {data.recentlyReleased.length > 0 && (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           title="🕒 Recently Released"
           subtitle="Fresh titles just for you"
           items={filterItems(data.recentlyReleased)}
@@ -531,7 +531,7 @@ function DiscoveryFeed({
       )}
 
       {data.popularMovies.length > 0 && (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           title="🎬 Popular Movies"
           items={filterItems(data.popularMovies)}
           onSelect={onSelect}
@@ -539,7 +539,7 @@ function DiscoveryFeed({
       )}
 
       {data.popularSeries.length > 0 && (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           title="📺 Popular Series"
           items={filterItems(data.popularSeries)}
           onSelect={onSelect}
@@ -548,7 +548,7 @@ function DiscoveryFeed({
 
       {/* Extra infinite batches */}
       {extraBatches.map((batch, i) => (
-        <HorizontalRow
+        <HorizontalRow accentBorder
           key={`extra-${i}`}
           title={`✨ More For You`}
           items={filterItems(batch)}

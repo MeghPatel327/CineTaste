@@ -187,7 +187,7 @@ function DashboardContent({ data, loading }: { data: any; loading: boolean }) {
       </div>
 
       {/* ── 2. Intelligent Statistics ── */}
-      <div className="mb-8">
+      <div className="mb-8 ct-accent-border">
         <h2 className="text-xl font-bold mb-4">Taste Insights</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {loading || (!insights.length && !stats) ? (
@@ -211,7 +211,7 @@ function DashboardContent({ data, loading }: { data: any; loading: boolean }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
         {/* ── 3. Next 5 to Watch (Premium Queue) ── */}
-        <div className="md:col-span-2 bg-card p-6 rounded-xl border border-border shadow-sm">
+        <div className="md:col-span-2 ct-accent-border">
           <div className="flex justify-between items-center mb-6">
              <h2 className="text-xl font-bold flex items-center gap-2">
               <PlayCircle className="text-primary w-5 h-5" /> Up Next
@@ -271,7 +271,7 @@ function DashboardContent({ data, loading }: { data: any; loading: boolean }) {
         </div>
 
         {/* ── 4. Favorite Genres ── */}
-        <div className="bg-card p-6 rounded-xl border border-border shadow-sm flex flex-col">
+        <div className="ct-accent-border flex flex-col">
           <h2 className="text-xl font-bold mb-4">Taste Breakdown</h2>
           {loading ? (
             <div className="flex-1 space-y-3">

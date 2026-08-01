@@ -112,7 +112,7 @@ export default function UpNextPage() {
             action={<Link href="/discover" className="inline-block"><Button>Explore Movies</Button></Link>}
           />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 ct-accent-border">
             {queue.map((movie, index) => (
               <div
                 key={movie.id}

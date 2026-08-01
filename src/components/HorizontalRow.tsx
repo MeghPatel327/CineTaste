@@ -23,6 +23,7 @@ interface HorizontalRowProps {
   subtitle?: string;
   items: RowItem[];
   showScore?: boolean;
+  accentBorder?: boolean;
   entranceIndex?: number;
   onSelect: (id: number, type: "movie" | "series") => void;
 }
@@ -35,6 +36,7 @@ export function HorizontalRow({
   subtitle,
   items,
   showScore = false,
+  accentBorder = false,
   entranceIndex,
   onSelect,
 }: HorizontalRowProps) {
@@ -101,7 +103,7 @@ export function HorizontalRow({
   return (
     <section
       aria-label={title}
-      className="ct-stagger-item"
+      className={`ct-stagger-item${accentBorder ? " ct-accent-border" : ""}`}
       style={entranceIndex === undefined ? undefined : ({ "--ct-stagger-delay": `${entranceIndex * 55}ms` } as CSSProperties)}
     >
       <div className="mb-3">

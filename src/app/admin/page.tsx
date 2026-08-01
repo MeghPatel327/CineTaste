@@ -190,7 +190,7 @@ export default function AdminPage() {
 
             <section>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Users /> Users</h2>
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <div className="ct-accent-border p-0 sm:p-0">
                 <table className="w-full text-left">
                   <thead className="bg-secondary text-secondary-foreground">
                     <tr>
@@ -243,7 +243,7 @@ export default function AdminPage() {
             <section>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><LinkIcon /> Pirate Sites (Search Templates)</h2>
               <div className="grid md:grid-cols-2 gap-8">
-                <div className="bg-card rounded-xl border border-border p-4">
+                <div className="ct-accent-border">
                   <h3 className="font-bold mb-4">Add Template</h3>
                   <form onSubmit={addSite} className="space-y-4">
                     <div>
@@ -259,7 +259,7 @@ export default function AdminPage() {
                   </form>
                 </div>
 
-                <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="ct-accent-border p-0 sm:p-0">
                   <table className="w-full text-left">
                     <thead className="bg-secondary text-secondary-foreground">
                       <tr>

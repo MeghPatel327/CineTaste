@@ -202,7 +202,7 @@ export default function MovieLibraryPage() {
               </Link>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-8 bg-card p-4 rounded-lg border border-border">
+            <div className="flex flex-col md:flex-row gap-4 mb-8 ct-accent-border">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                 <Input className="pl-9" placeholder="Search library..." value={search} onChange={e => setSearch(e.target.value)} />
