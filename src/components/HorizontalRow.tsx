@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback, useId } from "react";
 import type { CSSProperties } from "react";
 import { MovieCard } from "./MovieCard";
+import type { FeedbackAction } from "./MovieCard";
 
 export interface RowItem {
   id?: number;
@@ -25,6 +26,7 @@ interface HorizontalRowProps {
   showScore?: boolean;
   entranceIndex?: number;
   onSelect: (id: number, type: "movie" | "series") => void;
+  onFeedback?: (id: number, type: "movie" | "series", action: FeedbackAction) => void;
 }
 
 const PRELOAD_BUFFER = 12;
@@ -37,6 +39,7 @@ export function HorizontalRow({
   showScore = false,
   entranceIndex,
   onSelect,
+  onFeedback,
 }: HorizontalRowProps) {
   const rowId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -116,6 +119,7 @@ export function HorizontalRow({
                   showScore={showScore}
                   genres={item.genres}
                   onClick={onSelect}
+                  onFeedback={onFeedback}
                 />
               ) : (
                 <div className="w-36 md:w-44 shrink-0" aria-hidden="true">

@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import { HorizontalRow, type RowItem } from "@/components/HorizontalRow";
 import { MovieCard } from "@/components/MovieCard";
+import type { FeedbackAction } from "@/components/MovieCard";
 import { MovieCardSkeleton } from "@/components/ui/Skeleton";
 import { Search, Clock, Compass, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -70,6 +71,9 @@ export default function DiscoverPage() {
 
   // Movie details modal
   const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
+  // Feedback state — tracks optimistically removed ids and the "already watched" modal target
+  const [removedIds, setRemovedIds] = useState<Set<number>>(new Set());
+  const [watchedTarget, setWatchedTarget] = useState<{ id: number; type: "movie" | "series" } | null>(null);
 
   // Scroll position preservation
   const savedScrollPos = useRef(0);
@@ -196,6 +200,63 @@ export default function DiscoverPage() {
     });
   }, []);
 
+  // ── Feedback handler ───────────────────────────────────────────────────────
+  const handleFeedback = useCallback(async (
+    tmdbId: number,
+    type: "movie" | "series",
+    action: FeedbackAction,
+  ) => {
+    if (action === "already_watched") {
+      // Open the movie details modal with a special "already watched" flag
+      setWatchedTarget({ id: tmdbId, type });
+      return;
+    }
+
+    // Optimistically remove from the discover feed for "not_interested"
+    if (action === "not_interested") {
+      setRemovedIds(prev => new Set(prev).add(tmdbId));
+    }
+
+    const toastId = toast.loading(
+      action === "interested" ? "Saving your interest..." : "Removing from feed..."
+    );
+    try {
+      const res = await fetch("/api/recommendations/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tmdbId,
+          type: type === "series" ? "tv" : "movie",
+          action,
+        }),
+      });
+      if (res.ok) {
+        if (action === "interested") {
+          toast.success("Noted! Similar movies will be ranked higher.", { id: toastId });
+        } else {
+          toast.success("Removed from feed and noted.", { id: toastId });
+        }
+      } else {
+        // Roll back optimistic removal on error
+        if (action === "not_interested") {
+          setRemovedIds(prev => { const s = new Set(prev); s.delete(tmdbId); return s; });
+        }
+        toast.error("Failed to save feedback.", { id: toastId });
+      }
+    } catch {
+      if (action === "not_interested") {
+        setRemovedIds(prev => { const s = new Set(prev); s.delete(tmdbId); return s; });
+      }
+      toast.error("Failed to save feedback.", { id: toastId });
+    }
+  }, []);
+
+  // When "Already Watched" modal is submitted, remove the card and clear modal
+  const handleWatchedSubmit = useCallback((tmdbId: number) => {
+    setRemovedIds(prev => new Set(prev).add(tmdbId));
+    setWatchedTarget(null);
+  }, []);
+
   const clearRecentSearch = (term: string) => {
     const newRecent = recentSearches.filter(s => s !== term);
     setRecentSearches(newRecent);
@@ -268,10 +329,12 @@ export default function DiscoverPage() {
           /* ── Discovery Home ── */
           <DiscoveryFeed
             data={discoverData}
+            removedIds={removedIds}
             recentSearches={recentSearches}
             onSearchClick={setQuery}
             onClearSearch={clearRecentSearch}
             onSelect={handleOpenDetails}
+            onFeedback={handleFeedback}
           />
         ) : null}
       </div>
@@ -285,6 +348,17 @@ export default function DiscoverPage() {
           savedScrollPos.current = window.scrollY;
           setSelectedItem({ id, type: type || "movie" });
         }}
+      />
+      {/* Already Watched modal — opens in "already watched" mode */}
+      <MovieDetailsModal
+        isOpen={!!watchedTarget}
+        onClose={() => setWatchedTarget(null)}
+        tmdbId={watchedTarget?.id || 0}
+        type={watchedTarget?.type || "movie"}
+        onUpdated={() => {
+          if (watchedTarget) handleWatchedSubmit(watchedTarget.id);
+        }}
+        onNavigate={(id, type) => setWatchedTarget({ id, type: type || "movie" })}
       />
     </AppShell>
   );
@@ -358,17 +432,23 @@ function SearchResultsGrid({
 /* ── Discovery Feed ──────────────────────────────────────────────────────── */
 function DiscoveryFeed({
   data,
+  removedIds,
   recentSearches,
   onSearchClick,
   onClearSearch,
   onSelect,
+  onFeedback,
 }: {
   data: DiscoverData;
+  removedIds: Set<number>;
   recentSearches: string[];
   onSearchClick: (term: string) => void;
   onClearSearch: (term: string) => void;
   onSelect: (id: number, type: "movie" | "series") => void;
+  onFeedback: (id: number, type: "movie" | "series", action: FeedbackAction) => void;
 }) {
+  const filterItems = (items: RowItem[]) =>
+    items.filter(item => !removedIds.has(item.movieId ?? item.id ?? 0));
   const [extraBatches, setExtraBatches] = useState<RowItem[][]>([]);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
@@ -467,8 +547,9 @@ function DiscoveryFeed({
         <HorizontalRow
           title="⭐ Top Picks For You"
           subtitle="The highest quality personalized recommendations"
-          items={data.topPicks}
+          items={filterItems(data.topPicks)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
           showScore
         />
       )}
@@ -477,8 +558,9 @@ function DiscoveryFeed({
         <HorizontalRow
           key={section.genre}
           title={`🎬 Because You Like ${section.genre}`}
-          items={section.items}
+          items={filterItems(section.items)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
         />
       ))}
 
@@ -486,8 +568,9 @@ function DiscoveryFeed({
         <HorizontalRow
           title="🎥 Recommended Movies"
           subtitle="Movies tailored to your taste"
-          items={data.recommendedMovies}
+          items={filterItems(data.recommendedMovies)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
           showScore
         />
       )}
@@ -496,8 +579,9 @@ function DiscoveryFeed({
         <HorizontalRow
           title="📺 Recommended Series"
           subtitle="TV series you'll love"
-          items={data.recommendedSeries}
+          items={filterItems(data.recommendedSeries)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
           showScore
         />
       )}
@@ -506,8 +590,9 @@ function DiscoveryFeed({
         <HorizontalRow
           title="🍿 Hidden Gems"
           subtitle="Less popular but highly recommended"
-          items={data.hiddenGems}
+          items={filterItems(data.hiddenGems)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
           showScore
         />
       )}
@@ -516,8 +601,9 @@ function DiscoveryFeed({
         <HorizontalRow
           title="🔥 Trending Today"
           subtitle="What's hot right now"
-          items={data.trending}
+          items={filterItems(data.trending)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
         />
       )}
 
@@ -525,24 +611,27 @@ function DiscoveryFeed({
         <HorizontalRow
           title="🕒 Recently Released"
           subtitle="Fresh titles just for you"
-          items={data.recentlyReleased}
+          items={filterItems(data.recentlyReleased)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
         />
       )}
 
       {data.popularMovies.length > 0 && (
         <HorizontalRow
           title="🎬 Popular Movies"
-          items={data.popularMovies}
+          items={filterItems(data.popularMovies)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
         />
       )}
 
       {data.popularSeries.length > 0 && (
         <HorizontalRow
           title="📺 Popular Series"
-          items={data.popularSeries}
+          items={filterItems(data.popularSeries)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
         />
       )}
 
@@ -551,8 +640,9 @@ function DiscoveryFeed({
         <HorizontalRow
           key={`extra-${i}`}
           title={`✨ More For You`}
-          items={batch}
+          items={filterItems(batch)}
           onSelect={onSelect}
+          onFeedback={onFeedback}
           showScore
         />
       ))}

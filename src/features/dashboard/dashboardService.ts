@@ -35,7 +35,7 @@ export async function getDashboardStatsService(username: string) {
     .slice(0, 7);
 
   // Get 3 recommendation previews
-  const recommendations = await generateRecommendations(username);
+  const recommendations = await generateRecommendations(username, { allMovies: movies });
   const recommendationPreview = recommendations.slice(0, 3);
 
   return {

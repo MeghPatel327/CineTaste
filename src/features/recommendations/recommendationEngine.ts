@@ -22,9 +22,19 @@ export interface RecommendationExplanation {
 // ─────────────────────────────────────────────────────────────────────────────
 const TMDB = "https://api.themoviedb.org/3";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Feedback tag — stored in watch_link to distinguish feedback rows from library
+// ─────────────────────────────────────────────────────────────────────────────
+export const FEEDBACK_TAG = "__FEEDBACK__";
+
 const RATING_WEIGHTS: Record<number, number> = {
   10: 2.0, 9: 1.5, 8: 1.0, 7: 0.5, 6: 0.0,
   5: -0.25, 4: -0.5, 3: -1.0, 2: -1.5, 1: -2.0,
+  // Feedback-only signals (stored with status=dropped, watch_link=FEEDBACK_TAG)
+  // -1 = "Not Interested": strong negative signal, suppresses similar movies
+  // -2 = "Interested":  positive signal, boosts similar movies
+  [-1]: -2.5,
+  [-2]: 1.8,
 };
 
 const SCORE_WEIGHTS = {
@@ -51,6 +61,17 @@ const TMDB_GENRES: Record<number, string> = {
 // ─────────────────────────────────────────────────────────────────────────────
 const tmdbMetaCache = new Map<string, any>();          // TMDB detail responses
 const tasteProfileCache = new Map<string, TasteProfile>(); // per username
+
+interface CachedRecommendations {
+  hash: string;
+  recommendations: RecommendationExplanation[];
+}
+const recommendationsCache = new Map<string, CachedRecommendations>();
+
+function computeDataHash(movies: MovieRow[]): string {
+  const sorted = [...movies].sort((a, b) => a.id - b.id);
+  return sorted.map(m => `${m.id}:${m.status}:${m.rating}`).join("|");
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Taste Profile
@@ -111,7 +132,7 @@ async function buildTasteProfile(ratedMovies: MovieRow[]): Promise<TasteProfile>
   const profile = emptyProfile();
 
   // Fetch TMDB detail for each rated movie in parallel (with concurrency limit)
-  const BATCH = 5;
+  const BATCH = 20;
   for (let i = 0; i < ratedMovies.length; i += BATCH) {
     const batch = ratedMovies.slice(i, i + BATCH);
     await Promise.all(batch.map(async (m) => {
@@ -281,10 +302,39 @@ function scoreDecade(releaseYear: number, normDecades: Record<string, number>): 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Score a single candidate
+// Score a single candidate (Stage 1 & Stage 2)
 // ─────────────────────────────────────────────────────────────────────────────
 interface ScoredCandidate extends RecommendationExplanation {
   _raw: number; // pre-normalization composite
+}
+
+function scoreCandidateStage1(
+  candidate: any,
+  normGenres: Record<string, number>,
+  normIndustries: Record<string, number>,
+  normDecades: Record<string, number>
+): number {
+  const candidateGenres: string[] = (candidate.genre_ids || [])
+    .map((id: number) => TMDB_GENRES[id])
+    .filter(Boolean);
+  const gScore = scoreGenres(candidateGenres, normGenres);
+
+  const industryRaw = getFilmIndustry(candidate.original_language || "en");
+  const iScore = Math.min(normIndustries[industryRaw] ?? 0, 1);
+
+  const releaseDate = candidate.release_date || candidate.first_air_date || "";
+  const releaseYear = parseInt(releaseDate.split("-")[0], 10) || 0;
+  const decScore = scoreDecade(releaseYear, normDecades);
+
+  const tmdbScore = Math.min((candidate.vote_average || 0) / 10, 1);
+
+  const availableWeight = SCORE_WEIGHTS.genre + SCORE_WEIGHTS.industry + SCORE_WEIGHTS.decade + SCORE_WEIGHTS.tmdb;
+  return (
+    gScore   * SCORE_WEIGHTS.genre    +
+    iScore   * SCORE_WEIGHTS.industry +
+    decScore * SCORE_WEIGHTS.decade   +
+    tmdbScore * SCORE_WEIGHTS.tmdb
+  ) / availableWeight;
 }
 
 async function scoreCandidate(
@@ -423,16 +473,43 @@ function applyDiversity(sorted: ScoredCandidate[]): ScoredCandidate[] {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function generateRecommendations(
   username: string,
-  options?: { offset?: number; limit?: number },
+  options?: { offset?: number; limit?: number; allMovies?: MovieRow[] },
 ): Promise<RecommendationExplanation[]> {
-  const allMovies = await getUserMovies(username);
+  const allMovies = options?.allMovies ?? await getUserMovies(username);
+
+  // ── Smart Data-Driven Cache ──
+  const dataHash = computeDataHash(allMovies);
+  if (recommendationsCache.has(username)) {
+    const cached = recommendationsCache.get(username)!;
+    if (cached.hash === dataHash) {
+      if (options?.offset !== undefined && options.limit) {
+        return cached.recommendations.slice(options.offset, options.offset + options.limit);
+      }
+      return cached.recommendations;
+    }
+  }
+
+  // Include both completed rated movies AND feedback rows (dropped + FEEDBACK_TAG)
+  // Feedback rows carry negative ratings (-1 = Not Interested, -2 = Interested mapped to positive)
   const ratedMovies = allMovies.filter(
-    m => m.status === "completed" && m.rating > 0
+    m => (m.status === "completed" && m.rating > 0) ||
+         (m.watch_link === FEEDBACK_TAG && m.rating !== 0)
   );
 
-  // IDs/names already in library (watched, pending, dropped — all excluded)
-  const libraryIds = new Set(allMovies.map(m => m.tmdb_id));
-  const libraryNames = new Set(allMovies.map(m => m.movie_name.toLowerCase().trim()));
+  // IDs/names already in library — feedback rows are excluded from the watched list
+  // but still influence scoring, so we only block actual library entries
+  const libraryIds = new Set(
+    allMovies.filter(m => m.watch_link !== FEEDBACK_TAG).map(m => m.tmdb_id)
+  );
+  const libraryNames = new Set(
+    allMovies.filter(m => m.watch_link !== FEEDBACK_TAG).map(m => m.movie_name.toLowerCase().trim())
+  );
+  const feedbackIds = new Set(
+    allMovies.filter(m => m.watch_link === FEEDBACK_TAG).map(m => m.tmdb_id)
+  );
+  const notInterestedIds = new Set(
+    allMovies.filter(m => m.watch_link === FEEDBACK_TAG && m.rating === -1).map(m => m.tmdb_id)
+  );
 
   // ── Taste Profile (cache unless cold start) ──
   let profile: TasteProfile;
@@ -457,14 +534,28 @@ export async function generateRecommendations(
   // ── Candidate pool ──
   const rawCandidates = await fetchCandidates(ratedMovies);
 
-  // Hard filter: remove anything in library
-  const candidates = rawCandidates.filter(c => {
+  // Hard filter: remove actual library entries and "Not Interested" feedback
+  let candidates = rawCandidates.filter(c => {
     if (!c?.id) return false;
     if (libraryIds.has(c.id)) return false;
+    if (notInterestedIds.has(c.id)) return false;
     const title = (c.title || c.name || "").toLowerCase().trim();
     if (libraryNames.has(title)) return false;
     return true;
   });
+
+  // Also use feedback rows in ratedMovies for taste profile & profile building
+  // (already included because getUserMovies returns all rows including feedback ones)
+
+  // Limit candidates via Fast Heuristic Pre-Scoring (Stage 1)
+  candidates = candidates
+    .map(c => ({
+      candidate: c,
+      stage1Score: scoreCandidateStage1(c, normGenres, normIndustries, normDecades)
+    }))
+    .sort((a, b) => b.stage1Score - a.stage1Score)
+    .slice(0, 60)
+    .map(item => item.candidate);
 
   // ── Cold start: no ratings → rank by TMDB score ──
   if (ratedMovies.length === 0) {
@@ -489,7 +580,7 @@ export async function generateRecommendations(
   }
 
   // ── Score all candidates (batched to control concurrency) ──
-  const SCORE_BATCH = 8;
+  const SCORE_BATCH = 20;
   const scored: ScoredCandidate[] = [];
 
   for (let i = 0; i < candidates.length; i += SCORE_BATCH) {
@@ -529,6 +620,12 @@ export async function generateRecommendations(
 
   const diversified = applyDiversity(sorted);
 
+  // Cache the full results
+  recommendationsCache.set(username, {
+    hash: dataHash,
+    recommendations: diversified
+  });
+
   if (options?.offset !== undefined && options.limit) {
     return diversified.slice(options.offset, options.offset + options.limit);
   }
@@ -562,4 +659,5 @@ export async function getUserTopGenres(username: string): Promise<string[]> {
 // ─────────────────────────────────────────────────────────────────────────────
 export function invalidateTasteProfile(username: string): void {
   tasteProfileCache.delete(username);
+  recommendationsCache.delete(username);
 }
