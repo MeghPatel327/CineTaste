@@ -1,9 +1,10 @@
+import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest } from "next/server";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
 import { getPirateSitesService } from "@/features/admin/adminService";
 
-export async function GET(req: NextRequest) {
+export const GET = withLogger(async (req: NextRequest) => {
   try {
     const session = await getSession();
     if (!session) {
@@ -17,4 +18,4 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return handleApiError(error);
   }
-}
+}, "pirate-sites");

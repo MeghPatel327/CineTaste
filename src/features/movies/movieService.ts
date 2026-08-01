@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/ApiError";
 import { getNextWatchOrderRank, handleStatusChange } from "./queueService";
 import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
 import { after } from "next/server";
+import { logger } from "@/lib/logger";
 
 const addMovieSchema = z.object({
   movie_name: z.string().min(1),
@@ -59,7 +60,10 @@ export async function addMovieService(username: string, body: any) {
     watch_link: result.data.watch_link || null,
     username,
   });
-  after(() => { generateProfileAsync(username).catch(console.error); });
+  
+  logger.info({ module: "movieService", action: "ADD_MOVIE", status: "SUCCESS", message: `Added movie ${result.data.movie_name}` });
+  
+  after(() => { generateProfileAsync(username).catch((err) => logger.error({ module: "movieService", action: "GENERATE_PROFILE", status: "FAILED", error: err })); });
   return finalMovie;
 }
 
@@ -90,7 +94,9 @@ export async function updateMovieService(id: number, username: string, body: any
     await handleStatusChange(id, username, movie.status, result.data.status);
   }
 
-  after(() => { generateProfileAsync(username).catch(console.error); });
+  logger.info({ module: "movieService", action: "UPDATE_MOVIE", status: "SUCCESS", message: `Updated movie ID ${id}` });
+
+  after(() => { generateProfileAsync(username).catch((err) => logger.error({ module: "movieService", action: "GENERATE_PROFILE", status: "FAILED", error: err })); });
   return updatedMovie;
 }
 
@@ -121,5 +127,8 @@ export async function deleteMovieService(id: number, username: string) {
   } else {
     await deleteMovie(id);
   }
-  after(() => { generateProfileAsync(username).catch(console.error); });
+  
+  logger.info({ module: "movieService", action: "DELETE_MOVIE", status: "SUCCESS", message: `Deleted movie ID ${id}` });
+  
+  after(() => { generateProfileAsync(username).catch((err) => logger.error({ module: "movieService", action: "GENERATE_PROFILE", status: "FAILED", error: err })); });
 }

@@ -1,3 +1,4 @@
+import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest } from "next/server";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";

@@ -3,6 +3,7 @@ import { getRecommendationProfile, saveRecommendationProfile } from "./recommend
 import { env } from "@/lib/env";
 import { getFilmIndustry } from "@/lib/utils";
 import crypto from "crypto";
+import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -30,7 +31,10 @@ async function tmdbGet(path: string): Promise<any> {
     const data = await res.json();
     tmdbMetaCache.set(url, data);
     return data;
-  } catch { return null; }
+  } catch (err: any) { 
+    logger.warn({ module: "profileGenerator", action: "TMDB_FETCH", status: "FAILED", error: err, message: `Failed to fetch TMDB details for ${path}` });
+    return null; 
+  }
 }
 
 async function getMovieDetail(tmdbId: number, type: "movie" | "tv"): Promise<any> {
@@ -55,6 +59,8 @@ function computeLibraryHash(movies: MovieRow[]): string {
 // Profile Generation — called asynchronously on library mutations
 // ─────────────────────────────────────────────────────────────────────────────
 export async function generateProfileAsync(username: string): Promise<void> {
+  const start = Date.now();
+  logger.info({ module: "profileGenerator", action: "GENERATE_PROFILE", status: "STARTED", message: `Starting profile generation for ${username}` });
   try {
     const movies = await getUserMovies(username);
     const hash = computeLibraryHash(movies);
@@ -62,6 +68,7 @@ export async function generateProfileAsync(username: string): Promise<void> {
     // Skip if nothing changed
     const existing = await getRecommendationProfile(username);
     if (existing?.library_hash === hash) {
+      logger.info({ module: "profileGenerator", action: "GENERATE_PROFILE", status: "SUCCESS", message: `Skipped profile generation for ${username} (no changes)` });
       return;
     }
 
@@ -153,8 +160,10 @@ export async function generateProfileAsync(username: string): Promise<void> {
       library_hash: hash,
       engine_version: ENGINE_VERSION,
     });
+    
+    logger.info({ module: "profileGenerator", action: "GENERATE_PROFILE", status: "SUCCESS", durationMs: Date.now() - start, message: `Profile generated for ${username}` });
 
   } catch (err: any) {
-    console.error("Profile generation failed:", err);
+    logger.error({ module: "profileGenerator", action: "GENERATE_PROFILE", status: "FAILED", durationMs: Date.now() - start, error: err, message: "Profile generation failed" });
   }
 }

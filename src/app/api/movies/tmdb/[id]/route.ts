@@ -1,3 +1,4 @@
+import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest } from "next/server";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
@@ -5,7 +6,7 @@ import { getUserMoviesService } from "@/features/movies/movieService";
 import { getTMDBDetails, getTMDBPosterUrl, extractTopCast, extractDirector, extractWriters, extractProductionCompanies, extractProductionCountries } from "@/features/movies/tmdbService";
 import { getFilmIndustry } from "@/lib/utils";
 
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export const GET = withLogger(async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
   const session = await getSession();
   if (!session) return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
 
@@ -68,4 +69,4 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   } catch (error: any) {
     return handleApiError(error);
   }
-}
+}, "movies-tmdb-id");

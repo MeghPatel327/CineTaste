@@ -1,4 +1,5 @@
 import { env } from "./env";
+import { logger } from "./logger";
 
 interface BaserowListResponse<T> {
   count: number;
@@ -46,19 +47,25 @@ async function fetchWithRetry(
         ...options,
         cache: "no-store", // Prevent Next.js from aggressively caching Baserow database calls
       };
+      const start = Date.now();
       const response = await fetch(url, fetchOptions);
+      const durationMs = Date.now() - start;
 
       // Retry on server errors or rate limiting
       if ((response.status === 429 || response.status >= 500) && attempt < retries) {
+        logger.warn({ module: "baserow", action: "FETCH_RETRY", status: "FAILED", durationMs, message: `Retrying Baserow request: ${response.status} on ${url}` });
         const delay = 500 * Math.pow(2, attempt);
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
+      
+      logger.debug({ module: "baserow", action: "FETCH", status: "SUCCESS", durationMs, message: `Baserow request succeeded: ${response.status} on ${url}` });
 
       return response;
     } catch (error) {
       lastError = error as Error;
       if (attempt < retries) {
+        logger.warn({ module: "baserow", action: "FETCH_RETRY", status: "FAILED", error: lastError, message: `Retrying Baserow request on error for ${url}` });
         const delay = 500 * Math.pow(2, attempt);
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
@@ -88,7 +95,9 @@ export async function baserowGetAll<T>(tableId: string, queryParams: Record<stri
     });
 
     if (!response.ok) {
-      throw new Error(`Baserow GET Error: ${response.status} ${response.statusText}`);
+      const msg = `Baserow GET Error: ${response.status} ${response.statusText}`;
+      logger.error({ module: "baserow", action: "GET_ALL", status: "FAILED", message: msg, tableId });
+      throw new Error(msg);
     }
 
     const data = await response.json();
@@ -111,7 +120,9 @@ export async function baserowCreate<T>(tableId: string, data: Record<string, any
   });
 
   if (!response.ok) {
-    throw new Error(`Baserow POST Error: ${response.status} ${response.statusText}`);
+    const msg = `Baserow POST Error: ${response.status} ${response.statusText}`;
+    logger.error({ module: "baserow", action: "CREATE", status: "FAILED", message: msg, tableId });
+    throw new Error(msg);
   }
 
   const result = await response.json();
@@ -128,7 +139,9 @@ export async function baserowUpdate<T>(tableId: string, rowId: number, data: Rec
   });
 
   if (!response.ok) {
-    throw new Error(`Baserow PATCH Error: ${response.status} ${response.statusText}`);
+    const msg = `Baserow PATCH Error: ${response.status} ${response.statusText}`;
+    logger.error({ module: "baserow", action: "UPDATE", status: "FAILED", message: msg, tableId, rowId });
+    throw new Error(msg);
   }
 
   const result = await response.json();
@@ -144,6 +157,8 @@ export async function baserowDelete(tableId: string, rowId: number): Promise<voi
   });
 
   if (!response.ok) {
-    throw new Error(`Baserow DELETE Error: ${response.status} ${response.statusText}`);
+    const msg = `Baserow DELETE Error: ${response.status} ${response.statusText}`;
+    logger.error({ module: "baserow", action: "DELETE", status: "FAILED", message: msg, tableId, rowId });
+    throw new Error(msg);
   }
 }

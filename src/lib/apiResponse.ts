@@ -1,3 +1,5 @@
+import { logger } from "./logger";
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
@@ -29,6 +31,6 @@ export function handleApiError(error: any): Response {
   if (error && error.name === "ApiError") {
     return errorResponse(error.message, error.statusCode, error.code);
   }
-  console.error("Unhandled API Error:", error);
+  logger.error({ module: "apiResponse", action: "UNHANDLED_ERROR", status: "FAILED", error });
   return errorResponse("Internal server error", 500, "INTERNAL_ERROR");
 }

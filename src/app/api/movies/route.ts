@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
+import { withLogger } from "@/lib/apiWrapper";
 import { getUserMoviesService, addMovieService } from "@/features/movies/movieService";
 
-export async function GET(req: NextRequest) {
+export const GET = withLogger(async (req: NextRequest) => {
   const session = await getSession();
   if (!session) return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
 
@@ -13,9 +14,9 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return handleApiError(error);
   }
-}
+}, "movies-list");
 
-export async function POST(req: NextRequest) {
+export const POST = withLogger(async (req: NextRequest) => {
   const session = await getSession();
   if (!session) return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
 
@@ -26,4 +27,4 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     return handleApiError(error);
   }
-}
+}, "movies-add");

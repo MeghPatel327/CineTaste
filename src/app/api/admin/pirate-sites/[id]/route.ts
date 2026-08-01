@@ -1,9 +1,10 @@
+import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest } from "next/server";
 import { updatePirateSiteService, deletePirateSiteService } from "@/features/admin/adminService";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withLogger(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const session = await getSession();
   if (!session || session.role !== "admin") return errorResponse("Forbidden", 403, "FORBIDDEN");
 
@@ -17,9 +18,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } catch (error: any) {
     return handleApiError(error);
   }
-}
+}, "admin-pirate-sites-id");
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withLogger(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const session = await getSession();
   if (!session || session.role !== "admin") return errorResponse("Forbidden", 403, "FORBIDDEN");
 
@@ -32,4 +33,4 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   } catch (error: any) {
     return handleApiError(error);
   }
-}
+}, "admin-pirate-sites-id");

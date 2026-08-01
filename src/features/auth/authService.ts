@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { findUserByUsername, createUser, updateUserLastLogin, getUserById, updateUserPassword, UserRow } from "./userRepository";
 import { createSession } from "@/lib/session";
 import { ApiError } from "@/lib/ApiError";
+import { logger } from "@/lib/logger";
 
 const registerSchema = z.object({
   username: z.string().min(3).max(30),
@@ -33,6 +34,8 @@ export async function registerUser(body: any) {
     created_at,
     last_login: null,
   });
+
+  logger.info({ module: "authService", action: "REGISTER", status: "SUCCESS", message: `User registered: ${username}` });
 
   return { id: newUser.id, username: newUser.username, role: newUser.role };
 }
@@ -66,6 +69,8 @@ export async function loginUser(body: any) {
 
   await updateUserLastLogin(user.id);
   await createSession(user.id, user.username, user.role);
+
+  logger.info({ module: "authService", action: "LOGIN", status: "SUCCESS", message: `User logged in: ${username}` });
 
   return { id: user.id, username: user.username, role: user.role };
 }

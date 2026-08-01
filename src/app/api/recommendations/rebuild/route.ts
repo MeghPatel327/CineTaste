@@ -1,7 +1,8 @@
+import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
 
-export async function POST(req: NextRequest) {
+export const POST = withLogger(async (req: NextRequest) => {
   try {
     const { username } = await req.json();
     if (!username) {
@@ -18,4 +19,4 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+}, "recommendations-rebuild");

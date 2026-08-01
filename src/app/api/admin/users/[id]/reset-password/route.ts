@@ -1,9 +1,10 @@
+import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest } from "next/server";
 import { resetUserPasswordService } from "@/features/admin/adminService";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const POST = withLogger(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const session = await getSession();
   if (!session || session.role !== "admin") return errorResponse("Forbidden", 403, "FORBIDDEN");
 
@@ -16,4 +17,4 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } catch (error: any) {
     return handleApiError(error);
   }
-}
+}, "admin-users-id-reset-password");

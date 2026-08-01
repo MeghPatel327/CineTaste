@@ -3,8 +3,12 @@ import { generateRecommendations } from "@/features/recommendations/recommendati
 import { getRecommendationProfile } from "@/features/recommendations/recommendationProfileRepository";
 import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
 import { after } from "next/server";
+import { logger } from "@/lib/logger";
 
 export async function getDashboardStatsService(username: string) {
+  const start = Date.now();
+  logger.info({ module: "dashboardService", action: "FETCH_DASHBOARD", status: "STARTED", message: `Fetching dashboard for ${username}` });
+  
   const movies = await getUserMovies(username);
 
   // ── Basic Stats (always computed from live data for accuracy) ──
@@ -66,9 +70,12 @@ export async function getDashboardStatsService(username: string) {
       if (sorted.length > 0) {
         insights.push({ title: "Top Industry", value: sorted[0][0], description: "Your preferred film industry" });
       }
-    } catch { /* skip */ }
+    } catch (err: any) {
+      logger.warn({ module: "dashboardService", action: "PARSE_PROFILE", status: "FAILED", error: err, message: "Failed to parse profile insights" });
+    }
   } else {
     // No profile yet — trigger background generation
+    logger.info({ module: "dashboardService", action: "TRIGGER_PROFILE_GEN", status: "STARTED", message: "No profile found, triggering background generation" });
     after(() => { generateProfileAsync(username).catch(console.error); });
 
     // Fallback genre computation from live data
@@ -92,6 +99,8 @@ export async function getDashboardStatsService(username: string) {
   // Get 3 recommendation previews
   const recommendations = await generateRecommendations(username, { allMovies: movies });
   const recommendationPreview = recommendations.slice(0, 3);
+  
+  logger.info({ module: "dashboardService", action: "FETCH_DASHBOARD", status: "SUCCESS", durationMs: Date.now() - start, message: `Dashboard loaded for ${username}` });
 
   return {
     stats: {

@@ -2,6 +2,7 @@ import { MovieRow, getUserMovies } from "@/features/movies/movieRepository";
 import { getRecommendationProfile, RecommendationProfileRow } from "./recommendationProfileRepository";
 import { env } from "@/lib/env";
 import { getFilmIndustry } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -103,7 +104,10 @@ async function tmdbGet(path: string): Promise<any> {
     const data = await res.json();
     tmdbMetaCache.set(url, data);
     return data;
-  } catch { return null; }
+  } catch (err: any) { 
+    logger.warn({ module: "recommendationEngine", action: "TMDB_FETCH", status: "FAILED", error: err, message: `Failed to fetch TMDB data for ${path}` });
+    return null; 
+  }
 }
 
 async function getMovieDetail(tmdbId: number, type: "movie" | "tv"): Promise<any> {
@@ -417,6 +421,9 @@ export async function generateRecommendations(
   username: string,
   options?: { offset?: number; limit?: number; allMovies?: MovieRow[] },
 ): Promise<RecommendationExplanation[]> {
+  const start = Date.now();
+  logger.info({ module: "recommendationEngine", action: "GENERATE_RECOMMENDATIONS", status: "STARTED", message: `Generating recommendations for ${username}` });
+
   const allMovies = options?.allMovies ?? await getUserMovies(username);
 
   // Use completed, rated movies for candidate sourcing only (not for profile building)
@@ -525,6 +532,8 @@ export async function generateRecommendations(
     .sort((a, b) => b.score - a.score);
 
   const diversified = applyDiversity(sorted);
+
+  logger.info({ module: "recommendationEngine", action: "GENERATE_RECOMMENDATIONS", status: "SUCCESS", durationMs: Date.now() - start, message: `Generated ${diversified.length} recommendations` });
 
   if (options?.offset !== undefined && options.limit) {
     return diversified.slice(options.offset, options.offset + options.limit);

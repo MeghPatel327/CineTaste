@@ -1,8 +1,9 @@
+import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest } from "next/server";
 import { successResponse, handleApiError } from "@/lib/apiResponse";
 import { registerUser } from "@/features/auth/authService";
 
-export async function POST(req: NextRequest) {
+export const POST = withLogger(async (req: NextRequest) => {
   try {
     const body = await req.json();
     const newUser = await registerUser(body);
@@ -10,4 +11,4 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     return handleApiError(error);
   }
-}
+}, "auth-register");
