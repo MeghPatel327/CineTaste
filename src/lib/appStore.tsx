@@ -12,6 +12,7 @@ import {
   useReducer,
   useCallback,
   useRef,
+  useEffect,
   ReactNode,
 } from "react";
 
@@ -40,6 +41,8 @@ interface AppState {
   tmdbDetails: Record<string, any>;
   // TMDB search cache: key = query string
   tmdbSearch: Record<string, any[]>;
+
+  sidebarCollapsed: boolean;
 }
 
 type Action =
@@ -52,7 +55,8 @@ type Action =
   | { type: "SET_PROFILE"; payload: any }
   | { type: "SET_PIRATE_SITES"; payload: any[] }
   | { type: "SET_TMDB_DETAIL"; key: string; payload: any }
-  | { type: "SET_TMDB_SEARCH"; key: string; payload: any[] };
+  | { type: "SET_TMDB_SEARCH"; key: string; payload: any[] }
+  | { type: "SET_SIDEBAR_COLLAPSED"; payload: boolean };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
@@ -65,6 +69,7 @@ const initialState: AppState = {
   pirateSites: null,
   tmdbDetails: {},
   tmdbSearch: {},
+  sidebarCollapsed: false,
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -105,6 +110,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, tmdbDetails: { ...state.tmdbDetails, [action.key]: action.payload } };
     case "SET_TMDB_SEARCH":
       return { ...state, tmdbSearch: { ...state.tmdbSearch, [action.key]: action.payload } };
+    case "SET_SIDEBAR_COLLAPSED":
+      return { ...state, sidebarCollapsed: action.payload };
     default:
       return state;
   }
@@ -140,6 +147,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const userInflight   = useRef<Promise<AppUser | null> | null>(null);
   const libraryInflight = useRef<Promise<any[]> | null>(null);
   const sitesInflight   = useRef<Promise<any[]> | null>(null);
+
+  // Initialize sidebar state from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ct_sidebar_collapsed");
+      if (saved === "true") {
+        dispatch({ type: "SET_SIDEBAR_COLLAPSED", payload: true });
+      }
+    }
+  }, []);
 
   const getUser = useCallback(async (): Promise<AppUser | null> => {
     if (state.userFetched) return state.user;

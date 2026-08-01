@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { useAppStore } from "@/lib/appStore";
 
 interface SidebarProps {
   isAdmin: boolean;
@@ -32,22 +33,19 @@ const navItems = [
 export function Sidebar({ isAdmin }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { state, dispatch } = useAppStore();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const isCollapsed = state.sidebarCollapsed;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("ct_sidebar_collapsed");
-    if (saved === "true") setIsCollapsed(true);
     setMounted(true);
   }, []);
 
   const toggleCollapse = () => {
-    setIsCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem("ct_sidebar_collapsed", String(next));
-      return next;
-    });
+    const next = !isCollapsed;
+    dispatch({ type: "SET_SIDEBAR_COLLAPSED", payload: next });
+    localStorage.setItem("ct_sidebar_collapsed", String(next));
   };
 
   // Prefetch all app routes once on mount so navigation feels instant
@@ -76,7 +74,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
           onClick={() => setMobileOpen(false)}
         >
           {isDesktop && isCollapsed ? (
-            <img src="/circle_logo.png" alt="CineTaste" className="w-8 h-8" />
+            <img src="/branding/circle_logo.png" alt="CineTaste" className="w-8 h-8" />
           ) : (
             <BrandLogo variant="full" className="w-36" />
           )}
@@ -100,80 +98,97 @@ export function Sidebar({ isAdmin }: SidebarProps) {
         {navItems.map((item) => {
           const active = isActive(item.href);
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              title={isDesktop && isCollapsed ? item.label : undefined}
-              className={cn(
-                "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300",
-                isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
-                active
-                  ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
-                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-              )}
-            >
-              <item.icon
+            <div key={item.href} className="relative group/navitem">
+              <Link
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
-                  active ? "text-primary" : "text-muted-foreground"
+                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300",
+                  isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
+                  active
+                    ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
+                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                 )}
-              />
-              {(!isDesktop || !isCollapsed) && (
-                <span className="whitespace-nowrap">{item.label}</span>
+              >
+                <item.icon
+                  className={cn(
+                    "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
+                    active ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+                {(!isDesktop || !isCollapsed) && (
+                  <span className="whitespace-nowrap">{item.label}</span>
+                )}
+              </Link>
+              {isDesktop && isCollapsed && (
+                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-opacity shadow-xl z-50 whitespace-nowrap">
+                  {item.label}
+                </div>
               )}
-            </Link>
+            </div>
           );
         })}
 
         {isAdmin && (
           <>
             <div className="my-3 border-t border-sidebar-border" />
-            <Link
-              href="/admin"
-              onClick={() => setMobileOpen(false)}
-              title={isDesktop && isCollapsed ? "Admin" : undefined}
-              className={cn(
-                "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300",
-                isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
-                isActive("/admin")
-                  ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
-                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-              )}
-            >
-              <Shield
+            <div className="relative group/navitem">
+              <Link
+                href="/admin"
+                onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
-                  isActive("/admin") ? "text-primary" : "text-muted-foreground"
+                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300",
+                  isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
+                  isActive("/admin")
+                    ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
+                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                 )}
-              />
-              {(!isDesktop || !isCollapsed) && (
-                <span className="whitespace-nowrap">Admin</span>
+              >
+                <Shield
+                  className={cn(
+                    "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
+                    isActive("/admin") ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+                {(!isDesktop || !isCollapsed) && (
+                  <span className="whitespace-nowrap">Admin</span>
+                )}
+              </Link>
+              {isDesktop && isCollapsed && (
+                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-opacity shadow-xl z-50 whitespace-nowrap">
+                  Admin
+                </div>
               )}
-            </Link>
+            </div>
           </>
         )}
       </nav>
 
       {/* Bottom actions */}
       <div className="p-3 border-t border-sidebar-border space-y-1">
-        <Link
-          href="/profile"
-          onClick={() => setMobileOpen(false)}
-          title={isDesktop && isCollapsed ? "Profile" : undefined}
-          className={cn(
-            "sidebar-nav-item flex items-center rounded-lg text-sm font-medium w-full transition-all duration-300",
-            isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
-            isActive("/profile")
-              ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
-              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+        <div className="relative group/navitem">
+          <Link
+            href="/profile"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              "sidebar-nav-item flex items-center rounded-lg text-sm font-medium w-full transition-all duration-300",
+              isDesktop && isCollapsed ? "justify-center py-3 px-0" : "gap-3 px-3 py-2.5",
+              isActive("/profile")
+                ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+          >
+            <User className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
+            {(!isDesktop || !isCollapsed) && (
+              <span className="whitespace-nowrap">Profile</span>
+            )}
+          </Link>
+          {isDesktop && isCollapsed && (
+            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-opacity shadow-xl z-50 whitespace-nowrap">
+              Profile
+            </div>
           )}
-        >
-          <User className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
-          {(!isDesktop || !isCollapsed) && (
-            <span className="whitespace-nowrap">Profile</span>
-          )}
-        </Link>
+        </div>
       </div>
     </div>
   );

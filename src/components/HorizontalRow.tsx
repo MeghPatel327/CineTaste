@@ -117,10 +117,10 @@ export function HorizontalRow({
         {showLeftArrow && (
           <button
             onClick={() => scrollRow("left")}
-            className="absolute left-0 top-[45%] -translate-y-1/2 -ml-4 z-10 hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-background/80 backdrop-blur-md border border-border shadow-lg opacity-0 group-hover:opacity-100 transition-opacity text-foreground hover:bg-secondary hover:scale-110 active:scale-95"
+            className="absolute -left-9 top-[45%] -translate-y-1/2 z-10 hidden md:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 text-muted-foreground hover:text-primary drop-shadow-md hover:drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)] hover:scale-110 active:scale-95"
             aria-label="Scroll left"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="w-10 h-10" strokeWidth={1.5} />
           </button>
         )}
 
@@ -128,10 +128,10 @@ export function HorizontalRow({
         {showRightArrow && (
           <button
             onClick={() => scrollRow("right")}
-            className="absolute right-0 top-[45%] -translate-y-1/2 -mr-4 z-10 hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-background/80 backdrop-blur-md border border-border shadow-lg opacity-0 group-hover:opacity-100 transition-opacity text-foreground hover:bg-secondary hover:scale-110 active:scale-95"
+            className="absolute -right-9 top-[45%] -translate-y-1/2 z-10 hidden md:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 text-muted-foreground hover:text-primary drop-shadow-md hover:drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)] hover:scale-110 active:scale-95"
             aria-label="Scroll right"
           >
-            <ChevronRight className="w-6 h-6" />
+            <ChevronRight className="w-10 h-10" strokeWidth={1.5} />
           </button>
         )}
 
