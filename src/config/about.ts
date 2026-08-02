@@ -62,7 +62,7 @@ export const aboutConfig = {
     role: "Creator & Lead Developer",
     bio: "Passionate about building beautiful, functional, and user-centric web applications. Movie enthusiast and continuous learner.",
     github: "https://github.com/MeghPatel327",
-    linkedin: "https://linkedin.com/in/meghpatel",
+    linkedin: "https://www.linkedin.com/in/megh-patel-405500326/",
   } as Developer,
   features: [
     {
