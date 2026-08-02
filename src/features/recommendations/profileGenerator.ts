@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 const TMDB = "https://api.themoviedb.org/3";
-const ENGINE_VERSION = "3.0";
+const ENGINE_VERSION = "3.1";
 
 const RATING_WEIGHTS: Record<number, number> = {
   10: 2.0, 9: 1.5, 8: 1.0, 7: 0.5, 6: 0.0,
@@ -65,9 +65,9 @@ export async function generateProfileAsync(username: string): Promise<void> {
     const movies = await getUserMovies(username);
     const hash = computeLibraryHash(movies);
 
-    // Skip if nothing changed
+    // Skip if nothing changed and engine version is the same
     const existing = await getRecommendationProfile(username);
-    if (existing?.library_hash === hash) {
+    if (existing?.library_hash === hash && existing?.engine_version === ENGINE_VERSION) {
       logger.info({ module: "profileGenerator", action: "GENERATE_PROFILE", status: "SUCCESS", message: `Skipped profile generation for ${username} (no changes)` });
       return;
     }
