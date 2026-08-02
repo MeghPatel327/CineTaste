@@ -29,7 +29,6 @@ const navItems = [
   { href: "/movies", label: "Library", icon: Library },
   { href: "/recommendations", label: "Up Next", icon: ListTodo },
   { href: "/discover", label: "Discover", icon: Compass },
-  { href: "/about", label: "About", icon: Info },
 ];
 
 export function Sidebar({ isAdmin }: SidebarProps) {
@@ -211,6 +210,33 @@ export function Sidebar({ isAdmin }: SidebarProps) {
           {isDesktop && isCollapsed && (
             <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
               Profile
+            </div>
+          )}
+        </div>
+        
+        <div className="relative group/navitem flex justify-center mt-1">
+          <Link
+            href="/about"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+              isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+              isActive("/about")
+                ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+          >
+            <Info className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
+            <span className={cn(
+              "whitespace-nowrap transition-all duration-300",
+              isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+            )}>
+              About
+            </span>
+          </Link>
+          {isDesktop && isCollapsed && (
+            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+              About
             </div>
           )}
         </div>

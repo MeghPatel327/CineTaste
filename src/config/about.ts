@@ -13,7 +13,14 @@ import {
   MonitorSmartphone,
   Lock,
   Sparkles,
-  LucideIcon
+  LucideIcon,
+  Code,
+  Box,
+  Cloud,
+  Globe,
+  Cpu,
+  Layers,
+  FileType2,
 } from "lucide-react";
 
 export interface Feature {
@@ -26,6 +33,7 @@ export interface TechStack {
   name: string;
   role: string;
   url?: string;
+  icon?: LucideIcon;
 }
 
 export interface ProjectStat {
@@ -63,6 +71,7 @@ export const aboutConfig = {
     bio: "Passionate about building beautiful, functional, and user-centric web applications. Movie enthusiast and continuous learner.",
     github: "https://github.com/MeghPatel327",
     linkedin: "https://www.linkedin.com/in/megh-patel-405500326/",
+    avatarUrl: "/branding/circle_logo.png",
   } as Developer,
   features: [
     {
@@ -117,14 +126,14 @@ export const aboutConfig = {
     },
   ] as Feature[],
   techStack: [
-    { name: "Next.js 15", role: "React Framework" },
-    { name: "React 19", role: "UI Library" },
-    { name: "TypeScript", role: "Type Safety" },
-    { name: "Tailwind CSS v4", role: "Styling" },
-    { name: "Baserow", role: "Database / Backend" },
-    { name: "TMDB API", role: "Content Data" },
-    { name: "Vercel", role: "Hosting & Deployment" },
-    { name: "OpenRouter", role: "Future AI Integration" },
+    { name: "Next.js 15", role: "React Framework", icon: Globe },
+    { name: "React 19", role: "UI Library", icon: Code },
+    { name: "TypeScript", role: "Type Safety", icon: FileType2 },
+    { name: "Tailwind CSS v4", role: "Styling", icon: Layers },
+    { name: "Baserow", role: "Database / Backend", icon: Database },
+    { name: "TMDB API", role: "Content Data", icon: Box },
+    { name: "Vercel", role: "Hosting & Deployment", icon: Cloud },
+    { name: "OpenRouter", role: "Future AI Integration", icon: Cpu },
   ] as TechStack[],
   stats: [
     { label: "App Version", value: "1.2.0" },
