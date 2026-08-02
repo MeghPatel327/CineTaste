@@ -72,7 +72,7 @@ export async function generateProfileAsync(username: string): Promise<void> {
       return;
     }
 
-    const ratedMovies = movies.filter(m => m.status === "completed" && m.rating > 0);
+    const profileMovies = movies.filter(m => (m.status === "completed" && m.rating > 0) || m.status === "dropped");
 
     // Accumulate weighted preference maps
     const favoriteGenres: Record<string, number> = {};
@@ -85,10 +85,10 @@ export async function generateProfileAsync(username: string): Promise<void> {
     const languagePreferences: Record<string, number> = {};
 
     const BATCH = 20;
-    for (let i = 0; i < ratedMovies.length; i += BATCH) {
-      const batch = ratedMovies.slice(i, i + BATCH);
+    for (let i = 0; i < profileMovies.length; i += BATCH) {
+      const batch = profileMovies.slice(i, i + BATCH);
       await Promise.all(batch.map(async (m) => {
-        const w = RATING_WEIGHTS[m.rating] ?? 0;
+        const w = m.status === "dropped" ? -2.0 : (RATING_WEIGHTS[m.rating] ?? 0);
         const type: "movie" | "tv" = m.type === "series" ? "tv" : "movie";
 
         // ── Genres ──
