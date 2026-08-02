@@ -14,6 +14,7 @@ import {
   ListTodo,
   ChevronLeft,
   ChevronRight,
+  Info,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/movies", label: "Library", icon: Library },
   { href: "/recommendations", label: "Up Next", icon: ListTodo },
   { href: "/discover", label: "Discover", icon: Compass },
+  { href: "/about", label: "About", icon: Info },
 ];
 
 export function Sidebar({ isAdmin }: SidebarProps) {
@@ -50,7 +52,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
   // Prefetch all app routes once on mount so navigation feels instant
   useEffect(() => {
-    const routes = ["/dashboard", "/movies", "/discover", "/recommendations", "/profile"];
+    const routes = ["/dashboard", "/movies", "/discover", "/recommendations", "/profile", "/about"];
     if (isAdmin) routes.push("/admin");
     routes.forEach(r => router.prefetch(r));
   }, [isAdmin, router]);
