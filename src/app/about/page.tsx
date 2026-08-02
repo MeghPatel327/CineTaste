@@ -30,14 +30,12 @@ export default function AboutPage() {
                 {app.description}
               </p>
             </div>
-            <div className="flex-1 w-full relative h-[300px] lg:h-full min-h-[300px] z-10">
-              <div className="absolute inset-0 relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-border h-full w-full">
-                <Image
+            <div className="flex-1 w-full relative min-h-[300px] z-10">
+              <div className="relative w-full h-full min-h-[300px] rounded-xl overflow-hidden shadow-2xl ring-1 ring-border">
+                <img
                   src="/images/about_banner.jpg"
                   alt="CineTaste Cinematic Banner"
-                  fill
-                  className="object-cover"
-                  priority
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
                 {/* Overlay gradient for better blending */}
                 <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />

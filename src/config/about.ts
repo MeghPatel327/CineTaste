@@ -137,7 +137,7 @@ export const aboutConfig = {
   ] as TechStack[],
   stats: [
     { label: "App Version", value: "1.2.0" },
-    { label: "Engine Version", value: "2.1.0" },
+    { label: "Engine Version", value: "3.1" },
     { label: "Database", value: "Baserow" },
     { label: "Framework", value: "Next.js" },
     { label: "Last Updated", value: "Aug 2026" },
