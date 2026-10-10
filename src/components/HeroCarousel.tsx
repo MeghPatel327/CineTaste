@@ -88,6 +88,11 @@ export function HeroCarousel({ items, onSelectMovie }: HeroCarouselProps) {
               className={`w-full h-full object-cover object-center transition-transform duration-[8000ms] ease-out ${
                 isActive ? "scale-105" : "scale-100"
               }`}
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.onerror = null;
+                target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080'%3E%3Crect fill='%2308090C' width='1920' height='1080'/%3E%3C/svg%3E";
+              }}
             />
           </div>
         );
@@ -239,6 +244,11 @@ export function HeroCarousel({ items, onSelectMovie }: HeroCarouselProps) {
                     src={item.posterUrl}
                     alt={item.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.onerror = null;
+                      target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='140'%3E%3Crect fill='%23181a20' width='100' height='140'/%3E%3C/svg%3E";
+                    }}
                   />
                   {isSelected && (
                     <div className="absolute inset-0 bg-emerald-500/15 pointer-events-none" />

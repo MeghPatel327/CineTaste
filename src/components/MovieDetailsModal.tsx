@@ -38,6 +38,7 @@ export function MovieDetailsModal({
   const [watchOptions, setWatchOptions] = useState<WatchOption[]>([]);
   const [isLoadingLinks, setIsLoadingLinks] = useState(false);
   const [isSavedNotice, setIsSavedNotice] = useState(false);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
 
   useEffect(() => {
     if (!movie) return;
@@ -103,7 +104,6 @@ export function MovieDetailsModal({
     } catch {}
   };
 
-  const [hoverRating, setHoverRating] = useState<number | null>(null);
 
   const handleRate = async (rating: number | null) => {
     setUserRating(rating);
@@ -146,6 +146,11 @@ export function MovieDetailsModal({
               src={movie.backdropUrl}
               alt={movie.title}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.onerror = null;
+                target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080'%3E%3Crect fill='%230F1117' width='1920' height='1080'/%3E%3C/svg%3E";
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0F1117] via-[#0F1117]/60 to-transparent" />
 

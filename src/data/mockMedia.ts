@@ -8,9 +8,9 @@ export const HERO_CAROUSEL_ITEMS: CarouselSlide[] = [
     overview:
       "Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family. Facing a choice between the love of his life and the fate of the known universe, he endeavors to prevent a terrible future only he can foresee.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=2000&q=85",
+      "https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80",
+      "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
     releaseYear: 2024,
     rating: 8.8,
     genres: ["Sci-Fi", "Adventure", "Drama"],
@@ -27,9 +27,9 @@ export const HERO_CAROUSEL_ITEMS: CarouselSlide[] = [
     overview:
       "Thirty years after the events of the first film, a new Blade Runner, LAPD Officer K, unearths a long-buried secret that has the potential to plunge what's left of society into chaos. K's discovery leads him on a quest to find Rick Deckard, a former LAPD Blade Runner who has been missing.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=2000&q=85",
+      "https://image.tmdb.org/t/p/w1280/sAtoMqDVhNDQBc3QJL3RF6hlhGq.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80",
+      "https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
     releaseYear: 2017,
     rating: 8.5,
     genres: ["Sci-Fi", "Mystery", "Thriller"],
@@ -46,9 +46,9 @@ export const HERO_CAROUSEL_ITEMS: CarouselSlide[] = [
     overview:
       "The adventures of a group of explorers who make use of a newly discovered wormhole to surpass the limitations on human space travel and conquer the vast distances involved in an interstellar voyage across space and time.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=2000&q=85",
+      "https://image.tmdb.org/t/p/w1280/xJHokMbljvjADYdit5fK1DVfjko.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80",
+      "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
     releaseYear: 2014,
     rating: 8.7,
     genres: ["Sci-Fi", "Drama", "Adventure"],
@@ -65,9 +65,9 @@ export const HERO_CAROUSEL_ITEMS: CarouselSlide[] = [
     overview:
       "The story of J. Robert Oppenheimer's role in the development of the atomic bomb during World War II, charting the brilliant minds at Los Alamos and the ensuing political and moral tempest that consumed his legacy.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=2000&q=85",
+      "https://image.tmdb.org/t/p/w1280/nb3xI8XI3w4pMVZ38VijbsyBqP4.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=600&q=80",
+      "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
     releaseYear: 2023,
     rating: 8.9,
     genres: ["Biography", "Drama", "History"],
@@ -84,9 +84,9 @@ export const HERO_CAROUSEL_ITEMS: CarouselSlide[] = [
     overview:
       "Taking place after alien crafts land around the world, an expert linguist is recruited by the military to determine whether they come in peace or are a threat. As humankind teeters on the verge of global war, she races against time for answers.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=2000&q=85",
+      "https://image.tmdb.org/t/p/w1280/yIZ1xendyqKvY3FGeeUYUd5X9Mm.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=600&q=80",
+      "https://image.tmdb.org/t/p/w500/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg",
     releaseYear: 2016,
     rating: 8.2,
     genres: ["Drama", "Mystery", "Sci-Fi"],
@@ -103,9 +103,9 @@ export const HERO_CAROUSEL_ITEMS: CarouselSlide[] = [
     overview:
       "Mark leads a team of office workers whose memories have been surgically divided between their work and personal lives. When a mysterious colleague appears outside of work, it begins a journey to discover the truth about their jobs.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2000&q=85",
+      "https://image.tmdb.org/t/p/w1280/lBLMnIFCpXMYIhWAfQD3s6mHFVP.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+      "https://image.tmdb.org/t/p/w500/lFGgqGMOcsKeaKpsMmt9siJ1OXe.jpg",
     releaseYear: 2022,
     rating: 8.7,
     genres: ["Drama", "Mystery", "Sci-Fi"],
@@ -122,9 +122,9 @@ export const HERO_CAROUSEL_ITEMS: CarouselSlide[] = [
     overview:
       "In his second year of fighting crime, Batman uncovers corruption in Gotham City that connects to his own family while facing a serial killer known as the Riddler, descending into the dark underworld of the criminal elite.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=2000&q=85",
+      "https://image.tmdb.org/t/p/w1280/b0PlSFdDwbyFAJlB1qpUHD7tEQs.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
+      "https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg",
     releaseYear: 2022,
     rating: 7.9,
     genres: ["Action", "Crime", "Drama"],
@@ -141,9 +141,9 @@ export const HERO_CAROUSEL_ITEMS: CarouselSlide[] = [
     overview:
       "Set in the utopian region of Piltover and the oppressed underground of Zaun, the story follows the origins of two iconic League champions-and the power that will tear them apart in a stunning visual synthesis of animation.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=2000&q=85",
+      "https://image.tmdb.org/t/p/w1280/rkB4LyZHo1NHXFEDHl9vSD9r1lI.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80",
+      "https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg",
     releaseYear: 2024,
     rating: 9.0,
     genres: ["Animation", "Action", "Sci-Fi"],
@@ -161,9 +161,9 @@ export const CONTINUE_WATCHING_ITEMS: MediaItem[] = [
     title: "Dune: Part Two",
     overview: "Paul Atreides unites with Chani and the Fremen to lead the rebellion.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
     releaseYear: 2024,
     rating: 8.8,
     genres: ["Sci-Fi", "Adventure"],
@@ -177,9 +177,9 @@ export const CONTINUE_WATCHING_ITEMS: MediaItem[] = [
     title: "Severance",
     overview: "Episode 7: Defiant Jazz. The Lumon innies orchestrate a daring breach.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/lBLMnIFCpXMYIhWAfQD3s6mHFVP.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/lFGgqGMOcsKeaKpsMmt9siJ1OXe.jpg",
     releaseYear: 2022,
     rating: 8.7,
     genres: ["Mystery", "Sci-Fi"],
@@ -193,9 +193,9 @@ export const CONTINUE_WATCHING_ITEMS: MediaItem[] = [
     title: "Blade Runner 2049",
     overview: "Officer K navigates the desolate ruins of Las Vegas to find Deckard.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/sAtoMqDVhNDQBc3QJL3RF6hlhGq.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
     releaseYear: 2017,
     rating: 8.5,
     genres: ["Sci-Fi", "Mystery"],
@@ -209,9 +209,9 @@ export const CONTINUE_WATCHING_ITEMS: MediaItem[] = [
     title: "Shōgun",
     overview: "Lord Toranaga battles against his treacherous rivals in feudal Japan.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/b8lcLiwOdlEsMKCsNZPnVBzOYhC.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgmX.jpg",
     releaseYear: 2024,
     rating: 8.7,
     genres: ["Drama", "History", "War"],
@@ -229,9 +229,9 @@ export const BECAUSE_YOU_LOVED_ITEMS: MediaItem[] = [
     overview:
       "In 2027, in a chaotic world in which women have become infertile, a former activist agrees to help transport a miraculously pregnant woman to a sanctuary at sea.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/geGpMpTXPf9hBqOlGnmHFikWYkN.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/uWkSDmgg9bkmBhJCpROuWH5ZiQh.jpg",
     releaseYear: 2006,
     rating: 8.0,
     genres: ["Sci-Fi", "Thriller"],
@@ -246,9 +246,9 @@ export const BECAUSE_YOU_LOVED_ITEMS: MediaItem[] = [
     overview:
       "A young programmer is selected to participate in a ground-breaking experiment in synthetic intelligence by evaluating the human qualities of a highly advanced humanoid A.I.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/3cb66Jh7i8HisKBWfwdTRJxMi4n.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/btbRB7BrD887j5NrvjxceRDmaot.jpg",
     releaseYear: 2014,
     rating: 7.7,
     genres: ["Sci-Fi", "Drama", "Mystery"],
@@ -263,9 +263,9 @@ export const BECAUSE_YOU_LOVED_ITEMS: MediaItem[] = [
     overview:
       "A biologist signs up for a dangerous, secret expedition into an environmental disaster zone where the laws of nature do not apply.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1511447333015-45b65e60f6d5?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/4jcBO0s9RviGCyZvIQMGwgbzBSY.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1511447333015-45b65e60f6d5?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/d3qcpfNwbAMCNqWDHzPQsUYiEgS.jpg",
     releaseYear: 2018,
     rating: 7.0,
     genres: ["Adventure", "Horror", "Sci-Fi"],
@@ -280,9 +280,9 @@ export const BECAUSE_YOU_LOVED_ITEMS: MediaItem[] = [
     overview:
       "A psychologist is sent to a space station orbiting a mysterious planet to discover what has caused the crew to go insane.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1447433589675-4aaa569f3e05?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/hMx1RdpCk3jLhaDNfGdOJzMBJpB.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1447433589675-4aaa569f3e05?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/l6GABkBLEJHCQLwMKiaK12hBaYP.jpg",
     releaseYear: 1972,
     rating: 8.0,
     genres: ["Sci-Fi", "Mystery"],
@@ -296,9 +296,9 @@ export const BECAUSE_YOU_LOVED_ITEMS: MediaItem[] = [
     overview:
       "A genetically inferior man assumes the identity of a superior one in order to pursue his lifelong dream of space travel.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/fDlLVMQMJgpdiCOb3IHsFjJFjxn.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/rkGZVxhyx46EYJbSns3N0qAnJWo.jpg",
     releaseYear: 1997,
     rating: 7.8,
     genres: ["Sci-Fi", "Drama", "Thriller"],
@@ -316,9 +316,9 @@ export const HIDDEN_GEMS_ITEMS: MediaItem[] = [
     overview:
       "Strange things begin to happen when a group of eight friends gather for a dinner party on the night a celestial comet passes overhead.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1531306728370-e2ebd9d7bb99?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/5OoL31BhDxCdGqW1FkWKuzxALjL.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1531306728370-e2ebd9d7bb99?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/eJFzSVeMou0DXYobR2XSwNnDZhL.jpg",
     releaseYear: 2013,
     rating: 7.3,
     genres: ["Mystery", "Sci-Fi", "Thriller"],
@@ -332,9 +332,9 @@ export const HIDDEN_GEMS_ITEMS: MediaItem[] = [
     overview:
       "A man struggles with memories of his past in a world without sunlight, run by mysterious beings who stop time and alter reality.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/ruHMdSoOGBjATmyGGJEzdqiy42O.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/sS7PFB4MWODFxGqu1yiu7OMxqMY.jpg",
     releaseYear: 1998,
     rating: 7.6,
     genres: ["Mystery", "Sci-Fi", "Thriller"],
@@ -349,9 +349,9 @@ export const HIDDEN_GEMS_ITEMS: MediaItem[] = [
     overview:
       "In the twilight of the 1950s, a switchboard operator and a radio DJ discover a strange audio frequency that could change their small town and the future forever.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/lGTkvGmj27eKy1yR8K94MV21Npm.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/hTv0prMKAMhqqyWxiGLFtlMqGVk.jpg",
     releaseYear: 2019,
     rating: 6.8,
     genres: ["Drama", "Mystery", "Sci-Fi"],
@@ -366,9 +366,9 @@ export const HIDDEN_GEMS_ITEMS: MediaItem[] = [
     overview:
       "Four friends and entrepreneurial inventors unwittingly build a device that allows for rudimentary time looping.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/2N8dbOYH8NRoHSlUjF8wQq3K9Z8.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/xWH0gEOMakNKM0cBDjQNL8rV0R3.jpg",
     releaseYear: 2004,
     rating: 6.9,
     genres: ["Drama", "Sci-Fi", "Thriller"],
@@ -382,9 +382,9 @@ export const HIDDEN_GEMS_ITEMS: MediaItem[] = [
     overview:
       "A post-apocalyptic saga spanning multiple timelines, telling the stories of survivors of a devastating flu as they attempt to rebuild and reimagine civilization.",
     backdropUrl:
-      "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80",
+      "https://image.tmdb.org/t/p/w1280/rMeWmkh5VtcDmu3lBOq5GJa6BZY.jpg",
     posterUrl:
-      "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=500&q=80",
+      "https://image.tmdb.org/t/p/w500/y9JSlBjPWauEbux5uabNjoyBIkS.jpg",
     releaseYear: 2021,
     rating: 7.7,
     genres: ["Drama", "Mystery", "Sci-Fi"],
@@ -400,8 +400,8 @@ export const POPULAR_MOVIES_ITEMS: MediaItem[] = [
     id: "pm-1",
     title: "Dune: Part Two",
     overview: "Paul Atreides unites with Chani and the Fremen to lead the rebellion.",
-    backdropUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
     releaseYear: 2024,
     rating: 8.8,
     genres: ["Sci-Fi", "Adventure", "Drama"],
@@ -413,8 +413,8 @@ export const POPULAR_MOVIES_ITEMS: MediaItem[] = [
     id: "pm-2",
     title: "Oppenheimer",
     overview: "The story of J. Robert Oppenheimer's role in the development of the atomic bomb.",
-    backdropUrl: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/nb3xI8XI3w4pMVZ38VijbsyBqP4.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
     releaseYear: 2023,
     rating: 8.9,
     genres: ["Biography", "Drama", "History"],
@@ -426,8 +426,8 @@ export const POPULAR_MOVIES_ITEMS: MediaItem[] = [
     id: "pm-3",
     title: "The Batman",
     overview: "Batman ventures into Gotham City's underworld when a sadistic killer leaves behind cryptic clues.",
-    backdropUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/b0PlSFdDwbyFAJlB1qpUHD7tEQs.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg",
     releaseYear: 2022,
     rating: 7.9,
     genres: ["Action", "Crime", "Drama"],
@@ -439,8 +439,8 @@ export const POPULAR_MOVIES_ITEMS: MediaItem[] = [
     id: "pm-4",
     title: "Interstellar",
     overview: "A team of explorers travels through a wormhole in space in an attempt to ensure humanity's survival.",
-    backdropUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/xJHokMbljvjADYdit5fK1DVfjko.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
     releaseYear: 2014,
     rating: 8.7,
     genres: ["Sci-Fi", "Drama", "Adventure"],
@@ -452,8 +452,8 @@ export const POPULAR_MOVIES_ITEMS: MediaItem[] = [
     id: "pm-5",
     title: "Arrival",
     overview: "A linguist works with the military to communicate with alien lifeforms.",
-    backdropUrl: "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/yIZ1xendyqKvY3FGeeUYUd5X9Mm.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg",
     releaseYear: 2016,
     rating: 8.2,
     genres: ["Drama", "Mystery", "Sci-Fi"],
@@ -468,8 +468,8 @@ export const POPULAR_SERIES_ITEMS: MediaItem[] = [
     id: "ps-1",
     title: "Severance",
     overview: "Mark leads a team of office workers whose memories have been surgically divided.",
-    backdropUrl: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/lBLMnIFCpXMYIhWAfQD3s6mHFVP.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/lFGgqGMOcsKeaKpsMmt9siJ1OXe.jpg",
     releaseYear: 2022,
     rating: 8.7,
     genres: ["Drama", "Mystery", "Sci-Fi"],
@@ -481,8 +481,8 @@ export const POPULAR_SERIES_ITEMS: MediaItem[] = [
     id: "ps-2",
     title: "Arcane",
     overview: "Set in Piltover and Zaun, following the origins of two iconic champions.",
-    backdropUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/rkB4LyZHo1NHXFEDHl9vSD9r1lI.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg",
     releaseYear: 2024,
     rating: 9.0,
     genres: ["Animation", "Action", "Sci-Fi"],
@@ -494,8 +494,8 @@ export const POPULAR_SERIES_ITEMS: MediaItem[] = [
     id: "ps-3",
     title: "Shōgun",
     overview: "Lord Toranaga battles against his rivals in feudal Japan as an English navigator washes ashore.",
-    backdropUrl: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/b8lcLiwOdlEsMKCsNZPnVBzOYhC.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgmX.jpg",
     releaseYear: 2024,
     rating: 8.7,
     genres: ["Drama", "History", "War"],
@@ -507,8 +507,8 @@ export const POPULAR_SERIES_ITEMS: MediaItem[] = [
     id: "ps-4",
     title: "Station Eleven",
     overview: "A post-apocalyptic saga spanning multiple timelines following survivors rebuilding humanity.",
-    backdropUrl: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80",
-    posterUrl: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=500&q=80",
+    backdropUrl: "https://image.tmdb.org/t/p/w1280/rMeWmkh5VtcDmu3lBOq5GJa6BZY.jpg",
+    posterUrl: "https://image.tmdb.org/t/p/w500/y9JSlBjPWauEbux5uabNjoyBIkS.jpg",
     releaseYear: 2021,
     rating: 7.7,
     genres: ["Drama", "Mystery", "Sci-Fi"],

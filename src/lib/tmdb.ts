@@ -5,6 +5,27 @@ import { getAllBundledMedia } from "./baserow";
 const tmdbCache = new Map<string, { data: MediaItem; expiry: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 
+const FALLBACK_POSTER = "https://image.tmdb.org/t/p/w500/wwemzKWzjKYJFfCeiB57q3r4Bcm.png";
+const FALLBACK_BACKDROP = "https://image.tmdb.org/t/p/w1280/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg";
+
+/**
+ * Resolve a TMDB image path to a full CDN URL.
+ * - Returns fallback if path is falsy.
+ * - Returns as-is if path is already an absolute URL.
+ * - Constructs base/size/path for relative TMDB paths.
+ */
+export function resolveTmdbImageUrl(
+  path: string | null | undefined,
+  size: string,
+  fallback: string
+): string {
+  if (!path) return fallback;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const base = "https://image.tmdb.org/t/p";
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${base}/${size}${cleanPath}`;
+}
+
 export async function fetchTmdbMedia(id: string, type: "movie" | "tv" = "movie"): Promise<MediaItem | null> {
   const config = getServerEnv();
 
@@ -57,12 +78,8 @@ export async function fetchTmdbMedia(id: string, type: "movie" | "tv" = "movie")
       title,
       tagline: data.tagline || undefined,
       overview: data.overview || "",
-      backdropUrl: data.backdrop_path
-        ? `${config.tmdb.imageBaseUrl}/w1280${data.backdrop_path}`
-        : bundled?.backdropUrl || "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=2000&q=85",
-      posterUrl: data.poster_path
-        ? `${config.tmdb.imageBaseUrl}/w500${data.poster_path}`
-        : bundled?.posterUrl || "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80",
+      backdropUrl: resolveTmdbImageUrl(data.backdrop_path, "w1280", bundled?.backdropUrl || FALLBACK_BACKDROP),
+      posterUrl: resolveTmdbImageUrl(data.poster_path, "w500", bundled?.posterUrl || FALLBACK_POSTER),
       releaseYear,
       releaseDate,
       rating: Number((data.vote_average || 7.5).toFixed(1)),
@@ -118,12 +135,8 @@ export async function searchMedia(query: string): Promise<MediaItem[]> {
           tmdbId: String(r.id),
           title: title || "Untitled",
           overview: r.overview || "",
-          backdropUrl: r.backdrop_path
-            ? `${config.tmdb.imageBaseUrl}/w1280${r.backdrop_path}`
-            : "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=2000&q=85",
-          posterUrl: r.poster_path
-            ? `${config.tmdb.imageBaseUrl}/w500${r.poster_path}`
-            : "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80",
+          backdropUrl: resolveTmdbImageUrl(r.backdrop_path, "w1280", FALLBACK_BACKDROP),
+          posterUrl: resolveTmdbImageUrl(r.poster_path, "w500", FALLBACK_POSTER),
           releaseYear: date ? new Date(date).getFullYear() : 2024,
           rating: Number((r.vote_average || 7.0).toFixed(1)),
           genres: [],
