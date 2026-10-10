@@ -198,15 +198,15 @@ export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
               <BarChart3 className="w-4 h-4 text-emerald-400" />
               Rating Distribution
             </h3>
-            <span className="text-[11px] text-zinc-400">Scores 1–10</span>
+            <span className="text-[11px] text-zinc-400">Scores 0.5 – 5.0 Stars</span>
           </div>
 
-          <div className="flex items-end justify-between gap-2 h-44 pt-6 pb-2 px-2">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => {
+          <div className="flex items-end justify-between gap-1.5 h-44 pt-6 pb-2 px-1">
+            {[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0].map((star) => {
               const match = stats?.ratingDistribution?.find((r) => r.rating === star);
-              const count = match ? match.count : star >= 8 ? (star === 10 ? 3 : 2) : 0;
-              const maxCount = 5;
-              const heightPct = Math.max(10, (count / maxCount) * 100);
+              const count = match ? match.count : 0;
+              const maxCount = Math.max(3, ...(stats?.ratingDistribution?.map((r) => r.count) || [3]));
+              const heightPct = Math.max(8, (count / maxCount) * 100);
 
               return (
                 <div key={star} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
@@ -217,7 +217,7 @@ export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
                     }`}
                     style={{ height: `${heightPct}%` }}
                   />
-                  <span className="text-[10px] text-zinc-500 font-bold">{star}</span>
+                  <span className="text-[9px] text-zinc-500 font-bold">{star}</span>
                 </div>
               );
             })}
@@ -229,9 +229,14 @@ export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="relative w-full max-w-md p-6 rounded-2xl glass-panel-elevated bg-[#0F1117] border border-white/10 space-y-5">
-            <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
-              {isRegistering ? "Create CineTaste Account" : "Log In to CineTaste"}
-            </h3>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 p-1 flex items-center justify-center shrink-0">
+                <img src="/images/circle_logo.png" alt="CineTaste" className="w-full h-full object-contain" />
+              </div>
+              <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
+                {isRegistering ? "Create CineTaste Account" : "Log In to CineTaste"}
+              </h3>
+            </div>
 
             {authError && (
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs">

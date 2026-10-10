@@ -72,24 +72,10 @@ export function HeaderNav({
           )}
         </div>
 
-        {/* Quick Genre Pills */}
-        <div className="hidden lg:flex items-center gap-1.5">
-          {genres.map((tag) => {
-            const isActive = activeGenre === tag;
-            return (
-              <button
-                key={tag}
-                onClick={() => onGenreChange?.(tag)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-                    : "bg-white/[0.03] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.08] border border-transparent"
-                }`}
-              >
-                {tag}
-              </button>
-            );
-          })}
+        {/* Mobile / Compact brand mark in header */}
+        <div className="md:hidden flex items-center gap-2">
+          <img src="/images/circle_logo.png" alt="CineTaste" className="w-7 h-7 object-contain" />
+          <span className="font-bold text-sm text-white font-['Plus_Jakarta_Sans']">CineTaste</span>
         </div>
 
         {/* Action icons & Profile */}

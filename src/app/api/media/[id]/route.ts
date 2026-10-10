@@ -23,7 +23,7 @@ export async function GET(
     }
 
     // Attach configured external watch options from Baserow
-    const watchOptions = await getWatchOptionsForMedia(item.id);
+    const watchOptions = await getWatchOptionsForMedia(item.id, item.title);
 
     return NextResponse.json({
       success: true,

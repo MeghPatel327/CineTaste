@@ -17,7 +17,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "CineTaste — Obsidian Cinema Glass Discovery",
+  title: "CineTaste — Cinematic Movie & Series Discovery",
   description:
     "A luxury cinematic movie and series discovery experience with dark glassmorphism, personalized taste rails, and atmospheric theater aesthetics.",
 };

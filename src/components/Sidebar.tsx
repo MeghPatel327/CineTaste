@@ -69,9 +69,12 @@ export function Sidebar({
         <div>
           <div className="flex items-center justify-between px-5 py-6 border-b border-white/5">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-950/40 border border-emerald-500/30 text-emerald-400 shrink-0 shadow-[0_0_16px_rgba(16,185,129,0.25)]">
-                <Film className="w-5 h-5 text-emerald-400" />
-                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 shrink-0 overflow-hidden shadow-[0_0_16px_rgba(16,185,129,0.2)]">
+                <img
+                  src="/images/circle_logo.png"
+                  alt="CineTaste"
+                  className="w-full h-full object-contain p-1"
+                />
               </div>
               {(!isCollapsed || isMobileOpen) && (
                 <div className="flex flex-col tracking-tight">
@@ -79,8 +82,8 @@ export function Sidebar({
                     CineTaste
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
                   </span>
-                  <span className="text-[11px] text-zinc-400 tracking-wider uppercase font-medium mt-1">
-                    Obsidian Cinema Glass
+                  <span className="text-[11px] text-zinc-400 tracking-wider font-medium mt-1">
+                    Cinema Curation
                   </span>
                 </div>
               )}

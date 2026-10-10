@@ -16,9 +16,11 @@ import {
   CONTINUE_WATCHING_ITEMS,
   BECAUSE_YOU_LOVED_ITEMS,
   HIDDEN_GEMS_ITEMS,
+  POPULAR_MOVIES_ITEMS,
+  POPULAR_SERIES_ITEMS,
 } from "@/data/mockMedia";
 import { MediaItem, CarouselSlide } from "@/types/media";
-import { Sparkles } from "lucide-react";
+import { Sparkles, SlidersHorizontal, Film, Tv, Flame } from "lucide-react";
 
 export default function HomePage() {
   const [currentTab, setCurrentTab] = useState("home");
@@ -138,17 +140,78 @@ export default function HomePage() {
                 onSelectMovie={handleSelectMovie}
               />
 
-              {/* Secondary Rails Below Hero with Positive Margin (Never Underneath Controls) */}
+              {/* ── GENRE & DISCOVERY FILTERS (Below Hero Section) ── */}
+              <div className="px-6 md:px-12 py-2 sticky top-[57px] z-30 bg-[#08090C]/90 backdrop-blur-xl border-y border-white/5">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mr-2 shrink-0 flex items-center gap-1.5">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />
+                    Filter by:
+                  </span>
+                  {["All", "Sci-Fi", "Action", "Drama", "Mystery", "Adventure", "Thriller", "Crime", "Animation"].map((genre) => {
+                    const isActive = activeGenre === genre;
+                    return (
+                      <button
+                        key={genre}
+                        onClick={() => setActiveGenre(genre)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                          isActive
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+                            : "bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08] border border-white/5"
+                        }`}
+                      >
+                        {genre}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Secondary Rails Below Hero & Filters */}
               <div className="relative z-20 mt-4 space-y-6">
+                {/* When a specific genre filter is selected, show filtered discovery row */}
+                {activeGenre !== "All" && (
+                  <MediaRow
+                    title={`Explore ${activeGenre}`}
+                    subtitle={`Titles in the CineTaste catalog containing the ${activeGenre} genre`}
+                    items={[
+                      ...HERO_CAROUSEL_ITEMS,
+                      ...POPULAR_MOVIES_ITEMS,
+                      ...POPULAR_SERIES_ITEMS,
+                      ...BECAUSE_YOU_LOVED_ITEMS,
+                      ...HIDDEN_GEMS_ITEMS,
+                    ].filter((item, idx, self) =>
+                      item.genres.some((g) => g.toLowerCase() === activeGenre.toLowerCase()) &&
+                      self.findIndex((s) => s.title.toLowerCase() === item.title.toLowerCase()) === idx
+                    )}
+                    onSelectItem={handleSelectMovie}
+                  />
+                )}
+
                 {/* AI Taste Profile Personalized Rail */}
                 {aiRecommendations.length > 0 && (
                   <MediaRow
-                    title="Curated For Your Taste DNA"
-                    subtitle={`Generated via ${aiEngine.replace("_", " ").toUpperCase()} based on your viewing history and director affinities`}
+                    title="Curated Recommendations"
+                    subtitle={`Generated via ${aiEngine.replace("_", " ").toUpperCase()} based on multi-genre affinities and catalog signals`}
                     items={aiRecommendations}
                     onSelectItem={handleSelectMovie}
                   />
                 )}
+
+                {/* Popular Movies Section */}
+                <MediaRow
+                  title="Popular Movies"
+                  subtitle="Essential theatrical releases and critically acclaimed masterpieces"
+                  items={POPULAR_MOVIES_ITEMS}
+                  onSelectItem={handleSelectMovie}
+                />
+
+                {/* Popular Series Section */}
+                <MediaRow
+                  title="Popular Series"
+                  subtitle="Top episodic drama, mystery, and high-concept sci-fi television"
+                  items={POPULAR_SERIES_ITEMS}
+                  onSelectItem={handleSelectMovie}
+                />
 
                 {/* Continue Watching Row */}
                 <MediaRow
@@ -159,19 +222,19 @@ export default function HomePage() {
                   showProgress={true}
                 />
 
+                {/* Trending / Hidden Gems */}
+                <MediaRow
+                  title="Trending & Hidden Gems"
+                  subtitle="High taste affinity indie gems with minimal mainstream clutter"
+                  items={HIDDEN_GEMS_ITEMS}
+                  onSelectItem={handleSelectMovie}
+                />
+
                 {/* Because You Loved Blade Runner 2049 */}
                 <MediaRow
                   title="Because You Loved Blade Runner 2049"
                   subtitle="Curated by CineTaste taste algorithm based on directors and dystopian atmospheric tones"
                   items={BECAUSE_YOU_LOVED_ITEMS}
-                  onSelectItem={handleSelectMovie}
-                />
-
-                {/* Hidden Gems & Cult Sci-Fi */}
-                <MediaRow
-                  title="Hidden Gems & Cult Sci-Fi"
-                  subtitle="High taste affinity indie gems with minimal mainstream clutter"
-                  items={HIDDEN_GEMS_ITEMS}
                   onSelectItem={handleSelectMovie}
                 />
               </div>

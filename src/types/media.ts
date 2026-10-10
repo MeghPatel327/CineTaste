@@ -11,6 +11,20 @@ export interface WatchOption {
   isVerified: boolean;
 }
 
+export interface GlobalWatchProvider {
+  id?: number | string;
+  providerId: string;
+  providerName: string;
+  providerType: "subscription" | "rent_buy" | "free_ad_supported" | "external_catalog";
+  baseUrl: string;
+  iconUrl?: string;
+  badgeLabel?: string;
+  isActive: boolean;
+  displayOrder: number;
+}
+
+
+
 export interface MediaItem {
   id: string;
   tmdbId?: string;

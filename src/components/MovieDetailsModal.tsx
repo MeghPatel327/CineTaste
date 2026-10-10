@@ -6,6 +6,8 @@ import {
   ExternalLink,
   Bookmark,
   Star,
+  StarHalf,
+  RotateCcw,
   Clock,
   Volume2,
   Sparkles,
@@ -101,7 +103,9 @@ export function MovieDetailsModal({
     } catch {}
   };
 
-  const handleRate = async (rating: number) => {
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
+
+  const handleRate = async (rating: number | null) => {
     setUserRating(rating);
     try {
       await fetch("/api/library", {
@@ -330,29 +334,68 @@ export function MovieDetailsModal({
                   </select>
                 </div>
 
-                {/* Star Rating Selector (1-10) */}
-                <div className="flex items-center gap-1">
-                  <span className="text-[11px] text-zinc-400 mr-1">Your Rating:</span>
-                  {[2, 4, 6, 8, 10].map((starVal) => {
-                    const isRated = userRating !== null && userRating >= starVal;
-                    return (
+                {/* 5-Star Half-Increment Rating System (0 - 5 with 0.5 steps) */}
+                <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
+                  <span className="text-[11px] text-zinc-400 mr-0.5 font-medium">Your Rating:</span>
+                  <div className="flex items-center gap-0.5" onMouseLeave={() => setHoverRating(null)}>
+                    {[1, 2, 3, 4, 5].map((starIdx) => {
+                      const activeScore = hoverRating !== null ? hoverRating : userRating !== null ? userRating : 0;
+                      const isFull = activeScore >= starIdx;
+                      const isHalf = !isFull && activeScore >= starIdx - 0.5;
+
+                      return (
+                        <div key={starIdx} className="relative flex items-center justify-center">
+                          {/* Left Half Click Zone (starIdx - 0.5) */}
+                          <button
+                            type="button"
+                            onClick={() => handleRate(userRating === starIdx - 0.5 ? null : starIdx - 0.5)}
+                            onMouseEnter={() => setHoverRating(starIdx - 0.5)}
+                            className="absolute left-0 top-0 w-1/2 h-full z-10 cursor-pointer"
+                            aria-label={`Rate ${starIdx - 0.5} stars`}
+                            title={`Rate ${starIdx - 0.5} / 5`}
+                          />
+                          {/* Right Half Click Zone (starIdx) */}
+                          <button
+                            type="button"
+                            onClick={() => handleRate(userRating === starIdx ? null : starIdx)}
+                            onMouseEnter={() => setHoverRating(starIdx)}
+                            className="absolute right-0 top-0 w-1/2 h-full z-10 cursor-pointer"
+                            aria-label={`Rate ${starIdx} stars`}
+                            title={`Rate ${starIdx} / 5`}
+                          />
+                          {/* Star Rendering: Full, Half, or Empty */}
+                          <div className="p-0.5 pointer-events-none">
+                            {isFull ? (
+                              <Star className="w-4 h-4 fill-emerald-400 text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]" />
+                            ) : isHalf ? (
+                              <StarHalf className="w-4 h-4 fill-emerald-400 text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
+                            ) : (
+                              <Star className="w-4 h-4 text-zinc-600" />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Display Score & Clear Button */}
+                  {userRating !== null && userRating > 0 ? (
+                    <div className="flex items-center gap-1.5 ml-1">
+                      <span className="text-xs font-bold text-emerald-400 font-mono">
+                        {userRating % 1 === 0 ? `${userRating}.0` : userRating}/5
+                      </span>
                       <button
-                        key={starVal}
-                        onClick={() => handleRate(starVal)}
-                        className="p-1 text-zinc-500 hover:text-emerald-400 transition-colors cursor-pointer"
-                        title={`Rate ${starVal}/10`}
+                        type="button"
+                        onClick={() => handleRate(null)}
+                        className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                        title="Clear rating"
                       >
-                        <Star
-                          className={`w-4 h-4 ${
-                            isRated ? "fill-emerald-400 text-emerald-400" : "text-zinc-600"
-                          }`}
-                        />
+                        <RotateCcw className="w-3 h-3" />
                       </button>
-                    );
-                  })}
-                  {userRating && (
-                    <span className="text-xs font-bold text-emerald-400 ml-1 font-mono">
-                      {userRating}/10
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-zinc-500 font-mono ml-0.5">
+                      {hoverRating !== null ? `${hoverRating}/5` : "Unrated"}
                     </span>
                   )}
                 </div>

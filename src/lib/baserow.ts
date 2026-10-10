@@ -1,5 +1,5 @@
 import { getServerEnv } from "./env";
-import { MediaItem, WatchOption, UserMediaRecord, LibraryStatus, TasteProfileData } from "@/types/media";
+import { MediaItem, WatchOption, GlobalWatchProvider, UserMediaRecord, LibraryStatus, TasteProfileData } from "@/types/media";
 import { UserProfile } from "@/types/auth";
 
 /** Convert ISO timestamp to YYYY-MM-DD for Baserow Date fields */
@@ -402,68 +402,192 @@ export async function upsertUserMediaRecord(
 // WATCH OPTIONS REPOSITORY
 // ────────────────────────────────────────────────────────────
 
-export async function getWatchOptionsForMedia(tmdbId: string): Promise<WatchOption[]> {
+// ────────────────────────────────────────────────────────────
+// GLOBAL WATCH PROVIDERS REPOSITORY (Admin-Managed)
+// ────────────────────────────────────────────────────────────
+
+export const SEEDED_GLOBAL_PROVIDERS: GlobalWatchProvider[] = [
+  { providerId: "prov_4khdhub_dl", providerName: "4KHDHub (DL)", providerType: "external_catalog", baseUrl: "https://4khdhub.one/?s={q}", isActive: true, displayOrder: 1 },
+  { providerId: "prov_hdhub4u_dl", providerName: "HDHub4u (DL)", providerType: "external_catalog", baseUrl: "https://new2.hdhub4u.cl/search.html?q={q}", isActive: true, displayOrder: 2 },
+  { providerId: "prov_hydrahd", providerName: "HydraHD", providerType: "external_catalog", baseUrl: "https://hydrahd.ru/index.php?menu=search&query={q}", isActive: true, displayOrder: 3 },
+  { providerId: "prov_donkey", providerName: "Donkey", providerType: "external_catalog", baseUrl: "https://donkey.to/media/search?query={q}", isActive: true, displayOrder: 4 },
+  { providerId: "prov_katmoviehd", providerName: "KatMovieHD", providerType: "external_catalog", baseUrl: "https://katmoviehd.pk/?s={q}", isActive: true, displayOrder: 5 },
+  { providerId: "prov_mkvcinemas", providerName: "MkvCinemas", providerType: "external_catalog", baseUrl: "https://mkvcinemas.id/?s={q}", isActive: true, displayOrder: 6 },
+  { providerId: "prov_cinehd", providerName: "CineHD", providerType: "external_catalog", baseUrl: "https://cinehd.app/search?q={q}", isActive: true, displayOrder: 7 },
+  { providerId: "prov_ddlbase_dl", providerName: "DDLBASE (DL)", providerType: "external_catalog", baseUrl: "https://ddlbase.com/search/{q}", isActive: true, displayOrder: 8 },
+  { providerId: "prov_pahe_dl", providerName: "Pahe (DL)", providerType: "external_catalog", baseUrl: "https://pahe.ink/?s={q}", isActive: true, displayOrder: 9 },
+  { providerId: "prov_xgmovies_dl", providerName: "XGMovies (DL)", providerType: "external_catalog", baseUrl: "https://top.xdmovies.wtf/search.html?q={q}", isActive: true, displayOrder: 10 },
+  { providerId: "prov_showbox", providerName: "ShowBox", providerType: "external_catalog", baseUrl: "https://www.showbox.media/search?keyword={q}", isActive: true, displayOrder: 11 },
+  { providerId: "prov_movieparadise_dl", providerName: "MovieParadise (DL)", providerType: "external_catalog", baseUrl: "https://movieparadise.org/?s={q}", isActive: true, displayOrder: 12 },
+  { providerId: "prov_hindmovie", providerName: "HindMovie", providerType: "external_catalog", baseUrl: "https://hindmovie.icu/?s={q}", isActive: true, displayOrder: 13 },
+  { providerId: "prov_olamovies_dl", providerName: "OlaMovies (DL)", providerType: "external_catalog", baseUrl: "https://v3.olamovies.mov/?s={q}", isActive: true, displayOrder: 14 },
+  { providerId: "prov_vyla_dl", providerName: "vyla (DL)", providerType: "external_catalog", baseUrl: "https://vyla.cc/search/{q}", isActive: true, displayOrder: 15 },
+  { providerId: "prov_worldfree4u", providerName: "Worldfree4u", providerType: "external_catalog", baseUrl: "https://worldfree4u.video/?s={q}", isActive: true, displayOrder: 16 },
+  { providerId: "prov_popcornflix", providerName: "POPCORNFLIX", providerType: "external_catalog", baseUrl: "https://popcornflix.com/search/{q}", isActive: true, displayOrder: 17 },
+  { providerId: "prov_mp4moviez", providerName: "Mp4Moviez", providerType: "external_catalog", baseUrl: "https://mp4moviez.rip/search/{q}", isActive: true, displayOrder: 18 },
+  { providerId: "prov_bingr", providerName: "Bingr", providerType: "external_catalog", baseUrl: "https://bingr.one/", isActive: true, displayOrder: 19 },
+];
+
+export async function getGlobalWatchProviders(): Promise<GlobalWatchProvider[]> {
   const config = getServerEnv();
 
-  if (config.baserow.isConfigured && config.baserow.tables.mediaWatchLinks) {
+  if (config.baserow.isConfigured && config.baserow.tables.watchProviders) {
     const res = await baserowRequest<{ results: any[] }>(
-      `/api/database/rows/table/${config.baserow.tables.mediaWatchLinks}/?user_field_names=true&filter__field_tmdb_id__equal=${encodeURIComponent(
-        tmdbId
-      )}`
+      `/api/database/rows/table/${config.baserow.tables.watchProviders}/?user_field_names=true&size=100`
     );
     if (res.success && res.data && res.data.results.length > 0) {
-      return res.data.results.map((r: any) => ({
-        linkId: String(r.link_id || r.id),
-        providerId: String(r.provider_id || ""),
-        providerName: String(r.provider_name || "External Mirror"),
-        providerType: (r.provider_type?.value || "external_catalog") as WatchOption["providerType"],
-        directUrl: String(r.direct_url),
-        qualityLabel: r.quality_label?.value || r.quality_label || undefined,
-        languageAudio: r.language_audio || undefined,
-        badgeLabel: r.badge_label || undefined,
-        iconUrl: r.icon_url || undefined,
-        isVerified: Boolean(r.is_verified ?? true),
-      }));
+      return res.data.results
+        .map((r: any) => ({
+          id: r.id,
+          providerId: String(r.provider_id || ""),
+          providerName: String(r.provider_name || ""),
+          providerType: (r.provider_type?.value || r.provider_type || "external_catalog") as GlobalWatchProvider["providerType"],
+          baseUrl: String(r.base_url || ""),
+          iconUrl: r.icon_url || undefined,
+          badgeLabel: r.badge_label || undefined,
+          isActive: Boolean(r.is_active),
+          displayOrder: Number(r.display_order ?? 99),
+        }))
+        .sort((a, b) => a.displayOrder - b.displayOrder);
     }
   }
 
-  // Memory fallback
-  const direct = inMemoryStore.watchLinks.get(tmdbId);
-  if (direct) return direct;
+  return [...SEEDED_GLOBAL_PROVIDERS].sort((a, b) => a.displayOrder - b.displayOrder);
+}
 
-  // Generate generic verified watch links dynamically for titles that lack specific links
-  return [
-    {
-      linkId: `gen-opt-1-${tmdbId}`,
-      providerId: "prov_apple",
-      providerName: "Apple TV",
-      providerType: "rent_buy",
-      directUrl: `https://tv.apple.com/search?term=${encodeURIComponent(tmdbId)}`,
-      qualityLabel: "4K UHD",
-      badgeLabel: "Official 4K",
-      isVerified: true,
-    },
-    {
-      linkId: `gen-opt-2-${tmdbId}`,
-      providerId: "prov_prime",
-      providerName: "Prime Video",
-      providerType: "rent_buy",
-      directUrl: `https://www.amazon.com/s?k=${encodeURIComponent(tmdbId)}&i=instant-video`,
-      qualityLabel: "4K UHD",
-      badgeLabel: "Official Store",
-      isVerified: true,
-    },
-    {
-      linkId: `gen-opt-3-${tmdbId}`,
-      providerId: "prov_mirror_1",
-      providerName: "CineStream Archive",
-      providerType: "external_catalog",
-      directUrl: `https://example.com/search/${encodeURIComponent(tmdbId)}`,
-      qualityLabel: "1080p FHD",
-      badgeLabel: "Community Mirror",
-      isVerified: true,
-    },
-  ];
+export async function createGlobalWatchProvider(data: {
+  providerName: string;
+  baseUrl: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}): Promise<{ success: boolean; data?: any; error?: string }> {
+  const config = getServerEnv();
+  const slug = data.providerName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const providerId = `prov_${slug}_${Date.now().toString(36)}`;
+  const order = data.displayOrder ?? 99;
+
+  if (config.baserow.isConfigured && config.baserow.tables.watchProviders) {
+    const res = await baserowRequest(
+      `/api/database/rows/table/${config.baserow.tables.watchProviders}/?user_field_names=true`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          provider_id: providerId,
+          provider_name: data.providerName,
+          provider_type: "external_catalog",
+          base_url: data.baseUrl,
+          is_active: data.isActive !== false,
+          display_order: order,
+        }),
+      }
+    );
+    return res;
+  }
+
+  return { success: true };
+}
+
+export async function updateGlobalWatchProvider(
+  rowId: number | string,
+  updates: Partial<{ providerName: string; baseUrl: string; displayOrder: number; isActive: boolean }>
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  const config = getServerEnv();
+  if (config.baserow.isConfigured && config.baserow.tables.watchProviders) {
+    const payload: Record<string, any> = {};
+    if (updates.providerName !== undefined) payload.provider_name = updates.providerName;
+    if (updates.baseUrl !== undefined) payload.base_url = updates.baseUrl;
+    if (updates.displayOrder !== undefined) payload.display_order = updates.displayOrder;
+    if (updates.isActive !== undefined) payload.is_active = updates.isActive;
+
+    const res = await baserowRequest(
+      `/api/database/rows/table/${config.baserow.tables.watchProviders}/${rowId}/?user_field_names=true`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }
+    );
+    return res;
+  }
+
+  return { success: true };
+}
+
+export async function deleteGlobalWatchProvider(rowId: number | string): Promise<{ success: boolean; error?: string }> {
+  const config = getServerEnv();
+  if (config.baserow.isConfigured && config.baserow.tables.watchProviders) {
+    const res = await baserowRequest(
+      `/api/database/rows/table/${config.baserow.tables.watchProviders}/${rowId}/`,
+      {
+        method: "DELETE",
+      }
+    );
+    return res;
+  }
+
+  return { success: true };
+}
+
+/**
+ * Resolves a URL template safely for a given title.
+ * Substitutes {q} and {query} with encodeURIComponent(title).
+ * If no placeholder, treats as a direct link without double-encoding or appending.
+ */
+export function buildProviderUrl(template: string, title: string): string {
+  if (!template) return "#";
+  const cleanTitle = title.trim();
+  const encoded = encodeURIComponent(cleanTitle);
+
+  if (template.includes("{q}")) {
+    return template.replace(/\{q\}/g, encoded);
+  }
+  if (template.includes("{query}")) {
+    return template.replace(/\{query\}/g, encoded);
+  }
+  return template;
+}
+
+// ────────────────────────────────────────────────────────────
+// WATCH OPTIONS REPOSITORY
+// ────────────────────────────────────────────────────────────
+
+export async function getWatchOptionsForMedia(tmdbId: string, title?: string): Promise<WatchOption[]> {
+  // 1. Fetch globally configured enabled providers
+  const globalProviders = await getGlobalWatchProviders();
+  const enabledProviders = globalProviders.filter((p) => p.isActive);
+
+  // Determine media title for template substitution
+  let mediaTitle = title;
+  if (!mediaTitle) {
+    const bundled = getAllBundledMedia().find((m) => m.id === tmdbId || m.tmdbId === tmdbId);
+    mediaTitle = bundled ? bundled.title : tmdbId.replace(/^(movie-|tv-|hero-|cw-|byl-|gem-)/, "");
+  }
+
+  if (enabledProviders.length > 0) {
+    return enabledProviders.map((p) => ({
+      linkId: `glink_${p.providerId}_${tmdbId}`,
+      providerId: p.providerId,
+      providerName: p.providerName,
+      providerType: p.providerType,
+      directUrl: buildProviderUrl(p.baseUrl, mediaTitle || tmdbId),
+      qualityLabel: p.providerName.includes("(DL)") ? "4K UHD" : undefined,
+      badgeLabel: "External Search",
+      iconUrl: p.iconUrl,
+      isVerified: false,
+    }));
+  }
+
+  // Fallback to seeded providers
+  return SEEDED_GLOBAL_PROVIDERS.filter((p) => p.isActive).map((p) => ({
+    linkId: `glink_${p.providerId}_${tmdbId}`,
+    providerId: p.providerId,
+    providerName: p.providerName,
+    providerType: p.providerType,
+    directUrl: buildProviderUrl(p.baseUrl, mediaTitle || tmdbId),
+    qualityLabel: p.providerName.includes("(DL)") ? "4K UHD" : undefined,
+    badgeLabel: "External Search",
+    iconUrl: p.iconUrl,
+    isVerified: false,
+  }));
 }
 
 export async function addWatchOptionForMedia(

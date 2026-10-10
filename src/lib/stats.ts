@@ -15,7 +15,7 @@ export async function getUserProfileStats(userId: string): Promise<ProfileStats>
 
   const genreCounts: Record<string, number> = {};
   const ratingDistributionMap: Record<number, number> = {};
-  for (let i = 1; i <= 10; i++) ratingDistributionMap[i] = 0;
+  for (let i = 0.5; i <= 5.0; i += 0.5) ratingDistributionMap[Number(i.toFixed(1))] = 0;
 
   const recentActivity: ProfileStats["recentActivity"] = [];
 
@@ -39,8 +39,8 @@ export async function getUserProfileStats(userId: string): Promise<ProfileStats>
     if (r.userRating !== undefined && r.userRating > 0) {
       sumRating += r.userRating;
       ratingCount++;
-      const roundedRating = Math.min(10, Math.max(1, Math.round(r.userRating)));
-      ratingDistributionMap[roundedRating] = (ratingDistributionMap[roundedRating] || 0) + 1;
+      const stepRating = Number((Math.round(r.userRating * 2) / 2).toFixed(1));
+      ratingDistributionMap[stepRating] = (ratingDistributionMap[stepRating] || 0) + 1;
     }
 
     if (item) {
