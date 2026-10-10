@@ -98,14 +98,11 @@ export function HeaderNav({
 
           <div className="h-6 w-px bg-white/10 mx-1" />
 
-          {/* User Profile Puck */}
-          <div className="relative">
+          {/* User Profile Puck & Sign Out */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setShowProfileMenu(!showProfileMenu);
-                onOpenProfile?.();
-              }}
-              className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-white/5 transition-all"
+              onClick={() => onOpenProfile?.()}
+              className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-white/5 transition-all cursor-pointer"
               title="User Profile"
             >
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 p-[1px] shadow-[0_0_12px_rgba(16,185,129,0.3)]">
@@ -115,12 +112,23 @@ export function HeaderNav({
               </div>
               <div className="hidden xl:flex flex-col text-left">
                 <span className="text-xs font-semibold text-white leading-tight">
-                  {currentUser?.username || "Guest Cinephile"}
+                  {currentUser?.username || "Member"}
                 </span>
                 <span className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">
-                  {currentUser?.role === "admin" ? "Curator Admin" : "Taste Explorer"}
+                  {currentUser?.role === "admin" ? "Curator Admin" : "CineTaste Member"}
                 </span>
               </div>
+            </button>
+
+            <button
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" });
+                window.location.href = "/login";
+              }}
+              className="p-2 rounded-xl bg-white/[0.04] hover:bg-red-500/10 text-zinc-400 hover:text-red-300 border border-white/5 transition-all cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>

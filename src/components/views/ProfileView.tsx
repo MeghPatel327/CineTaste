@@ -60,7 +60,7 @@ export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    window.location.reload();
+    window.location.href = "/login";
   };
 
   return (
@@ -76,15 +76,17 @@ export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-3xl font-extrabold text-white font-['Plus_Jakarta_Sans']">
-                {currentUser?.username || "Deckard_Blade"}
+                {currentUser?.username || "CineTaste Member"}
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                {currentUser?.role === "admin" ? "Curator Admin" : "Taste Explorer"}
+                {currentUser?.role === "admin" ? "Curator Admin" : "CineTaste Member"}
               </span>
             </div>
-            <p className="text-xs text-zinc-400 font-mono mt-1">
-              {currentUser?.email || "cinephile@cinetaste.local"}
-            </p>
+            {currentUser?.email && (
+              <p className="text-xs text-zinc-400 font-mono mt-1">
+                {currentUser.email}
+              </p>
+            )}
           </div>
         </div>
 

@@ -36,6 +36,7 @@ export function AppShell({
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
+        isAdmin={currentUser?.role === "admin"}
       />
 
       {/* Main Content Stage with Dynamic Left Padding */}

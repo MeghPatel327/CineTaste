@@ -1,35 +1,40 @@
 import { NextResponse } from "next/server";
 import { getCurrentSession } from "@/lib/auth";
-import { getServerEnv } from "@/lib/env";
 
 export async function GET() {
   const session = await getCurrentSession();
-  const config = getServerEnv();
 
-  if (session?.role !== "admin" && !config.isDevMockMode) {
+  if (!session) {
     return NextResponse.json(
-      { success: false, error: "Unauthorized. Admin privileges required." },
+      { success: false, error: "Unauthorized. Please sign in." },
+      { status: 401 }
+    );
+  }
+
+  if (session.role !== "admin") {
+    return NextResponse.json(
+      { success: false, error: "Forbidden. Admin privileges required." },
       { status: 403 }
     );
   }
 
-  // Sample or active user list for administration
+  // Active user directory for administrators
   const users = [
     {
-      id: "usr_cinetaste_demo",
-      email: "cinephile@cinetaste.local",
-      username: "Deckard_Blade",
+      id: "usr_megh_admin",
+      email: "megh@cinetaste.local",
+      username: "Megh",
       role: "admin",
-      preferredGenres: ["Sci-Fi", "Neo-Noir", "Mystery"],
-      createdAt: "2026-01-15T00:00:00Z",
+      preferredGenres: ["Sci-Fi", "Mystery", "Drama"],
+      createdAt: "2026-10-10T00:00:00Z",
     },
     {
-      id: "usr_community_1",
-      email: "curator@cinetaste.local",
-      username: "CinemaCurator",
+      id: "usr_parth_user",
+      email: "parth@cinetaste.local",
+      username: "Parth",
       role: "user",
-      preferredGenres: ["Drama", "History"],
-      createdAt: "2026-02-01T00:00:00Z",
+      preferredGenres: ["Action", "Sci-Fi", "Thriller"],
+      createdAt: "2026-10-10T00:00:00Z",
     },
   ];
 

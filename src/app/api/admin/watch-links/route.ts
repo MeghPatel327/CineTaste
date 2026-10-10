@@ -7,10 +7,16 @@ export async function GET() {
   const session = await getCurrentSession();
   const config = getServerEnv();
 
-  // Protect admin endpoint
-  if (session?.role !== "admin" && !config.isDevMockMode) {
+  if (!session) {
     return NextResponse.json(
-      { success: false, error: "Unauthorized. Admin privileges required." },
+      { success: false, error: "Unauthorized. Please sign in." },
+      { status: 401 }
+    );
+  }
+
+  if (session.role !== "admin") {
+    return NextResponse.json(
+      { success: false, error: "Forbidden. Admin privileges required." },
       { status: 403 }
     );
   }
@@ -32,9 +38,16 @@ export async function POST(req: Request) {
     const session = await getCurrentSession();
     const config = getServerEnv();
 
-    if (session?.role !== "admin" && !config.isDevMockMode) {
+    if (!session) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized. Admin privileges required." },
+        { success: false, error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
+    if (session.role !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "Forbidden. Admin privileges required." },
         { status: 403 }
       );
     }

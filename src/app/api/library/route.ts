@@ -5,7 +5,13 @@ import { getUserMediaRecords, upsertUserMediaRecord, getAllBundledMedia, getWatc
 export async function GET() {
   try {
     const session = await getCurrentSession();
-    const userId = session?.userId || "usr_cinetaste_demo";
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+    const userId = session.userId;
 
     const records = await getUserMediaRecords(userId);
     const catalog = getAllBundledMedia();
@@ -49,7 +55,13 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getCurrentSession();
-    const userId = session?.userId || "usr_cinetaste_demo";
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+    const userId = session.userId;
 
     const body = await req.json();
     const { tmdbId, libraryStatus, isInQueue, isFavorite, userRating, watchProgress, isExcluded, notes } = body;

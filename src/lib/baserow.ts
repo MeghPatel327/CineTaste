@@ -110,23 +110,37 @@ const inMemoryStore = {
   feedback: [] as { userId: string; tmdbId: string; action: string; date: string }[],
 };
 
-// Seed default demo user
-const DEFAULT_DEMO_USER: UserProfile = {
-  id: "usr_cinetaste_demo",
-  email: "cinephile@cinetaste.local",
-  username: "Deckard_Blade",
+// Seed default verified users for offline fallback
+const SEED_MEGH_USER: UserProfile = {
+  id: "usr_megh_admin",
+  email: "megh@cinetaste.local",
+  username: "Megh",
   role: "admin",
-  preferredGenres: ["Sci-Fi", "Neo-Noir", "Mystery"],
-  createdAt: new Date().toISOString(),
+  preferredGenres: ["Sci-Fi", "Mystery", "Drama"],
+  createdAt: "2026-10-10T00:00:00Z",
 };
-inMemoryStore.users.set(DEFAULT_DEMO_USER.email, {
-  profile: DEFAULT_DEMO_USER,
-  // pbkdf2 hash for password "cinetaste2026"
-  passwordHash: "7b4f8a12c49e:8a2d103f6f194cb0f4625b16ef429e71b2d357069634e569acdf104d41fa63bc8a74e5bd9c4a12",
+
+const SEED_PARTH_USER: UserProfile = {
+  id: "usr_parth_user",
+  email: "parth@cinetaste.local",
+  username: "Parth",
+  role: "user",
+  preferredGenres: ["Action", "Sci-Fi", "Thriller"],
+  createdAt: "2026-10-10T00:00:00Z",
+};
+
+inMemoryStore.users.set(SEED_MEGH_USER.email, {
+  profile: SEED_MEGH_USER,
+  passwordHash: "46249314085b535b979799bcd8fd7e40:bfb56be3ca6a048d8f4ff171a926467a7fd0d742deeb48bfc1512bd9f67c4abe321f20fae841fef26fee040bac4c2caedb85242303fe464506f3ed53c1475440",
+});
+
+inMemoryStore.users.set(SEED_PARTH_USER.email, {
+  profile: SEED_PARTH_USER,
+  passwordHash: "475764a8182a483c470e882bdd9cfad5:195dd3ab1b014514ff3c8b81a384c1dce5e16dd32be9a79c16b9486ae5d5c4813316162aa32b5853e3854cb61d298d39e94a1efaaa66cd04f5e52f606a210eb1",
 });
 
 // Seed some initial user media items
-inMemoryStore.userMedia.set(`${DEFAULT_DEMO_USER.id}:hero-1`, {
+inMemoryStore.userMedia.set(`${SEED_MEGH_USER.id}:hero-1`, {
   tmdbId: "hero-1",
   libraryStatus: "watching",
   isInQueue: true,
@@ -136,22 +150,12 @@ inMemoryStore.userMedia.set(`${DEFAULT_DEMO_USER.id}:hero-1`, {
   isExcluded: false,
   updatedAt: new Date().toISOString(),
 });
-inMemoryStore.userMedia.set(`${DEFAULT_DEMO_USER.id}:hero-2`, {
+inMemoryStore.userMedia.set(`${SEED_MEGH_USER.id}:hero-2`, {
   tmdbId: "hero-2",
   libraryStatus: "completed",
   isInQueue: true,
   isFavorite: true,
   userRating: 10,
-  watchProgress: 100,
-  isExcluded: false,
-  updatedAt: new Date().toISOString(),
-});
-inMemoryStore.userMedia.set(`${DEFAULT_DEMO_USER.id}:hero-3`, {
-  tmdbId: "hero-3",
-  libraryStatus: "completed",
-  isInQueue: false,
-  isFavorite: true,
-  userRating: 9.0,
   watchProgress: 100,
   isExcluded: false,
   updatedAt: new Date().toISOString(),
@@ -203,24 +207,26 @@ export async function findUserByEmail(email: string): Promise<{ profile: UserPro
 
   if (config.baserow.isConfigured && config.baserow.tables.users) {
     const res = await baserowRequest<{ results: any[] }>(
-      `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true&filter__field_email__equal=${encodeURIComponent(
+      `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true&filter__email__equal=${encodeURIComponent(
         normalizedEmail
       )}`
     );
     if (res.success && res.data && res.data.results.length > 0) {
-      const row = res.data.results[0];
-      return {
-        profile: {
-          id: String(row.user_id || row.id),
-          email: String(row.email),
-          username: String(row.username),
-          role: row.role?.value === "admin" || row.role === "admin" ? "admin" : "user",
-          avatarUrl: row.avatar_url || undefined,
-          preferredGenres: Array.isArray(row.preferred_genres) ? row.preferred_genres.map((g: any) => g.value || g) : [],
-          createdAt: row.created_at || new Date().toISOString(),
-        },
-        passwordHash: String(row.password_hash || ""),
-      };
+      const row = res.data.results.find((r: any) => String(r.email).toLowerCase() === normalizedEmail);
+      if (row) {
+        return {
+          profile: {
+            id: String(row.user_id || row.id),
+            email: String(row.email),
+            username: String(row.username),
+            role: row.role?.value === "admin" || row.role === "admin" ? "admin" : "user",
+            avatarUrl: row.avatar_url || undefined,
+            preferredGenres: Array.isArray(row.preferred_genres) ? row.preferred_genres.map((g: any) => g.value || g) : [],
+            createdAt: row.created_at || new Date().toISOString(),
+          },
+          passwordHash: String(row.password_hash || ""),
+        };
+      }
     }
   }
 
@@ -232,19 +238,21 @@ export async function findUserById(id: string): Promise<UserProfile | null> {
   const config = getServerEnv();
   if (config.baserow.isConfigured && config.baserow.tables.users) {
     const res = await baserowRequest<{ results: any[] }>(
-      `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true&filter__field_user_id__equal=${encodeURIComponent(id)}`
+      `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true&filter__user_id__equal=${encodeURIComponent(id)}`
     );
     if (res.success && res.data && res.data.results.length > 0) {
-      const row = res.data.results[0];
-      return {
-        id: String(row.user_id || row.id),
-        email: String(row.email),
-        username: String(row.username),
-        role: row.role?.value === "admin" || row.role === "admin" ? "admin" : "user",
-        avatarUrl: row.avatar_url || undefined,
-        preferredGenres: Array.isArray(row.preferred_genres) ? row.preferred_genres.map((g: any) => g.value || g) : [],
-        createdAt: row.created_at || new Date().toISOString(),
-      };
+      const row = res.data.results.find((r: any) => String(r.user_id || r.id) === id);
+      if (row) {
+        return {
+          id: String(row.user_id || row.id),
+          email: String(row.email),
+          username: String(row.username),
+          role: row.role?.value === "admin" || row.role === "admin" ? "admin" : "user",
+          avatarUrl: row.avatar_url || undefined,
+          preferredGenres: Array.isArray(row.preferred_genres) ? row.preferred_genres.map((g: any) => g.value || g) : [],
+          createdAt: row.created_at || new Date().toISOString(),
+        };
+      }
     }
   }
 
@@ -302,7 +310,7 @@ export async function getUserMediaRecords(userId: string): Promise<UserMediaReco
   const config = getServerEnv();
   if (config.baserow.isConfigured && config.baserow.tables.userMedia) {
     const res = await baserowRequest<{ results: any[] }>(
-      `/api/database/rows/table/${config.baserow.tables.userMedia}/?user_field_names=true&filter__field_user_id__equal=${encodeURIComponent(
+      `/api/database/rows/table/${config.baserow.tables.userMedia}/?user_field_names=true&filter__user_id__equal=${encodeURIComponent(
         userId
       )}`
     );
@@ -360,7 +368,7 @@ export async function upsertUserMediaRecord(
   if (config.baserow.isConfigured && config.baserow.tables.userMedia) {
     // Check if row already exists
     const searchRes = await baserowRequest<{ results: any[] }>(
-      `/api/database/rows/table/${config.baserow.tables.userMedia}/?user_field_names=true&filter__field_record_id__equal=${encodeURIComponent(
+      `/api/database/rows/table/${config.baserow.tables.userMedia}/?user_field_names=true&filter__record_id__equal=${encodeURIComponent(
         key
       )}`
     );

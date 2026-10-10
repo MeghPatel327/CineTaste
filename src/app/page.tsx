@@ -35,16 +35,53 @@ export default function HomePage() {
   const [aiRecommendations, setAiRecommendations] = useState<MediaItem[]>([]);
   const [aiEngine, setAiEngine] = useState<string>("gemini_local");
 
-  // Load current session
+  // Initialize tab from query params if present
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam && ["home", "library", "queue", "admin", "profile", "about"].includes(tabParam)) {
+        setCurrentTab(tabParam);
+      }
+    }
+  }, []);
+
+  const handleTabChange = (newTab: string) => {
+    setCurrentTab(newTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (newTab === "home") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", newTab);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
+
+  // Load current session and redirect to /login if unauthenticated
   useEffect(() => {
     fetch("/api/auth/me")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          const dest = window.location.pathname + window.location.search;
+          window.location.href = dest && dest !== "/" ? `/login?redirect=${encodeURIComponent(dest)}` : "/login";
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
-        if (data.success && data.data?.user) {
+        if (data?.success && data?.data?.user) {
           setCurrentUser(data.data.user);
+        } else if (data !== null) {
+          const dest = window.location.pathname + window.location.search;
+          window.location.href = dest && dest !== "/" ? `/login?redirect=${encodeURIComponent(dest)}` : "/login";
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        const dest = window.location.pathname + window.location.search;
+        window.location.href = dest && dest !== "/" ? `/login?redirect=${encodeURIComponent(dest)}` : "/login";
+      });
   }, []);
 
   // Load AI recommendations
@@ -88,7 +125,7 @@ export default function HomePage() {
   return (
     <AppShell
       currentTab={currentTab}
-      onTabChange={setCurrentTab}
+      onTabChange={handleTabChange}
       onSearch={handleSearch}
       activeGenre={activeGenre}
       onGenreChange={setActiveGenre}
@@ -250,7 +287,14 @@ export default function HomePage() {
           )}
 
           {currentTab === "admin" && (
-            <AdminView />
+            currentUser?.role === "admin" ? (
+              <AdminView />
+            ) : (
+              <div className="py-24 text-center space-y-3 glass-panel mx-6 md:mx-12 my-8 rounded-3xl border border-white/5">
+                <p className="text-base font-bold text-white">Curator Access Restricted</p>
+                <p className="text-xs text-zinc-400">Administrator role required to access system management.</p>
+              </div>
+            )
           )}
 
           {currentTab === "profile" && (

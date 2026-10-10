@@ -5,21 +5,10 @@ import { findUserById } from "@/lib/baserow";
 export async function GET() {
   const session = await getCurrentSession();
   if (!session) {
-    // Provide active demo session for seamless preview if unauthenticated
-    return NextResponse.json({
-      success: true,
-      data: {
-        isAuthenticated: false,
-        user: {
-          id: "usr_cinetaste_demo",
-          email: "cinephile@cinetaste.local",
-          username: "Guest Cinephile",
-          role: "user",
-          preferredGenres: ["Sci-Fi", "Neo-Noir", "Mystery"],
-          createdAt: new Date().toISOString(),
-        },
-      },
-    });
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   const user = await findUserById(session.userId);

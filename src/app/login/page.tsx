@@ -1,0 +1,273 @@
+"use client";
+
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Film, Lock, Mail, User, Sparkles, ArrowRight, ShieldCheck, KeyRound, Eye, EyeOff } from "lucide-react";
+
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectDestination = searchParams.get("redirect") || "/";
+
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // If already authenticated, redirect immediately
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then((data) => {
+        if (data?.success && data?.data?.isAuthenticated) {
+          router.replace(redirectDestination);
+        }
+      })
+      .catch(() => {});
+  }, [router, redirectDestination]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
+
+    try {
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const payload =
+        mode === "login"
+          ? { email: email.trim(), password }
+          : { email: email.trim(), password, username: username.trim() || undefined };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error || "Authentication failed. Please check your credentials.");
+        setIsLoading(false);
+        return;
+      }
+
+      setSuccessMessage(mode === "login" ? "Authenticated successfully! Redirecting..." : "Account created! Redirecting...");
+      setTimeout(() => {
+        window.location.href = redirectDestination;
+      }, 400);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Network error occurred. Please try again.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleQuickFill = (fillEmail: string, fillPass: string) => {
+    setEmail(fillEmail);
+    setPassword(fillPass);
+    setMode("login");
+    setErrorMessage(null);
+  };
+
+  return (
+    <div className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-3xl glass-panel-elevated bg-[#0F1117]/90 border border-white/10 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.9)]">
+      {/* Brand Header */}
+      <div className="text-center space-y-3 mb-8">
+        <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-emerald-500/20 via-teal-500/10 to-transparent border border-emerald-500/30 shadow-[0_0_24px_rgba(16,185,129,0.2)]">
+          <Film className="w-8 h-8 text-emerald-400" />
+        </div>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-['Plus_Jakarta_Sans']">
+            Cine<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">Taste</span>
+            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">V2</span>
+          </h1>
+          <p className="text-xs text-zinc-400 mt-1.5 font-medium">
+            Autonomous Taste Intelligence &amp; Personal Cinema Vault
+          </p>
+        </div>
+      </div>
+
+      {/* Tabs: Sign In / Create Account */}
+      <div className="grid grid-cols-2 p-1 mb-6 rounded-xl bg-black/40 border border-white/5">
+        <button
+          type="button"
+          onClick={() => {
+            setMode("login");
+            setErrorMessage(null);
+          }}
+          className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            mode === "login"
+              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode("register");
+            setErrorMessage(null);
+          }}
+          className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            mode === "register"
+              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          Create Account
+        </button>
+      </div>
+
+      {/* Status Messages */}
+      {errorMessage && (
+        <div className="mb-5 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs text-center font-medium">
+          {errorMessage}
+        </div>
+      )}
+      {successMessage && (
+        <div className="mb-5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs text-center font-medium animate-pulse">
+          {successMessage}
+        </div>
+      )}
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {mode === "register" && (
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+              Username
+            </label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="CinemaCurator"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+              />
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+            Email Address
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@cinetaste.local"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+            Password
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••••••"
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              title={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full mt-2 py-3 px-4 rounded-xl font-['Plus_Jakarta_Sans'] font-bold text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+        >
+          {isLoading ? (
+            <span className="inline-block animate-spin mr-1">✦</span>
+          ) : (
+            <ArrowRight className="w-4 h-4" />
+          )}
+          {mode === "login" ? "Sign In to Vault" : "Register Account"}
+        </button>
+      </form>
+
+      {/* Quick Access Credentials */}
+      <div className="mt-8 pt-6 border-t border-white/5 space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 text-center flex items-center justify-center gap-1.5">
+          <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+          Verified Accounts
+        </p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => handleQuickFill("megh@cinetaste.local", "CineTaste2026!")}
+            className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-left transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs font-bold text-white group-hover:text-emerald-300">Megh</span>
+            </div>
+            <p className="text-[10px] text-zinc-400">Admin Account</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleQuickFill("parth@cinetaste.local", "CineTaste2026!")}
+            className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-left transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <User className="w-3.5 h-3.5 text-teal-400" />
+              <span className="text-xs font-bold text-white group-hover:text-teal-300">Parth</span>
+            </div>
+            <p className="text-[10px] text-zinc-400">Member Account</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen bg-[#08090C] text-[#F9FAFB] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Ambience */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-[400px] h-[400px] bg-teal-500/10 rounded-full blur-[120px] pointer-events-none" />
+
+      <Suspense
+        fallback={
+          <div className="text-zinc-400 text-xs animate-pulse">
+            Loading CineTaste Authentication...
+          </div>
+        }
+      >
+        <LoginForm />
+      </Suspense>
+    </div>
+  );
+}

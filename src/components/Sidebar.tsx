@@ -21,6 +21,7 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
+  isAdmin?: boolean;
 }
 
 export function Sidebar({
@@ -30,6 +31,7 @@ export function Sidebar({
   onToggleCollapse,
   isMobileOpen,
   onCloseMobile,
+  isAdmin = false,
 }: SidebarProps) {
   const mainNav = [
     { id: "home", label: "Home", icon: Compass },
@@ -38,7 +40,7 @@ export function Sidebar({
   ];
 
   const bottomNav = [
-    { id: "admin", label: "Admin", icon: Shield },
+    ...(isAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
     { id: "profile", label: "Profile", icon: User },
     { id: "about", label: "About", icon: Info },
   ];

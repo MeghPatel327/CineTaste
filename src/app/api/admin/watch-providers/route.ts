@@ -21,9 +21,16 @@ export async function GET() {
   const session = await getCurrentSession();
   const config = getServerEnv();
 
+  if (!session) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized. Please sign in." },
+      { status: 401 }
+    );
+  }
+
   // Allow non-admins to fetch enabled providers or admins to fetch all
   const providers = await getGlobalWatchProviders();
-  const isAdmin = session?.role === "admin" || config.isDevMockMode;
+  const isAdmin = session.role === "admin";
 
   if (!isAdmin) {
     // Regular users see only active providers
@@ -41,7 +48,14 @@ export async function POST(req: Request) {
     const session = await getCurrentSession();
     const config = getServerEnv();
 
-    if (session?.role !== "admin" && !config.isDevMockMode) {
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
+    if (session.role !== "admin") {
       return NextResponse.json(
         { success: false, error: "Forbidden. Administrator role required." },
         { status: 403 }
@@ -90,7 +104,14 @@ export async function PATCH(req: Request) {
     const session = await getCurrentSession();
     const config = getServerEnv();
 
-    if (session?.role !== "admin" && !config.isDevMockMode) {
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
+    if (session.role !== "admin") {
       return NextResponse.json(
         { success: false, error: "Forbidden. Administrator role required." },
         { status: 403 }
@@ -139,7 +160,14 @@ export async function DELETE(req: Request) {
     const session = await getCurrentSession();
     const config = getServerEnv();
 
-    if (session?.role !== "admin" && !config.isDevMockMode) {
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
+    if (session.role !== "admin") {
       return NextResponse.json(
         { success: false, error: "Forbidden. Administrator role required." },
         { status: 403 }
