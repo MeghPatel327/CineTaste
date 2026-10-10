@@ -56,8 +56,8 @@ function LoginForm() {
     }
 
     if (mode === "register") {
-      if (password.length < 6) {
-        setErrorMessage("Password must be at least 6 characters long.");
+      if (password.length < 4) {
+        setErrorMessage("Password must be at least 4 characters long.");
         return;
       }
       if (password !== confirmPassword) {
