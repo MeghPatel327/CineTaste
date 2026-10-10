@@ -1,6 +1,6 @@
 export interface UserProfile {
   id: string;
-  email: string;
+  email?: string;
   username: string;
   role: "user" | "admin";
   avatarUrl?: string;
@@ -10,7 +10,7 @@ export interface UserProfile {
 
 export interface AuthSession {
   userId: string;
-  email: string;
+  email?: string;
   username: string;
   role: "user" | "admin";
   expiresAt: number; // Unix timestamp in seconds

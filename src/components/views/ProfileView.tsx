@@ -12,12 +12,7 @@ interface ProfileViewProps {
 export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authUsername, setAuthUsername] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
+
 
   useEffect(() => {
     fetch("/api/profile/stats")
@@ -31,32 +26,7 @@ export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    const endpoint = isRegistering ? "/api/auth/register" : "/api/auth/login";
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: authEmail,
-          password: authPassword,
-          username: authUsername || "Cinephile",
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setShowAuthModal(false);
-        onRefreshUser?.();
-        window.location.reload();
-      } else {
-        setAuthError(data.error);
-      }
-    } catch (err: any) {
-      setAuthError(err.message);
-    }
-  };
+
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -92,7 +62,10 @@ export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowAuthModal(true)}
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            }}
             className="px-4 py-2.5 rounded-xl font-['Plus_Jakarta_Sans'] font-semibold text-xs glass-pill hover:bg-white/15 text-zinc-200 transition-all flex items-center gap-2 cursor-pointer"
           >
             <LogIn className="w-4 h-4 text-emerald-400" />
@@ -227,89 +200,6 @@ export function ProfileView({ currentUser, onRefreshUser }: ProfileViewProps) {
         </div>
       </div>
 
-      {/* Auth Modal for switching accounts */}
-      {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="relative w-full max-w-md p-6 rounded-2xl glass-panel-elevated bg-[#0F1117] border border-white/10 space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 p-1 flex items-center justify-center shrink-0">
-                <img src="/images/circle_logo.png" alt="CineTaste" className="w-full h-full object-contain" />
-              </div>
-              <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
-                {isRegistering ? "Create CineTaste Account" : "Log In to CineTaste"}
-              </h3>
-            </div>
-
-            {authError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs">
-                {authError}
-              </div>
-            )}
-
-            <form onSubmit={handleAuthSubmit} className="space-y-4 text-xs">
-              {isRegistering && (
-                <div>
-                  <label className="block text-zinc-400 font-semibold mb-1">Username</label>
-                  <input
-                    type="text"
-                    value={authUsername}
-                    onChange={(e) => setAuthUsername(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#151821] border border-white/10 text-white"
-                    required
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-zinc-400 font-semibold mb-1">Email</label>
-                <input
-                  type="email"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#151821] border border-white/10 text-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 font-semibold mb-1">Password</label>
-                <input
-                  type="password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#151821] border border-white/10 text-white"
-                  required
-                />
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsRegistering(!isRegistering)}
-                  className="text-emerald-400 hover:underline"
-                >
-                  {isRegistering ? "Have an account? Log In" : "Need an account? Register"}
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAuthModal(false)}
-                    className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl font-bold bg-emerald-500 text-black hover:bg-emerald-400"
-                  >
-                    {isRegistering ? "Register" : "Log In"}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

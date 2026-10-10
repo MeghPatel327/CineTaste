@@ -129,12 +129,12 @@ const SEED_PARTH_USER: UserProfile = {
   createdAt: "2026-10-10T00:00:00Z",
 };
 
-inMemoryStore.users.set(SEED_MEGH_USER.email, {
+inMemoryStore.users.set(SEED_MEGH_USER.username.toLowerCase(), {
   profile: SEED_MEGH_USER,
   passwordHash: "46249314085b535b979799bcd8fd7e40:bfb56be3ca6a048d8f4ff171a926467a7fd0d742deeb48bfc1512bd9f67c4abe321f20fae841fef26fee040bac4c2caedb85242303fe464506f3ed53c1475440",
 });
 
-inMemoryStore.users.set(SEED_PARTH_USER.email, {
+inMemoryStore.users.set(SEED_PARTH_USER.username.toLowerCase(), {
   profile: SEED_PARTH_USER,
   passwordHash: "475764a8182a483c470e882bdd9cfad5:195dd3ab1b014514ff3c8b81a384c1dce5e16dd32be9a79c16b9486ae5d5c4813316162aa32b5853e3854cb61d298d39e94a1efaaa66cd04f5e52f606a210eb1",
 });
@@ -201,37 +201,49 @@ async function baserowRequest<T>(
 // USER REPOSITORY
 // ────────────────────────────────────────────────────────────
 
-export async function findUserByEmail(email: string): Promise<{ profile: UserProfile; passwordHash: string } | null> {
+export async function findUserByUsername(
+  username: string
+): Promise<{ profile: UserProfile; passwordHash: string } | null> {
   const config = getServerEnv();
-  const normalizedEmail = email.toLowerCase().trim();
+  const trimmed = username.trim();
+  if (!trimmed) return null;
 
   if (config.baserow.isConfigured && config.baserow.tables.users) {
     const res = await baserowRequest<{ results: any[] }>(
-      `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true&filter__email__equal=${encodeURIComponent(
-        normalizedEmail
+      `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true&filter__username__equal=${encodeURIComponent(
+        trimmed
       )}`
     );
-    if (res.success && res.data && res.data.results.length > 0) {
-      const row = res.data.results.find((r: any) => String(r.email).toLowerCase() === normalizedEmail);
+
+    if (!res.success) {
+      throw new Error(`Baserow user lookup failed: ${res.error}`);
+    }
+
+    if (res.data && Array.isArray(res.data.results)) {
+      const row = res.data.results.find(
+        (r: any) => String(r.username).toLowerCase() === trimmed.toLowerCase()
+      );
       if (row) {
         return {
           profile: {
             id: String(row.user_id || row.id),
-            email: String(row.email),
+            email: row.email ? String(row.email) : undefined,
             username: String(row.username),
             role: row.role?.value === "admin" || row.role === "admin" ? "admin" : "user",
             avatarUrl: row.avatar_url || undefined,
-            preferredGenres: Array.isArray(row.preferred_genres) ? row.preferred_genres.map((g: any) => g.value || g) : [],
+            preferredGenres: Array.isArray(row.preferred_genres)
+              ? row.preferred_genres.map((g: any) => g.value || g)
+              : [],
             createdAt: row.created_at || new Date().toISOString(),
           },
           passwordHash: String(row.password_hash || ""),
         };
       }
     }
+    return null;
   }
 
-  // Memory fallback
-  return inMemoryStore.users.get(normalizedEmail) || null;
+  throw new Error("Baserow is not configured. User authentication unavailable.");
 }
 
 export async function findUserById(id: string): Promise<UserProfile | null> {
@@ -240,66 +252,79 @@ export async function findUserById(id: string): Promise<UserProfile | null> {
     const res = await baserowRequest<{ results: any[] }>(
       `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true&filter__user_id__equal=${encodeURIComponent(id)}`
     );
-    if (res.success && res.data && res.data.results.length > 0) {
+    if (res.success && res.data && Array.isArray(res.data.results)) {
       const row = res.data.results.find((r: any) => String(r.user_id || r.id) === id);
       if (row) {
         return {
           id: String(row.user_id || row.id),
-          email: String(row.email),
+          email: row.email ? String(row.email) : undefined,
           username: String(row.username),
           role: row.role?.value === "admin" || row.role === "admin" ? "admin" : "user",
           avatarUrl: row.avatar_url || undefined,
-          preferredGenres: Array.isArray(row.preferred_genres) ? row.preferred_genres.map((g: any) => g.value || g) : [],
+          preferredGenres: Array.isArray(row.preferred_genres)
+            ? row.preferred_genres.map((g: any) => g.value || g)
+            : [],
           createdAt: row.created_at || new Date().toISOString(),
         };
       }
     }
   }
-
-  for (const entry of inMemoryStore.users.values()) {
-    if (entry.profile.id === id) return entry.profile;
-  }
   return null;
 }
 
 export async function createUser(
-  user: Omit<UserProfile, "id" | "createdAt">,
+  user: { username: string; role?: "user"; preferredGenres?: string[] },
   passwordHash: string
-): Promise<UserProfile> {
+): Promise<{ success: boolean; data?: UserProfile; error?: string }> {
   const config = getServerEnv();
   const id = `usr_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-  const fullProfile: UserProfile = {
-    ...user,
-    id,
-    createdAt: new Date().toISOString(),
+  const now = new Date().toISOString();
+  const createdDate = now.split("T")[0];
+
+  const trimmedUsername = user.username.trim();
+  const payload = {
+    user_id: id,
+    username: trimmedUsername,
+    email: `${trimmedUsername.toLowerCase()}@cinetaste.local`,
+    password_hash: passwordHash,
+    role: "user", // Enforce regular user role strictly
+    avatar_url: "",
+    preferred_genres: user.preferredGenres || ["Sci-Fi", "Mystery"],
+    is_active: true,
+    created_at: createdDate,
+    updated_at: createdDate,
   };
 
-  if (config.baserow.isConfigured && config.baserow.tables.users) {
-    const result = await baserowRequest(`/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true`, {
-      method: "POST",
-      body: JSON.stringify({
-        user_id: id,
-        email: fullProfile.email,
-        username: fullProfile.username,
-        password_hash: passwordHash,
-        // Single select: plain string
-        role: fullProfile.role,
-        avatar_url: fullProfile.avatarUrl || "",
-        // Multiple select: array of plain strings
-        preferred_genres: fullProfile.preferredGenres,
-        is_active: true,
-        // Date fields: YYYY-MM-DD only
-        created_at: toBaserowDate(fullProfile.createdAt),
-        updated_at: toBaserowDate(fullProfile.createdAt),
-      }),
-    });
-    if (!result.success) {
-      console.warn(`[Baserow] createUser write failed: ${result.error}`);
-    }
+  if (!config.baserow.isConfigured || !config.baserow.tables.users) {
+    return { success: false, error: "Baserow is not configured. User registration unavailable." };
   }
 
-  inMemoryStore.users.set(fullProfile.email.toLowerCase(), { profile: fullProfile, passwordHash });
-  return fullProfile;
+  const result = await baserowRequest<any>(
+    `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!result.success) {
+    return { success: false, error: result.error || "Failed to create user in Baserow." };
+  }
+
+  const createdRow = result.data;
+  const profile: UserProfile = {
+    id: String(createdRow?.user_id || id),
+    username: String(createdRow?.username || payload.username),
+    email: createdRow?.email ? String(createdRow.email) : payload.email,
+    role: "user",
+    avatarUrl: undefined,
+    preferredGenres: Array.isArray(createdRow?.preferred_genres)
+      ? createdRow.preferred_genres.map((g: any) => g.value || g)
+      : payload.preferred_genres,
+    createdAt: createdDate,
+  };
+
+  return { success: true, data: profile };
 }
 
 // ────────────────────────────────────────────────────────────

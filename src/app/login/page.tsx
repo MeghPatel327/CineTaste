@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Film, Lock, Mail, User, Sparkles, ArrowRight, ShieldCheck, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Film, Lock, User, ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -10,10 +10,11 @@ function LoginForm() {
   const redirectDestination = searchParams.get("redirect") || "/";
 
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -37,14 +38,42 @@ function LoginForm() {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
+
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername) {
+      setErrorMessage("Please enter a username.");
+      return;
+    }
+
+    if (trimmedUsername.length < 3) {
+      setErrorMessage("Username must be at least 3 characters.");
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage("Please enter a password.");
+      return;
+    }
+
+    if (mode === "register") {
+      if (password.length < 6) {
+        setErrorMessage("Password must be at least 6 characters long.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMessage("Passwords do not match.");
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
       const payload =
         mode === "login"
-          ? { email: email.trim(), password }
-          : { email: email.trim(), password, username: username.trim() || undefined };
+          ? { username: trimmedUsername, password }
+          : { username: trimmedUsername, password, confirmPassword };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -55,26 +84,24 @@ function LoginForm() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setErrorMessage(data.error || "Authentication failed. Please check your credentials.");
+        setErrorMessage(data.error || "Authentication failed. Please verify your credentials.");
         setIsLoading(false);
         return;
       }
 
-      setSuccessMessage(mode === "login" ? "Authenticated successfully! Redirecting..." : "Account created! Redirecting...");
+      setSuccessMessage(
+        mode === "login"
+          ? "Authenticated successfully! Redirecting to vault..."
+          : "Account created successfully! Redirecting to vault..."
+      );
+
       setTimeout(() => {
         window.location.href = redirectDestination;
       }, 400);
     } catch (err: any) {
-      setErrorMessage(err.message || "Network error occurred. Please try again.");
+      setErrorMessage(err.message || "Network connection error. Please try again.");
       setIsLoading(false);
     }
-  };
-
-  const handleQuickFill = (fillEmail: string, fillPass: string) => {
-    setEmail(fillEmail);
-    setPassword(fillPass);
-    setMode("login");
-    setErrorMessage(null);
   };
 
   return (
@@ -102,6 +129,7 @@ function LoginForm() {
           onClick={() => {
             setMode("login");
             setErrorMessage(null);
+            setSuccessMessage(null);
           }}
           className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
             mode === "login"
@@ -116,6 +144,7 @@ function LoginForm() {
           onClick={() => {
             setMode("register");
             setErrorMessage(null);
+            setSuccessMessage(null);
           }}
           className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
             mode === "register"
@@ -141,37 +170,19 @@ function LoginForm() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        {mode === "register" && (
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
-              Username
-            </label>
-            <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-              <input
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="CinemaCurator"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-              />
-            </div>
-          </div>
-        )}
-
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
-            Email Address
+            Username
           </label>
           <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@cinetaste.local"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder={mode === "login" ? "Enter your username" : "Choose a username"}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
             />
           </div>
@@ -186,6 +197,7 @@ function LoginForm() {
             <input
               type={showPassword ? "text" : "password"}
               required
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
@@ -194,7 +206,7 @@ function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer"
               title={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -202,52 +214,47 @@ function LoginForm() {
           </div>
         </div>
 
+        {mode === "register" && (
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+              Confirm Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                title={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full mt-2 py-3 px-4 rounded-xl font-['Plus_Jakarta_Sans'] font-bold text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          className="w-full mt-3 py-3 px-4 rounded-xl font-['Plus_Jakarta_Sans'] font-bold text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
         >
           {isLoading ? (
             <span className="inline-block animate-spin mr-1">✦</span>
           ) : (
             <ArrowRight className="w-4 h-4" />
           )}
-          {mode === "login" ? "Sign In to Vault" : "Register Account"}
+          {mode === "login" ? "Sign In to Vault" : "Create Account"}
         </button>
       </form>
-
-      {/* Quick Access Credentials */}
-      <div className="mt-8 pt-6 border-t border-white/5 space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 text-center flex items-center justify-center gap-1.5">
-          <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
-          Verified Accounts
-        </p>
-        <div className="grid grid-cols-2 gap-2.5">
-          <button
-            type="button"
-            onClick={() => handleQuickFill("megh@cinetaste.local", "CineTaste2026!")}
-            className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-left transition-all cursor-pointer group"
-          >
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-xs font-bold text-white group-hover:text-emerald-300">Megh</span>
-            </div>
-            <p className="text-[10px] text-zinc-400">Admin Account</p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickFill("parth@cinetaste.local", "CineTaste2026!")}
-            className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-left transition-all cursor-pointer group"
-          >
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <User className="w-3.5 h-3.5 text-teal-400" />
-              <span className="text-xs font-bold text-white group-hover:text-teal-300">Parth</span>
-            </div>
-            <p className="text-[10px] text-zinc-400">Member Account</p>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
