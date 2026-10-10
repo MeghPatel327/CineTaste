@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentSession } from "@/lib/auth";
+import { listAllUsers } from "@/lib/baserow";
 
 export async function GET() {
   const session = await getCurrentSession();
@@ -18,25 +19,6 @@ export async function GET() {
     );
   }
 
-  // Active user directory for administrators
-  const users = [
-    {
-      id: "usr_megh_admin",
-      email: "megh@cinetaste.local",
-      username: "Megh",
-      role: "admin",
-      preferredGenres: ["Sci-Fi", "Mystery", "Drama"],
-      createdAt: "2026-10-10T00:00:00Z",
-    },
-    {
-      id: "usr_parth_user",
-      email: "parth@cinetaste.local",
-      username: "Parth",
-      role: "user",
-      preferredGenres: ["Action", "Sci-Fi", "Thriller"],
-      createdAt: "2026-10-10T00:00:00Z",
-    },
-  ];
-
+  const users = await listAllUsers();
   return NextResponse.json({ success: true, data: users });
 }

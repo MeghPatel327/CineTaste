@@ -112,7 +112,7 @@ const inMemoryStore = {
 
 // Seed default verified users for offline fallback
 const SEED_MEGH_USER: UserProfile = {
-  id: "usr_megh_admin",
+  id: "megh",
   email: "megh@cinetaste.local",
   username: "Megh",
   role: "admin",
@@ -121,7 +121,7 @@ const SEED_MEGH_USER: UserProfile = {
 };
 
 const SEED_PARTH_USER: UserProfile = {
-  id: "usr_parth_user",
+  id: "parth",
   email: "parth@cinetaste.local",
   username: "Parth",
   role: "user",
@@ -272,20 +272,43 @@ export async function findUserById(id: string): Promise<UserProfile | null> {
   return null;
 }
 
+export async function listAllUsers(): Promise<UserProfile[]> {
+  const config = getServerEnv();
+  if (config.baserow.isConfigured && config.baserow.tables.users) {
+    const res = await baserowRequest<{ results: any[] }>(
+      `/api/database/rows/table/${config.baserow.tables.users}/?user_field_names=true`
+    );
+    if (res.success && res.data && Array.isArray(res.data.results)) {
+      return res.data.results.map((row: any) => ({
+        id: String(row.user_id || row.id),
+        email: row.email ? String(row.email) : undefined,
+        username: String(row.username),
+        role: row.role?.value === "admin" || row.role === "admin" ? "admin" : "user",
+        avatarUrl: row.avatar_url || undefined,
+        preferredGenres: Array.isArray(row.preferred_genres)
+          ? row.preferred_genres.map((g: any) => g.value || g)
+          : [],
+        createdAt: row.created_at || new Date().toISOString(),
+      }));
+    }
+  }
+  return [SEED_MEGH_USER, SEED_PARTH_USER];
+}
+
 export async function createUser(
   user: { username: string; role?: "user"; preferredGenres?: string[] },
   passwordHash: string
 ): Promise<{ success: boolean; data?: UserProfile; error?: string }> {
   const config = getServerEnv();
-  const id = `usr_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+  const trimmedUsername = user.username.trim();
+  const id = trimmedUsername.toLowerCase();
   const now = new Date().toISOString();
   const createdDate = now.split("T")[0];
 
-  const trimmedUsername = user.username.trim();
   const payload = {
     user_id: id,
     username: trimmedUsername,
-    email: `${trimmedUsername.toLowerCase()}@cinetaste.local`,
+    email: `${id}@cinetaste.local`,
     password_hash: passwordHash,
     role: "user", // Enforce regular user role strictly
     avatar_url: "",
