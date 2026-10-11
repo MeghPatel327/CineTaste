@@ -1,25 +1,18 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-jakarta",
-  display: "swap",
-  weight: ["400", "500", "600", "700", "800"],
-});
+import { Toaster } from "sonner";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { AppStoreProvider } from "@/lib/appStore";
 
 const inter = Inter({
-  subsets: ["latin"],
   variable: "--font-inter",
-  display: "swap",
-  weight: ["300", "400", "500", "600"],
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "CineTaste — Cinematic Movie & Series Discovery",
-  description:
-    "A luxury cinematic movie and series discovery experience with dark glassmorphism, personalized taste rails, and atmospheric theater aesthetics.",
+  title: "CineTaste",
+  description: "A Personal Movie & Series Companion That Learns Your Taste",
 };
 
 export default function RootLayout({
@@ -28,9 +21,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${jakarta.variable} ${inter.variable} dark`}>
-      <body className="bg-[#08090C] text-[#F9FAFB] antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
-        {children}
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={`${inter.variable} antialiased min-h-screen flex flex-col`}>
+        <ThemeProvider>
+          <AppStoreProvider>
+            {children}
+            <Toaster richColors position="bottom-right" />
+          </AppStoreProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

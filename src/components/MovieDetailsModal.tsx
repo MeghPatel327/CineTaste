@@ -1,420 +1,619 @@
 "use client";
 
-import { MediaItem, WatchOption, LibraryStatus } from "@/types/media";
-import {
-  X,
-  ExternalLink,
-  Bookmark,
-  Star,
-  StarHalf,
-  RotateCcw,
-  Clock,
-  Volume2,
-  Sparkles,
-  Check,
-  Eye,
-  ShieldCheck,
-  Ban,
-  Layers,
-} from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Modal } from "./ui/Modal";
+import { ErrorState } from "./ui/ErrorState";
+import { BrandLogo } from "./BrandLogo";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
+import { Skeleton } from "./ui/Skeleton";
+import { toast } from "sonner";
+import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAppStore } from "@/lib/appStore";
+
+// Shared TMDB detail cache (module-level, persists across navigations)
+const detailsCache = new Map<string, any>();
 
 interface MovieDetailsModalProps {
-  movie: MediaItem | null;
+  isOpen: boolean;
   onClose: () => void;
-  onLibraryUpdate?: (tmdbId: string, status: LibraryStatus) => void;
-  onQueueToggle?: (tmdbId: string, inQueue: boolean) => void;
+  tmdbId: number;
+  type?: "movie" | "series";
+  onUpdated?: () => void;
+  onRankChanged?: (movedId: number, movedNewRank: number | null, swappedId: number, swappedNewRank: number | null) => void;
+  onNavigate?: (tmdbId: number, type?: "movie" | "series") => void;
 }
 
-export function MovieDetailsModal({
-  movie,
-  onClose,
-  onLibraryUpdate,
-  onQueueToggle,
-}: MovieDetailsModalProps) {
-  const [inQueue, setInQueue] = useState(false);
-  const [libraryStatus, setLibraryStatus] = useState<LibraryStatus>("none");
-  const [userRating, setUserRating] = useState<number | null>(null);
-  const [watchOptions, setWatchOptions] = useState<WatchOption[]>([]);
-  const [isLoadingLinks, setIsLoadingLinks] = useState(false);
-  const [isSavedNotice, setIsSavedNotice] = useState(false);
-  const [hoverRating, setHoverRating] = useState<number | null>(null);
+export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onUpdated, onRankChanged, onNavigate }: MovieDetailsModalProps) {
+  const { getPirateSites } = useAppStore();
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [pirateSites, setPirateSites] = useState<any[]>([]);
+
+  // Form State
+  const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [movingRank, setMovingRank] = useState(false);
+  const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
+  const [rating, setRating] = useState(0);
+  const [watchLink, setWatchLink] = useState("");
+  const [isFormExiting, setIsFormExiting] = useState(false);
+
+  const closeForm = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setIsAdding(false);
+      setIsEditing(false);
+      setIsFormExiting(false);
+      return;
+    }
+    setIsFormExiting(true);
+  };
+
+  const finishFormClose = () => {
+    setIsAdding(false);
+    setIsEditing(false);
+    setIsFormExiting(false);
+  };
+
+  const handleFormAnimationEnd = (e: React.AnimationEvent<HTMLFormElement>) => {
+    if (isFormExiting && e.animationName.includes("formSlideOut")) {
+      finishFormClose();
+    }
+  };
 
   useEffect(() => {
-    if (!movie) return;
+    if (!isOpen) {
+      finishFormClose();
+      setStatus("pending");
+      setRating(0);
+      setWatchLink("");
+    }
+  }, [isOpen]);
 
-    // Load watch options and user library status
-    setIsLoadingLinks(true);
-    fetch(`/api/media/${movie.id}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.data?.watchOptions) {
-          setWatchOptions(data.data.watchOptions);
-        } else if (movie.watchOptions) {
-          setWatchOptions(movie.watchOptions);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data) return;
+    setSaving(true);
+    try {
+      const payload = {
+        movie_name: data.title || "",
+        type: data.type,
+        status,
+        rating: status === "completed" || status === "dropped" ? rating : 0,
+        watch_link: status === "pending" ? (watchLink || null) : null,
+        tmdb_id: data.tmdb_id,
+        genres: JSON.stringify(data.genres ? data.genres.split(", ").map((g: string) => g.trim()) : []),
+        release_year: data.release_year,
+        runtime: data.runtime,
+        language: data.original_language,
+        poster_url: data.poster_url || "",
+        overview: data.overview,
+      };
+
+      const res = await fetch("/api/movies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (res.ok) {
+        toast.success("Added to library");
+        closeForm();
+        detailsCache.delete(`${type}_${tmdbId}`);
+        fetchDetails(`${type}_${tmdbId}`);
+        if (onUpdated) onUpdated();
+      } else {
+        toast.error(result.message || "Failed to add movie");
+      }
+    } catch (err) {
+      toast.error("Error adding movie");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEditing = () => {
+    if (!data?.libraryData) return;
+    const lib = data.libraryData;
+    setStatus(lib.status || "pending");
+    setRating(lib.rating || 0);
+    setWatchLink(lib.watch_link || "");
+    setIsEditing(true);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data?.libraryData) return;
+    setSaving(true);
+    try {
+      const payload = {
+        status,
+        rating: status === "completed" || status === "dropped" ? rating : 0,
+        watch_link: status === "pending" ? (watchLink || null) : null,
+      };
+
+      const res = await fetch(`/api/movies/${data.libraryData.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (res.ok) {
+        toast.success("Movie updated");
+        closeForm();
+        detailsCache.delete(`${type}_${tmdbId}`);
+        fetchDetails(`${type}_${tmdbId}`);
+        if (onUpdated) onUpdated();
+      } else {
+        toast.error(result.message || "Failed to update movie");
+      }
+    } catch (err) {
+      toast.error("Error updating movie");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleMoveRank = async (direction: "up" | "down") => {
+    if (!data?.libraryData || movingRank) return;
+    setMovingRank(true);
+    try {
+      const res = await fetch(`/api/queue/${data.libraryData.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const { moved, swapped } = json.data as { moved: any; swapped: any };
+
+        // Patch modal state directly — no full refetch needed
+        setData((prev: any) => ({
+          ...prev,
+          libraryData: { ...prev.libraryData, watch_order_rank: moved.watch_order_rank },
+        }));
+
+        // Keep the detail cache in sync too
+        const cacheKey = `${type}_${tmdbId}`;
+        if (detailsCache.has(cacheKey)) {
+          const cached = detailsCache.get(cacheKey);
+          detailsCache.set(cacheKey, {
+            ...cached,
+            libraryData: { ...cached.libraryData, watch_order_rank: moved.watch_order_rank },
+          });
         }
-      })
-      .catch(() => {
-        if (movie.watchOptions) setWatchOptions(movie.watchOptions);
-      })
-      .finally(() => setIsLoadingLinks(false));
 
-    // Fetch user status for this media
-    fetch("/api/library")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.data)) {
-          const match = data.data.find((item: any) => item.id === movie.id || item.userRecord?.tmdbId === movie.id);
-          if (match?.userRecord) {
-            setInQueue(Boolean(match.userRecord.isInQueue));
-            setLibraryStatus(match.userRecord.libraryStatus || "none");
-            setUserRating(match.userRecord.userRating || null);
-          }
+        toast.success(direction === "up" ? "Moved up in queue" : "Moved down in queue");
+
+        // Notify parent to do a targeted 2-row update (no full reload)
+        if (onRankChanged) {
+          onRankChanged(moved.id, moved.watch_order_rank, swapped.id, swapped.watch_order_rank);
         }
-      })
-      .catch(() => {});
-  }, [movie]);
+      } else {
+        const result = await res.json();
+        toast.error(result.message || "Failed to move movie");
+      }
+    } catch {
+      toast.error("Error moving movie in queue");
+    } finally {
+      setMovingRank(false);
+    }
+  };
 
-  if (!movie) return null;
+  const handleRemove = async () => {
+    if (!data?.libraryData || removing) return;
+    if (!confirm("Remove this title from your library?")) return;
 
-  const handleToggleQueue = async () => {
-    const nextState = !inQueue;
-    setInQueue(nextState);
-    onQueueToggle?.(movie.id, nextState);
+    setRemoving(true);
     try {
-      await fetch("/api/queue", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmdbId: movie.id, inQueue: nextState }),
-      });
-      showNotification();
-    } catch {}
+      const res = await fetch(`/api/movies/${data.libraryData.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Removed from library");
+        detailsCache.delete(`${type}_${tmdbId}`);
+        if (onUpdated) onUpdated();
+        onClose();
+      } else {
+        toast.error("Failed to remove movie");
+      }
+    } catch {
+      toast.error("Error removing movie");
+    } finally {
+      setRemoving(false);
+    }
   };
 
-  const handleUpdateStatus = async (status: LibraryStatus) => {
-    setLibraryStatus(status);
-    onLibraryUpdate?.(movie.id, status);
+  // Use shared store for pirate sites — no redundant fetch on every open
+  useEffect(() => {
+    getPirateSites().then(sites => setPirateSites(sites)).catch(() => {});
+  }, [getPirateSites]);
+
+  useEffect(() => {
+    if (isOpen && tmdbId) {
+      const cacheKey = `${type}_${tmdbId}`;
+      if (detailsCache.has(cacheKey)) {
+        setData(detailsCache.get(cacheKey));
+        setLoading(false);
+        setError(false);
+      } else {
+        fetchDetails(cacheKey);
+      }
+    } else {
+      setData(null);
+    }
+  }, [isOpen, tmdbId]);
+
+  const fetchDetails = async (cacheKey: string) => {
+    setLoading(true);
+    setError(false);
     try {
-      await fetch("/api/library", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmdbId: movie.id, libraryStatus: status }),
-      });
-      showNotification();
-    } catch {}
+      const res = await fetch(`/api/movies/tmdb/${tmdbId}?type=${type}`);
+      if (!res.ok) throw new Error("Failed");
+      const json = await res.json();
+      detailsCache.set(cacheKey, json.data);
+      setData(json.data);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
-
-  const handleRate = async (rating: number | null) => {
-    setUserRating(rating);
-    try {
-      await fetch("/api/library", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmdbId: movie.id, userRating: rating }),
-      });
-      showNotification();
-    } catch {}
-  };
-
-  const showNotification = () => {
-    setIsSavedNotice(true);
-    setTimeout(() => setIsSavedNotice(false), 2000);
-  };
+  if (!isOpen && !data) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md overflow-y-auto">
-      {/* Click outside backdrop */}
-      <div className="fixed inset-0" onClick={onClose} />
-
-      {/* Modal Card */}
-      <div className="relative w-full max-w-3xl my-auto rounded-3xl overflow-hidden glass-panel-elevated bg-[#0F1117]/95 border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] z-10 max-h-[90vh] flex flex-col">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-black/60 text-zinc-300 hover:text-white hover:bg-black/90 border border-white/10 transition-all cursor-pointer"
-          title="Close modal"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Scrollable Container */}
-        <div className="overflow-y-auto custom-scrollbar flex-1">
-          {/* Hero Backdrop Header */}
-          <div className="relative h-60 sm:h-72 w-full overflow-hidden shrink-0">
-            <img
-              src={movie.backdropUrl}
-              alt={movie.title}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                const target = e.currentTarget;
-                target.onerror = null;
-                target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080'%3E%3Crect fill='%230F1117' width='1920' height='1080'/%3E%3C/svg%3E";
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0F1117] via-[#0F1117]/60 to-transparent" />
-
-            {/* Quick Info Overlay */}
-            <div className="absolute bottom-4 left-6 right-6 flex items-end justify-between">
-              <div className="space-y-1.5">
-                <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {movie.mediaType === "movie" ? "FEATURE FILM" : "SERIES"}
-                </span>
-                <h2 className="text-2xl sm:text-4xl font-extrabold font-['Plus_Jakarta_Sans'] text-white">
-                  {movie.title}
-                </h2>
-                {movie.tagline && (
-                  <p className="text-xs text-zinc-400 italic">{movie.tagline}</p>
+    <Modal isOpen={isOpen} onClose={onClose} title={data?.title || "Movie Details"} maxWidth="max-w-5xl">
+      {loading ? (
+        /* ── Modal skeleton ── */
+        <div className="flex flex-col gap-8 pb-8">
+          {/* Hero skeleton */}
+          <div className="rounded-xl overflow-hidden bg-secondary/30 p-6 md:p-8">
+            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+              <Skeleton className="w-48 md:w-64 shrink-0 aspect-[2/3] rounded-lg" />
+              <div className="flex-1 w-full space-y-4">
+                <Skeleton className="h-9 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <div className="flex gap-2 flex-wrap">
+                  {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-7 w-24 rounded-full" />)}
+                </div>
+                <Skeleton className="h-4 w-2/5" />
+                <div className="flex gap-3 pt-2">
+                  <Skeleton className="h-9 w-32 rounded-md" />
+                  <Skeleton className="h-9 w-28 rounded-md" />
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Body skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-24" />
+                <div className="flex gap-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="w-32 shrink-0 space-y-1.5">
+                      <Skeleton className="w-full aspect-[2/3] rounded-lg" />
+                      <Skeleton className="h-3 w-3/4" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+          </div>
+        </div>
+      ) : error || !data ? (
+        <ErrorState title="Failed to load" message="Could not fetch movie details." onRetry={() => fetchDetails(`${type}_${tmdbId}`)} />
+      ) : (
+        <div className="flex flex-col gap-8 pb-8">
+          
+          {/* Hero Section */}
+          <div className="relative rounded-t-xl md:rounded-xl overflow-hidden bg-black/90">
+            {data.backdrop_url && (
+              <div 
+                className="absolute inset-0 opacity-40 bg-cover bg-center"
+                style={{ backgroundImage: `url(${data.backdrop_url})` }}
+              />
+            )}
+            <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center md:items-start">
+              <div className="w-48 md:w-64 shrink-0">
+                {data.poster_url ? (
+                  <img src={data.poster_url} alt={data.title} className="w-full aspect-[2/3] object-cover rounded-lg ct-shadow-md poster-frame" />
+                ) : (
+                  <div className="w-full aspect-[2/3] bg-secondary rounded-lg flex items-center justify-center text-muted-foreground shadow-2xl">No Poster</div>
+                )}
+              </div>
+              
+              <div className="flex-1 text-center md:text-left text-white drop-shadow-md">
+                <h2 className="text-3xl md:text-5xl font-bold mb-2">{data.title}</h2>
+                {data.original_title && data.original_title !== data.title && (
+                  <p className="text-white/70 italic mb-4">{data.original_title}</p>
+                )}
+                
+                {data.tagline && <p className="text-lg italic text-white/90 mb-6">"{data.tagline}"</p>}
+                
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm font-medium mb-6">
+                  <a 
+                    href={`https://www.themoviedb.org/${data.type === "series" ? "tv" : "movie"}/${data.tmdb_id}`}
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full hover:bg-white/30 transition text-white"
+                    title="View on TMDB"
+                  >
+                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" /> {data.vote_average} ({data.vote_count})
+                  </a>
+                  <div className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full"><Calendar className="w-4 h-4" /> {data.release_year}</div>
+                  <div className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full"><Clock className="w-4 h-4" /> {data.runtime} min</div>
+                  <div className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full"><Globe className="w-4 h-4" /> {data.film_industry}</div>
+                </div>
+                
+                <p className="text-white/80 mb-6">{data.genres}</p>
+                
+                {isAdding || isEditing ? (
+                  <form
+                    key={isEditing ? "edit" : "add"}
+                    onSubmit={isEditing ? handleEditSave : handleSave}
+                    onAnimationEnd={handleFormAnimationEnd}
+                    className={cn(
+                      "bg-black/60 p-4 rounded-xl border border-white/10 space-y-4 w-full max-w-md mx-auto md:mx-0",
+                      isFormExiting ? "animate-form-out" : "animate-form-in"
+                    )}
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-bold text-lg">{isEditing ? "Edit in Library" : "Add to Library"}</h4>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-white hover:bg-white/20" onClick={closeForm}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-left">
+                      <div>
+                        <label className="text-xs font-medium mb-1 block text-white/70">Status</label>
+                        <select 
+                          className="flex h-9 w-full rounded-md border border-white/20 bg-black/50 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                          value={status} 
+                          onChange={e => setStatus(e.target.value as any)}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="completed">Completed</option>
+                          <option value="dropped">Dropped</option>
+                        </select>
+                      </div>
+                      {(status === "completed" || status === "dropped") && (
+                        <div>
+                          <label className="text-xs font-medium mb-1 block text-white/70">Rating (0-10)</label>
+                          <Input type="number" min="0" max="10" value={rating} onChange={e => setRating(parseFloat(e.target.value) || 0)} className="h-9 bg-black/50 border-white/20 text-white" />
+                        </div>
+                      )}
+                    </div>
+                    {status === "pending" && (
+                      <div className="text-left">
+                        <label className="text-xs font-medium mb-1 block text-white/70">Personal Watch Link (Optional)</label>
+                        <Input type="url" placeholder="https://..." value={watchLink} onChange={e => setWatchLink(e.target.value)} className="h-9 bg-black/50 border-white/20 text-white" />
+                      </div>
+                    )}
+                    <div className="pt-2">
+                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={saving}>
+                        {saving ? <BrandLogo variant="compact" className="w-4 h-4 mr-2" imageClassName="animate-[spin_2.5s_linear_infinite]" /> : isEditing ? <Edit className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                        {isEditing ? "Update Movie" : "Save to Library"}
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex flex-col items-center md:items-start gap-2">
+                    {/* Row 1: primary actions */}
+                    <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                      {data.inLibrary ? (
+                        <>
+                          <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
+                          <Button variant="destructive" className="modal-btn-stagger" onClick={handleRemove} disabled={removing}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            {removing ? "Removing" : "Remove"}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsAdding(true)}><Plus className="w-4 h-4 mr-2"/> Add to Library</Button>
+                      )}
+                      {data.inLibrary && data.libraryData?.watch_link && (
+                        <a href={data.libraryData.watch_link} target="_blank" rel="noreferrer" className="modal-btn-stagger">
+                          <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0"><ExternalLink className="w-4 h-4 mr-2" /> Watch Now</Button>
+                        </a>
+                      )}
+                    </div>
+                    {/* Row 2: search / stream links */}
+                    {pirateSites.length > 0 && (
+                      <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                        {pirateSites.map((site, i) => (
+                          <a
+                            key={site.id}
+                            href={site.search_url.replace("{query}", encodeURIComponent(data.title))}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="modal-btn-stagger"
+                            style={{ animationDelay: `${(i + 2) * 50}ms` }}
+                          >
+                            <Button variant="secondary" size="sm" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs">
+                              <Globe className="w-3.5 h-3.5 mr-1.5" /> {site.name}
+                            </Button>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0">
+            {/* Left Column: Overview, Cast, Trailer */}
+            <div className="lg:col-span-2 space-y-8">
+              
+              <section>
+                <h3 className="text-xl font-bold mb-3">Overview</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  {data.overview || "No overview available."}
+                </p>
+              </section>
 
-          {/* Content Body */}
-          <div className="p-6 md:p-8 space-y-6">
-            {/* Metadata Badges */}
-            <div className="flex flex-wrap items-center gap-2.5 text-xs text-zinc-300">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 font-bold">
-                <Star className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
-                <span>{movie.rating.toFixed(1)}</span>
-              </div>
-
-              <span className="font-semibold text-zinc-300">{movie.releaseYear}</span>
-
-              {movie.runtime && (
-                <span className="flex items-center gap-1 text-zinc-400">
-                  <Clock className="w-3.5 h-3.5" />
-                  {movie.runtime}
-                </span>
+              {data.cast && data.cast.length > 0 && (
+                <section>
+                  <h3 className="text-xl font-bold mb-3">Top Cast</h3>
+                  <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
+                    {data.cast.map((c: any) => (
+                      <div key={c.id} className="w-32 shrink-0 snap-start">
+                        {c.profile_url ? (
+                          <img src={c.profile_url} alt={c.name} className="w-full aspect-[2/3] object-cover rounded-lg mb-2 shadow-sm" />
+                        ) : (
+                          <div className="w-full aspect-[2/3] bg-secondary rounded-lg mb-2 flex items-center justify-center text-xs text-muted-foreground">No Photo</div>
+                        )}
+                        <p className="font-bold text-sm line-clamp-1">{c.name}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{c.character}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               )}
 
-              {movie.badge && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 border border-white/15">
-                  {movie.badge}
-                </span>
+              {data.trailer_key && (
+                <section>
+                  <h3 className="text-xl font-bold mb-3 flex items-center gap-2"><Play className="w-5 h-5"/> Official Trailer</h3>
+                  <div className="aspect-video w-full rounded-xl overflow-hidden shadow-md">
+                    <iframe 
+                      src={`https://www.youtube.com/embed/${data.trailer_key}`} 
+                      title="YouTube video player" 
+                      frameBorder="0" 
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                      allowFullScreen
+                      className="w-full h-full"
+                    ></iframe>
+                  </div>
+                </section>
               )}
 
-              {movie.audio && (
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-black/40 border border-white/5 text-zinc-400">
-                  <Volume2 className="w-3 h-3" />
-                  {movie.audio}
-                </span>
+              {data.similar_movies && data.similar_movies.length > 0 && (
+                <section>
+                  <h3 className="text-xl font-bold mb-3">Similar Movies</h3>
+                  <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
+                    {data.similar_movies.map((s: any) => (
+                      <div 
+                        key={s.tmdb_id} 
+                        className="w-32 shrink-0 snap-start cursor-pointer group"
+                        onClick={() => onNavigate && onNavigate(s.tmdb_id, type)}
+                      >
+                        {s.poster_url ? (
+                          <img src={s.poster_url} alt={s.title} className="w-full aspect-[2/3] object-cover rounded-lg mb-2 shadow-sm group-hover:ring-2 ring-primary transition" />
+                        ) : (
+                          <div className="w-full aspect-[2/3] bg-secondary rounded-lg mb-2 flex items-center justify-center text-xs text-muted-foreground group-hover:ring-2 ring-primary transition">No Photo</div>
+                        )}
+                        <p className="font-bold text-sm line-clamp-2 group-hover:text-primary transition">{s.title}</p>
+                        <p className="text-xs text-muted-foreground">{s.release_year}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               )}
 
-              <div className="flex items-center gap-1.5 ml-auto flex-wrap">
-                {movie.genres.map((g) => (
-                  <span key={g} className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400 text-[11px]">
-                    {g}
-                  </span>
-                ))}
-              </div>
             </div>
 
-            {/* Overview */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Synopsis</h4>
-              <p className="text-sm md:text-base text-zinc-300 leading-relaxed font-['Inter']">
-                {movie.overview}
-              </p>
-            </div>
-
-            {/* Taste Match Pill */}
-            {movie.recommendationReason && (
-              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3">
-                <Sparkles className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-                <div className="text-xs text-emerald-200">
-                  <span className="font-bold block text-emerald-300">Curated Taste Affinity:</span>
-                  {movie.recommendationReason}
-                </div>
-              </div>
-            )}
-
-            {/* ══════════════════════════════════════════════════════════════
-                WATCH OPTIONS SECTION (CONFIGURABLE DATABASE LINKS)
-               ══════════════════════════════════════════════════════════════ */}
-            <div className="space-y-3 pt-2 border-t border-white/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-emerald-400" />
-                  <h4 className="text-sm font-bold uppercase tracking-wider text-white font-['Plus_Jakarta_Sans']">
-                    Configured Watch Options
-                  </h4>
-                </div>
-                <span className="text-[11px] text-zinc-400">
-                  External links stored in Baserow
-                </span>
-              </div>
-
-              {isLoadingLinks ? (
-                <div className="p-4 rounded-xl glass-panel text-center text-xs text-zinc-400 animate-pulse">
-                  Querying verified watch providers from database...
-                </div>
-              ) : watchOptions.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {watchOptions.map((opt) => (
-                    <a
-                      key={opt.linkId}
-                      href={opt.directUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group p-3 rounded-xl glass-panel bg-[#151822]/80 border border-white/10 hover:border-emerald-500/40 hover:bg-[#1a1f2c] transition-all flex items-center justify-between gap-3 shadow-lg"
-                    >
-                      <div className="flex flex-col min-w-0">
+            {/* Right Column: Library Status, Crew, Production */}
+            <div className="space-y-6">
+              
+              {data.inLibrary && (
+                <div className="bg-primary/10 border border-primary/20 p-5 rounded-xl space-y-4">
+                  <h4 className="font-bold flex items-center gap-2 text-primary"><Star className="w-5 h-5"/> Your Library</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col">
+                      <span className="text-muted-foreground text-xs uppercase tracking-wider">Status</span>
+                      <span className="font-bold capitalize">{data.libraryData.status}</span>
+                    </div>
+                    {data.libraryData.status === 'completed' && (
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground text-xs uppercase tracking-wider">Your Rating</span>
+                        <span className="font-bold text-yellow-500 flex items-center gap-1"><Star className="w-4 h-4 fill-current" /> {data.libraryData.rating}/10</span>
+                      </div>
+                    )}
+                    {data.libraryData.status === 'pending' && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground text-xs uppercase tracking-wider">Watch Order</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-zinc-100 group-hover:text-emerald-300 transition-colors truncate">
-                            {opt.providerName}
-                          </span>
-                          {opt.isVerified && (
-                            <span title="Verified link">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
-                          {opt.qualityLabel && (
-                            <span className="font-mono text-emerald-400/90">{opt.qualityLabel}</span>
-                          )}
-                          {opt.badgeLabel && <span>• {opt.badgeLabel}</span>}
-                          {opt.languageAudio && <span className="truncate">• {opt.languageAudio}</span>}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 group-hover:translate-x-0.5 transition-transform shrink-0">
-                        <span>Open</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 rounded-xl glass-panel bg-white/[0.02] border border-white/5 text-center text-xs text-zinc-400 space-y-1">
-                  <p className="text-zinc-300 font-medium">No external watch links currently configured for this title.</p>
-                  <p className="text-[11px] text-zinc-500">
-                    Links are managed via the Curator Admin panel and stored in Baserow.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ══════════════════════════════════════════════════════════════
-                USER ACTIONS (QUEUE, STATUS, RATING)
-               ══════════════════════════════════════════════════════════════ */}
-            <div className="space-y-3 pt-3 border-t border-white/10">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                {/* Queue Toggle */}
-                <button
-                  onClick={handleToggleQueue}
-                  className={`px-4 py-2.5 rounded-xl font-['Plus_Jakarta_Sans'] font-semibold text-xs glass-pill flex items-center gap-2 transition-all cursor-pointer ${
-                    inQueue
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-                      : "text-zinc-200"
-                  }`}
-                >
-                  {inQueue ? (
-                    <>
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      In Your Queue
-                    </>
-                  ) : (
-                    <>
-                      <Bookmark className="w-4 h-4" />
-                      Add to Queue
-                    </>
-                  )}
-                </button>
-
-                {/* Library Status Dropdown */}
-                <div className="flex items-center gap-2">
-                  <Layers className="w-3.5 h-3.5 text-zinc-400" />
-                  <select
-                    value={libraryStatus}
-                    onChange={(e) => handleUpdateStatus(e.target.value as LibraryStatus)}
-                    className="px-3 py-2 rounded-xl bg-[#151821] border border-white/10 text-xs text-zinc-200 font-medium focus:outline-none focus:border-emerald-500/50"
-                  >
-                    <option value="none">Not in Library</option>
-                    <option value="watching">Watching</option>
-                    <option value="completed">Completed</option>
-                    <option value="plan_to_watch">Plan to Watch</option>
-                    <option value="dropped">Dropped</option>
-                  </select>
-                </div>
-
-                {/* 5-Star Half-Increment Rating System (0 - 5 with 0.5 steps) */}
-                <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
-                  <span className="text-[11px] text-zinc-400 mr-0.5 font-medium">Your Rating:</span>
-                  <div className="flex items-center gap-0.5" onMouseLeave={() => setHoverRating(null)}>
-                    {[1, 2, 3, 4, 5].map((starIdx) => {
-                      const activeScore = hoverRating !== null ? hoverRating : userRating !== null ? userRating : 0;
-                      const isFull = activeScore >= starIdx;
-                      const isHalf = !isFull && activeScore >= starIdx - 0.5;
-
-                      return (
-                        <div key={starIdx} className="relative flex items-center justify-center">
-                          {/* Left Half Click Zone (starIdx - 0.5) */}
-                          <button
-                            type="button"
-                            onClick={() => handleRate(userRating === starIdx - 0.5 ? null : starIdx - 0.5)}
-                            onMouseEnter={() => setHoverRating(starIdx - 0.5)}
-                            className="absolute left-0 top-0 w-1/2 h-full z-10 cursor-pointer"
-                            aria-label={`Rate ${starIdx - 0.5} stars`}
-                            title={`Rate ${starIdx - 0.5} / 5`}
-                          />
-                          {/* Right Half Click Zone (starIdx) */}
-                          <button
-                            type="button"
-                            onClick={() => handleRate(userRating === starIdx ? null : starIdx)}
-                            onMouseEnter={() => setHoverRating(starIdx)}
-                            className="absolute right-0 top-0 w-1/2 h-full z-10 cursor-pointer"
-                            aria-label={`Rate ${starIdx} stars`}
-                            title={`Rate ${starIdx} / 5`}
-                          />
-                          {/* Star Rendering: Full, Half, or Empty */}
-                          <div className="p-0.5 pointer-events-none">
-                            {isFull ? (
-                              <Star className="w-4 h-4 fill-emerald-400 text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]" />
-                            ) : isHalf ? (
-                              <StarHalf className="w-4 h-4 fill-emerald-400 text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
-                            ) : (
-                              <Star className="w-4 h-4 text-zinc-600" />
-                            )}
+                          <span className="font-bold">#{data.libraryData.watch_order_rank}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              onClick={() => handleMoveRank("up")}
+                              disabled={movingRank || data.libraryData.watch_order_rank <= 1}
+                              title="Move up in queue"
+                              className="p-0.5 rounded hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-primary"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleMoveRank("down")}
+                              disabled={movingRank}
+                              title="Move down in queue"
+                              className="p-0.5 rounded hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-primary"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    )}
                   </div>
-
-                  {/* Display Score & Clear Button */}
-                  {userRating !== null && userRating > 0 ? (
-                    <div className="flex items-center gap-1.5 ml-1">
-                      <span className="text-xs font-bold text-emerald-400 font-mono">
-                        {userRating % 1 === 0 ? `${userRating}.0` : userRating}/5
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRate(null)}
-                        className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
-                        title="Clear rating"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-zinc-500 font-mono ml-0.5">
-                      {hoverRating !== null ? `${hoverRating}/5` : "Unrated"}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {isSavedNotice && (
-                <div className="text-right text-[11px] text-emerald-400 font-medium animate-fadeIn">
-                  ✓ Saved to taste profile in Baserow
                 </div>
               )}
+
+              <div className="bg-card border border-border p-5 rounded-xl space-y-4">
+                <h4 className="font-bold">Crew</h4>
+                {data.director && (
+                  <div>
+                    <span className="text-muted-foreground text-xs uppercase block">Director</span>
+                    <span className="font-medium">{data.director}</span>
+                  </div>
+                )}
+                {data.writers && data.writers.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground text-xs uppercase block">Writers</span>
+                    <span className="font-medium">{data.writers.join(", ")}</span>
+                  </div>
+                )}
+              </div>
+
+              {(data.production_companies?.length > 0 || data.production_countries?.length > 0) && (
+                <div className="bg-card border border-border p-5 rounded-xl space-y-4">
+                  <h4 className="font-bold">Production</h4>
+                  {data.production_companies?.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground text-xs uppercase block">Companies</span>
+                      <span className="font-medium text-sm">{data.production_companies.join(", ")}</span>
+                    </div>
+                  )}
+                  {data.production_countries?.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground text-xs uppercase block">Countries</span>
+                      <span className="font-medium text-sm">{data.production_countries.join(", ")}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }

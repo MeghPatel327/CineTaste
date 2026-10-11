@@ -1,24 +1,17 @@
-import { NextResponse } from "next/server";
-import { getCurrentSession } from "@/lib/auth";
-import { listAllUsers } from "@/lib/baserow";
+import { withLogger } from "@/lib/apiWrapper";
+import { NextRequest } from "next/server";
+import { getAllUsersService } from "@/features/admin/adminService";
+import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
+import { getSession } from "@/lib/session";
 
-export async function GET() {
-  const session = await getCurrentSession();
+export const GET = withLogger(async (req: NextRequest) => {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return errorResponse("Forbidden", 403, "FORBIDDEN");
 
-  if (!session) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized. Please sign in." },
-      { status: 401 }
-    );
+  try {
+    const sanitized = await getAllUsersService();
+    return successResponse(sanitized);
+  } catch (error: any) {
+    return handleApiError(error);
   }
-
-  if (session.role !== "admin") {
-    return NextResponse.json(
-      { success: false, error: "Forbidden. Admin privileges required." },
-      { status: 403 }
-    );
-  }
-
-  const users = await listAllUsers();
-  return NextResponse.json({ success: true, data: users });
-}
+}, "admin-users");

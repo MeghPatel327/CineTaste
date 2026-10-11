@@ -1,196 +1,291 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import {
-  Film,
+  LayoutDashboard,
+  Library,
   Compass,
-  Bookmark,
-  Layers,
   Shield,
   User,
-  Info,
+  Menu,
+  X,
+  ListTodo,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  X,
+  Info,
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
+import { useAppStore } from "@/lib/appStore";
 
 interface SidebarProps {
-  currentTab: string;
-  onTabChange: (tab: string) => void;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
-  isMobileOpen: boolean;
-  onCloseMobile: () => void;
-  isAdmin?: boolean;
+  isAdmin: boolean;
 }
 
-export function Sidebar({
-  currentTab,
-  onTabChange,
-  isCollapsed,
-  onToggleCollapse,
-  isMobileOpen,
-  onCloseMobile,
-  isAdmin = false,
-}: SidebarProps) {
-  const mainNav = [
-    { id: "home", label: "Home", icon: Compass },
-    { id: "library", label: "Library", icon: Layers },
-    { id: "queue", label: "Queue", icon: Bookmark },
-  ];
+const navItems = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/movies", label: "Library", icon: Library },
+  { href: "/recommendations", label: "Up Next", icon: ListTodo },
+  { href: "/discover", label: "Discover", icon: Compass },
+];
 
-  const bottomNav = [
-    ...(isAdmin ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
-    { id: "profile", label: "Profile", icon: User },
-    { id: "about", label: "About", icon: Info },
-  ];
+export function Sidebar({ isAdmin }: SidebarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { state, dispatch } = useAppStore();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const isCollapsed = state.sidebarCollapsed;
+  const [mounted, setMounted] = useState(false);
 
-  const handleSelect = (id: string) => {
-    onTabChange(id);
-    onCloseMobile();
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const toggleCollapse = () => {
+    const next = !isCollapsed;
+    dispatch({ type: "SET_SIDEBAR_COLLAPSED", payload: next });
+    localStorage.setItem("ct_sidebar_collapsed", String(next));
   };
 
-  return (
-    <>
-      {/* Mobile Backdrop */}
-      {isMobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-md md:hidden transition-opacity"
-          onClick={onCloseMobile}
-        />
-      )}
+  // Prefetch all app routes once on mount so navigation feels instant
+  useEffect(() => {
+    const routes = ["/dashboard", "/movies", "/discover", "/recommendations", "/profile", "/about"];
+    if (isAdmin) routes.push("/admin");
+    routes.forEach(r => router.prefetch(r));
+  }, [isAdmin, router]);
 
-      {/* Sidebar Container */}
-      <aside
-        className={`fixed top-0 left-0 h-screen z-50 transition-all duration-300 ease-out flex flex-col justify-between
-          glass-panel border-r border-white/5 bg-[#0F1117]/90 backdrop-blur-2xl
-          ${isMobileOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0"}
-          ${isCollapsed ? "md:w-20" : "md:w-64"}`}
-      >
-        {/* Top Header & Brand */}
-        <div>
-          <div className="flex items-center justify-between px-5 py-6 border-b border-white/5">
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 shrink-0 overflow-hidden shadow-[0_0_16px_rgba(16,185,129,0.2)]">
-                <img
-                  src="/images/circle_logo.png"
-                  alt="CineTaste"
-                  className="w-full h-full object-contain p-1"
-                />
+  const isActive = (href: string) => {
+    if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/movies") return pathname === "/movies" || pathname.startsWith("/movies/edit");
+    return pathname.startsWith(href);
+  };
+
+  const sidebarContent = (isDesktop: boolean) => (
+    <div className="flex flex-col h-full relative">
+      {/* Brand & Toggle */}
+      <div className="p-5 pb-6 border-b border-sidebar-border flex items-center justify-between relative h-[88px]">
+        <Link
+          href="/dashboard"
+          className="flex items-center group pl-1 relative w-full h-full"
+          onClick={() => setMobileOpen(false)}
+        >
+          {isDesktop ? (
+            <>
+              {/* Collapsed Logo */}
+              <img
+                src="/branding/circle_logo.png"
+                alt="CineTaste"
+                className={cn(
+                  "absolute left-1/2 -translate-x-1/2 w-8 h-8 transition-all duration-300",
+                  isCollapsed ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
+                )}
+              />
+              {/* Expanded Logo */}
+              <div className={cn(
+                "absolute left-1 transition-all duration-300",
+                isCollapsed ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"
+              )}>
+                <BrandLogo variant="full" className="w-36" />
               </div>
-              {(!isCollapsed || isMobileOpen) && (
-                <div className="flex flex-col tracking-tight">
-                  <span className="font-bold text-lg text-white font-['Plus_Jakarta_Sans'] leading-none flex items-center gap-1.5">
-                    CineTaste
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
-                  </span>
-                  <span className="text-[11px] text-zinc-400 tracking-wider font-medium mt-1">
-                    Cinema Curation
-                  </span>
+            </>
+          ) : (
+            <BrandLogo variant="full" className="w-36 absolute left-1" />
+          )}
+        </Link>
+        {isDesktop && (
+          <button
+            onClick={toggleCollapse}
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-sidebar border border-sidebar-border shadow-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-all z-20",
+              isCollapsed ? "-right-3" : "right-2"
+            )}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <nav className={cn("flex-1 p-3 space-y-1", isDesktop ? "overflow-visible" : "overflow-y-auto")}>
+        {navItems.map((item) => {
+          const active = isActive(item.href);
+          return (
+            <div key={item.href} className="relative group/navitem flex justify-center">
+              <Link
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+                  isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+                  active
+                    ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
+                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
+                    active ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+                <span className={cn(
+                  "whitespace-nowrap transition-all duration-300",
+                  isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+                )}>
+                  {item.label}
+                </span>
+              </Link>
+              {isDesktop && isCollapsed && (
+                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+                  {item.label}
                 </div>
               )}
             </div>
+          );
+        })}
 
-            {/* Mobile close button */}
-            <button
-              onClick={onCloseMobile}
-              className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Desktop collapse toggle */}
-            <button
-              onClick={onToggleCollapse}
-              className="hidden md:flex items-center justify-center w-7 h-7 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {/* Primary Navigation */}
-          <nav className="p-3 space-y-1.5 mt-3">
-            {mainNav.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleSelect(item.id)}
-                  className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-sm font-medium transition-all duration-200 group relative
-                    ${
-                      isActive
-                        ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.18)]"
-                        : "text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] border border-transparent"
-                    }
-                    ${isCollapsed && !isMobileOpen ? "justify-center" : "justify-start"}`}
-                >
-                  {isActive && (
-                    <div className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-400 rounded-r-full shadow-[0_0_10px_#10b981]" />
-                  )}
-                  <Icon
-                    className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                      isActive ? "text-emerald-400" : "text-zinc-400 group-hover:text-zinc-200"
-                    }`}
-                  />
-                  {(!isCollapsed || isMobileOpen) && (
-                    <span className="tracking-wide font-['Plus_Jakarta_Sans'] font-semibold">
-                      {item.label}
-                    </span>
-                  )}
-                  {isCollapsed && !isMobileOpen && (
-                    <div className="absolute left-20 ml-2 px-2.5 py-1 rounded-md bg-[#151821] border border-white/10 text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-xl z-50">
-                      {item.label}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Bottom Navigation & Taste Pill */}
-        <div className="p-3 border-t border-white/5 space-y-1.5">
-          {bottomNav.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleSelect(item.id)}
-                className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 group relative
-                  ${
-                    isActive
-                      ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04] border border-transparent"
-                  }
-                  ${isCollapsed && !isMobileOpen ? "justify-center" : "justify-start"}`}
+        {isAdmin && (
+          <>
+            <div className="my-3 border-t border-sidebar-border" />
+            <div className="relative group/navitem flex justify-center">
+              <Link
+                href="/admin"
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+                  isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+                  isActive("/admin")
+                    ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
+                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                )}
               >
-                <Icon className="w-4 h-4 shrink-0 transition-colors" />
-                {(!isCollapsed || isMobileOpen) && (
-                  <span className="font-['Plus_Jakarta_Sans'] font-medium">{item.label}</span>
-                )}
-                {isCollapsed && !isMobileOpen && (
-                  <div className="absolute left-20 ml-2 px-2 py-1 rounded-md bg-[#151821] border border-white/10 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-xl z-50">
-                    {item.label}
-                  </div>
-                )}
-              </button>
-            );
-          })}
+                <Shield
+                  className={cn(
+                    "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
+                    isActive("/admin") ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+                <span className={cn(
+                  "whitespace-nowrap transition-all duration-300",
+                  isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+                )}>
+                  Admin
+                </span>
+              </Link>
+              {isDesktop && isCollapsed && (
+                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+                  Admin
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </nav>
 
-          {/* Taste DNA Pill */}
-          {(!isCollapsed || isMobileOpen) && (
-            <div className="mt-4 p-3 rounded-xl bg-gradient-to-r from-emerald-950/40 to-zinc-900/60 border border-emerald-500/20 flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
-              <div className="text-[11px] leading-tight text-zinc-300">
-                <span className="font-bold text-white block">Taste Profile</span>
-                Deterministic Cinema Match
-              </div>
+      {/* Bottom actions */}
+      <div className="p-3 border-t border-sidebar-border space-y-1">
+        <div className="relative group/navitem flex justify-center">
+          <Link
+            href="/profile"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+              isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+              isActive("/profile")
+                ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+          >
+            <User className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
+            <span className={cn(
+              "whitespace-nowrap transition-all duration-300",
+              isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+            )}>
+              Profile
+            </span>
+          </Link>
+          {isDesktop && isCollapsed && (
+            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+              Profile
             </div>
           )}
         </div>
+        
+        <div className="relative group/navitem flex justify-center mt-1">
+          <Link
+            href="/about"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+              isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+              isActive("/about")
+                ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+          >
+            <Info className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
+            <span className={cn(
+              "whitespace-nowrap transition-all duration-300",
+              isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+            )}>
+              About
+            </span>
+          </Link>
+          {isDesktop && isCollapsed && (
+            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+              About
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile toggle button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-4 left-4 z-50 md:hidden bg-card border border-border p-2 rounded-lg shadow-lg hover:bg-secondary transition-colors"
+        aria-label="Open navigation"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside
+        className={cn(
+          "fixed top-0 left-0 z-50 h-full w-64 bg-sidebar border-r border-sidebar-border transform transition-transform duration-300 md:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-4 right-4 p-1 text-muted-foreground hover:text-foreground"
+          aria-label="Close navigation"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        {sidebarContent(false)}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside className={cn(
+        "hidden md:flex md:flex-col md:shrink-0 h-screen sticky top-0 bg-sidebar border-r border-sidebar-border transition-[width] duration-300 ease-in-out",
+        mounted && isCollapsed ? "md:w-20" : "md:w-64"
+      )}>
+        {sidebarContent(true)}
       </aside>
     </>
   );

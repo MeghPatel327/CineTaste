@@ -1,87 +1,17 @@
-import { NextResponse } from "next/server";
-import { getCurrentSession } from "@/lib/auth";
-import { getUserMediaRecords, upsertUserMediaRecord, getAllBundledMedia, getWatchOptionsForMedia } from "@/lib/baserow";
+import { withLogger } from "@/lib/apiWrapper";
+import { NextRequest } from "next/server";
+import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
+import { getSession } from "@/lib/session";
+import { getPendingQueue } from "@/features/movies/queueService";
 
-export async function GET() {
+export const GET = withLogger(async (req: NextRequest) => {
+  const session = await getSession();
+  if (!session) return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
+
   try {
-    const session = await getCurrentSession();
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized. Please sign in." },
-        { status: 401 }
-      );
-    }
-    const userId = session.userId;
-
-    const records = await getUserMediaRecords(userId);
-    const queueRecords = records.filter((r) => r.isInQueue);
-
-    const catalog = getAllBundledMedia();
-    const catalogMap = new Map(catalog.map((m) => [m.id, m]));
-
-    const queueItems = await Promise.all(
-      queueRecords.map(async (r) => {
-        const item = catalogMap.get(r.tmdbId) || {
-          id: r.tmdbId,
-          title: r.tmdbId,
-          overview: "In your private cinema queue",
-          backdropUrl: "https://image.tmdb.org/t/p/w1280/suaEOtk1N1sgg2MTM7oZd2cfVp3.jpg",
-          posterUrl: "https://image.tmdb.org/t/p/w500/wwemzKWzjKYJFfCeiB57q3r4Bcm.png",
-          releaseYear: 2024,
-          rating: 8.5,
-          genres: ["Sci-Fi"],
-          mediaType: "movie" as const,
-        };
-
-        const watchOptions = await getWatchOptionsForMedia(r.tmdbId);
-        return {
-          ...item,
-          watchProgress: r.watchProgress,
-          userRecord: r,
-          watchOptions,
-        };
-      })
-    );
-
-    return NextResponse.json({ success: true, data: queueItems });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err.message || "Failed to fetch queue." },
-      { status: 500 }
-    );
+    const queue = await getPendingQueue(session.username);
+    return successResponse(queue);
+  } catch (error: any) {
+    return handleApiError(error);
   }
-}
-
-export async function POST(req: Request) {
-  try {
-    const session = await getCurrentSession();
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized. Please sign in." },
-        { status: 401 }
-      );
-    }
-    const userId = session.userId;
-
-    const body = await req.json();
-    const { tmdbId, inQueue } = body;
-
-    if (!tmdbId) {
-      return NextResponse.json(
-        { success: false, error: "tmdbId is required." },
-        { status: 400 }
-      );
-    }
-
-    const updated = await upsertUserMediaRecord(userId, tmdbId, {
-      isInQueue: Boolean(inQueue),
-    });
-
-    return NextResponse.json({ success: true, data: updated });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err.message || "Failed to update queue." },
-      { status: 500 }
-    );
-  }
-}
+}, "queue");

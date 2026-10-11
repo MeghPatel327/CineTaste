@@ -1,0 +1,36 @@
+import { withLogger } from "@/lib/apiWrapper";
+import { NextRequest } from "next/server";
+import { updatePirateSiteService, deletePirateSiteService } from "@/features/admin/adminService";
+import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
+import { getSession } from "@/lib/session";
+
+export const PATCH = withLogger(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return errorResponse("Forbidden", 403, "FORBIDDEN");
+
+  try {
+    const { id } = await params;
+    const siteId = parseInt(id, 10);
+    const body = await req.json();
+    
+    const updatedSite = await updatePirateSiteService(siteId, body);
+    return successResponse(updatedSite, "Pirate site updated");
+  } catch (error: any) {
+    return handleApiError(error);
+  }
+}, "admin-pirate-sites-id");
+
+export const DELETE = withLogger(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return errorResponse("Forbidden", 403, "FORBIDDEN");
+
+  try {
+    const { id } = await params;
+    const siteId = parseInt(id, 10);
+    
+    await deletePirateSiteService(siteId);
+    return successResponse(null, "Pirate site deleted");
+  } catch (error: any) {
+    return handleApiError(error);
+  }
+}, "admin-pirate-sites-id");

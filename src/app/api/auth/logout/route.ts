@@ -1,10 +1,8 @@
-import { NextResponse } from "next/server";
-import { clearSessionCookie } from "@/lib/auth";
+import { withLogger } from "@/lib/apiWrapper";
+import { successResponse } from "@/lib/apiResponse";
+import { destroySession } from "@/lib/session";
 
-export async function POST() {
-  await clearSessionCookie();
-  return NextResponse.json({
-    success: true,
-    data: { message: "Logged out successfully." },
-  });
-}
+export const POST = withLogger(async () => {
+  await destroySession();
+  return successResponse(null, "Logged out successfully");
+}, "auth-logout");

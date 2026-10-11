@@ -1,63 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
-import { HeaderNav } from "./HeaderNav";
+import { useAppStore } from "@/lib/appStore";
 
 interface AppShellProps {
-  children?: React.ReactNode;
-  currentTab: string;
-  onTabChange: (tab: string) => void;
-  onSearch?: (query: string) => void;
-  activeGenre?: string;
-  onGenreChange?: (genre: string) => void;
-  currentUser?: { username: string; email: string; role: string } | null;
+  children: ReactNode;
 }
 
-export function AppShell({
-  children,
-  currentTab,
-  onTabChange,
-  onSearch,
-  activeGenre = "All",
-  onGenreChange,
-  currentUser,
-}: AppShellProps) {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+/**
+ * Persistent App Shell.
+ * The session is fetched ONCE globally via AppStore — never re-fetched on navigation.
+ * The Sidebar never unmounts because AppShell is a shared layout wrapper.
+ */
+export function AppShell({ children }: AppShellProps) {
+  const { state, getUser } = useAppStore();
+
+  // Fetch session once if not already fetched
+  useEffect(() => {
+    if (!state.userFetched) {
+      getUser();
+    }
+  }, [state.userFetched, getUser]);
+
+  const isAdmin = state.user?.role === "admin";
 
   return (
-    <div className="min-h-screen bg-[#08090C] text-[#F9FAFB] flex flex-col md:flex-row">
-      {/* Slim Glass Sidebar */}
-      <Sidebar
-        currentTab={currentTab}
-        onTabChange={onTabChange}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        isMobileOpen={isMobileOpen}
-        onCloseMobile={() => setIsMobileOpen(false)}
-        isAdmin={currentUser?.role === "admin"}
-      />
-
-      {/* Main Content Stage with Dynamic Left Padding */}
-      <div
-        className={`flex-1 min-w-0 flex flex-col transition-all duration-300 ${
-          isSidebarCollapsed ? "md:pl-20" : "md:pl-64"
-        }`}
-      >
-        {/* Sticky High-Stacking Header Navigation */}
-        <HeaderNav
-          onSearch={onSearch}
-          activeGenre={activeGenre}
-          onGenreChange={onGenreChange}
-          onToggleMobileMenu={() => setIsMobileOpen(true)}
-          currentUser={currentUser}
-          onOpenProfile={() => onTabChange("profile")}
-        />
-
-        {/* Main Stage Content */}
-        <main className="flex-1 pb-16">{children}</main>
-      </div>
+    <div className="flex min-h-screen">
+      <Sidebar isAdmin={isAdmin} />
+      {/* On mobile, left-pad main to clear the fixed hamburger button (left-4 ~44px) */}
+      <main className="flex-1 min-w-0 overflow-x-hidden pl-14 md:pl-0">
+        {children}
+      </main>
     </div>
   );
 }

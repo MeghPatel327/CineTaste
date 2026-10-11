@@ -1,53 +1,24 @@
-import { NextResponse } from "next/server";
-import { getCurrentSession } from "@/lib/auth";
-import { getPersonalizedRecommendations } from "@/lib/recommendations";
+import { withLogger } from "@/lib/apiWrapper";
+import { NextRequest } from "next/server";
+import { generateRecommendations } from "@/features/recommendations/recommendationEngine";
+import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
+import { getSession } from "@/lib/session";
 
-export async function GET() {
+export const GET = withLogger(async (req: NextRequest) => {
+  const session = await getSession();
+  if (!session) return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
+
   try {
-    const session = await getCurrentSession();
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized. Please sign in." },
-        { status: 401 }
-      );
-    }
-    const userId = session.userId;
+    const { searchParams } = new URL(req.url);
+    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+    const limit = parseInt(searchParams.get("limit") ?? "0", 10);
 
-    const result = await getPersonalizedRecommendations(userId, false);
-    return NextResponse.json({
-      success: true,
-      data: result.items,
-      meta: { engine: result.engineUsed },
-    });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err.message || "Failed to generate recommendations." },
-      { status: 500 }
-    );
+    const options =
+      limit > 0 ? { offset, limit } : undefined;
+
+    const recommendations = await generateRecommendations(session.username, options);
+    return successResponse(recommendations);
+  } catch (error: any) {
+    return handleApiError(error);
   }
-}
-
-export async function POST() {
-  try {
-    const session = await getCurrentSession();
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized. Please sign in." },
-        { status: 401 }
-      );
-    }
-    const userId = session.userId;
-
-    const result = await getPersonalizedRecommendations(userId, true);
-    return NextResponse.json({
-      success: true,
-      data: result.items,
-      meta: { engine: result.engineUsed, refreshed: true },
-    });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err.message || "Failed to refresh recommendations." },
-      { status: 500 }
-    );
-  }
-}
+}, "recommendations");
