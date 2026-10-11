@@ -129,11 +129,39 @@ async function main() {
     await createField(piratesTableId, 'search_url', 'url');
     await createField(piratesTableId, 'enabled', 'boolean');
 
+    // 4. Create Recommendation Profile Table
+    const profileTableId = await createTable('recommendation_profile');
+    await createField(profileTableId, 'username', 'text');
+    await createField(profileTableId, 'favorite_genres', 'long_text');
+    await createField(profileTableId, 'disliked_genres', 'long_text');
+    await createField(profileTableId, 'favorite_actors', 'long_text');
+    await createField(profileTableId, 'favorite_directors', 'long_text');
+    await createField(profileTableId, 'favorite_production_companies', 'long_text');
+    await createField(profileTableId, 'favorite_industries', 'long_text');
+    await createField(profileTableId, 'favorite_eras', 'long_text');
+    await createField(profileTableId, 'language_preferences', 'long_text');
+    await createField(profileTableId, 'library_hash', 'text');
+    await createField(profileTableId, 'generated_at', 'text');
+    await createField(profileTableId, 'engine_version', 'text');
+
+    // 5. Create Recommendation Sets Table
+    const recSetsTableId = await createTable('recommendation_sets');
+    await createField(recSetsTableId, 'username', 'text');
+    await createField(recSetsTableId, 'recommendations', 'long_text');
+    await createField(recSetsTableId, 'status', 'text');
+    await createField(recSetsTableId, 'taste_hash', 'text');
+    await createField(recSetsTableId, 'created_at', 'text');
+    await createField(recSetsTableId, 'expires_at', 'text');
+    await createField(recSetsTableId, 'generation_model', 'text');
+    await createField(recSetsTableId, 'item_count', 'number', { number_decimal_places: 0 });
+
     // Update .env
     updateEnv({
       BASEROW_USERS_TABLE_ID: usersTableId,
       BASEROW_MOVIES_TABLE_ID: moviesTableId,
-      BASEROW_PIRATES_TABLE_ID: piratesTableId
+      BASEROW_PIRATES_TABLE_ID: piratesTableId,
+      BASEROW_RECOMMENDATION_PROFILE_TABLE_ID: profileTableId,
+      BASEROW_RECOMMENDATION_SETS_TABLE_ID: recSetsTableId,
     });
 
     console.log("\n🎉 Database schema set up successfully! You can now start the app.");

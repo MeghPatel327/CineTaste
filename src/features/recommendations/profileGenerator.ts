@@ -1,5 +1,6 @@
 import { MovieRow, getUserMovies } from "@/features/movies/movieRepository";
 import { getRecommendationProfile, saveRecommendationProfile } from "./recommendationProfileRepository";
+import { invalidateRecommendations } from "./recommendationService";
 import { env } from "@/lib/env";
 import { getFilmIndustry } from "@/lib/utils";
 import crypto from "crypto";
@@ -161,6 +162,8 @@ export async function generateProfileAsync(username: string): Promise<void> {
       engine_version: ENGINE_VERSION,
     });
     
+    await invalidateRecommendations(username);
+
     logger.info({ module: "profileGenerator", action: "GENERATE_PROFILE", status: "SUCCESS", durationMs: Date.now() - start, message: `Profile generated for ${username}` });
 
   } catch (err: any) {

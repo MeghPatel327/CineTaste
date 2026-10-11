@@ -1,5 +1,8 @@
 import { getUserMovies } from "@/features/movies/movieRepository";
-import { generateRecommendations } from "@/features/recommendations/recommendationEngine";
+import {
+  getRecommendations,
+  toLegacyFormat,
+} from "@/features/recommendations/recommendationService";
 import { getRecommendationProfile } from "@/features/recommendations/recommendationProfileRepository";
 import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
 import { after } from "next/server";
@@ -96,9 +99,9 @@ export async function getDashboardStatsService(username: string) {
   // Always add average rating as an insight
   insights.push({ title: "Average Rating", value: avgRating.toString(), description: "Your overall taste" });
 
-  // Get 3 recommendation previews
-  const recommendations = await generateRecommendations(username, { allMovies: movies });
-  const recommendationPreview = recommendations.slice(0, 3);
+  // Get 3 recommendation previews from persisted set / hybrid engine
+  const recItems = await getRecommendations(username, { limit: 3 });
+  const recommendationPreview = toLegacyFormat(recItems);
   
   logger.info({ module: "dashboardService", action: "FETCH_DASHBOARD", status: "SUCCESS", durationMs: Date.now() - start, message: `Dashboard loaded for ${username}` });
 

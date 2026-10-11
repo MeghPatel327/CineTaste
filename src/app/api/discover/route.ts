@@ -2,7 +2,11 @@ import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest } from "next/server";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
-import { generateRecommendations, getUserTopGenres } from "@/features/recommendations/recommendationEngine";
+import { getUserTopGenres } from "@/features/recommendations/recommendationEngine";
+import {
+  getRecommendations,
+  toLegacyFormat,
+} from "@/features/recommendations/recommendationService";
 import { getUserMoviesService } from "@/features/movies/movieService";
 import { env } from "@/lib/env";
 
@@ -43,7 +47,7 @@ export const GET = withLogger(async (req: NextRequest) => {
       onTheAirData,
     ] = await Promise.all([
       getUserMoviesService(session.username),
-      generateRecommendations(session.username),
+      getRecommendations(session.username).then((items) => toLegacyFormat(items)),
       getUserTopGenres(session.username),
       tmdbFetch("/trending/all/day"),
       tmdbFetch("/movie/popular"),

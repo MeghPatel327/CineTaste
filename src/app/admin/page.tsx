@@ -9,6 +9,7 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Users, Shield, Link as LinkIcon, Trash, KeyRound } from "lucide-react";
+import { GeminiHealthCard } from "@/features/admin/components/GeminiHealthCard";
 
 const staggerStyle = (index: number, step = 45) => ({
   "--ct-stagger-delay": `${index * step}ms`,
@@ -187,6 +188,10 @@ export default function AdminPage() {
         ) : (
           <div className="space-y-12">
             <h1 className="text-3xl font-bold flex items-center gap-2"><Shield className="text-primary"/> Admin Dashboard</h1>
+
+            <section>
+              <GeminiHealthCard />
+            </section>
 
             <section>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Users /> Users</h2>
