@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  LogOut,
+  Sparkles,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -24,7 +26,7 @@ interface SidebarProps {
   isAdmin: boolean;
 }
 
-const navItems = [
+const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/movies", label: "Library", icon: Library },
   { href: "/recommendations", label: "Up Next", icon: ListTodo },
@@ -35,7 +37,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { state, dispatch } = useAppStore();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const isCollapsed = state.sidebarCollapsed;
   const [mounted, setMounted] = useState(false);
 
@@ -46,14 +48,16 @@ export function Sidebar({ isAdmin }: SidebarProps) {
   const toggleCollapse = () => {
     const next = !isCollapsed;
     dispatch({ type: "SET_SIDEBAR_COLLAPSED", payload: next });
-    localStorage.setItem("ct_sidebar_collapsed", String(next));
+    try {
+      localStorage.setItem("ct_sidebar_collapsed", String(next));
+    } catch {}
   };
 
-  // Prefetch all app routes once on mount so navigation feels instant
+  // Prefetch core routes
   useEffect(() => {
     const routes = ["/dashboard", "/movies", "/discover", "/recommendations", "/profile", "/about"];
     if (isAdmin) routes.push("/admin");
-    routes.forEach(r => router.prefetch(r));
+    routes.forEach((r) => router.prefetch(r));
   }, [isAdmin, router]);
 
   const isActive = (href: string) => {
@@ -62,84 +66,94 @@ export function Sidebar({ isAdmin }: SidebarProps) {
     return pathname.startsWith(href);
   };
 
-  const sidebarContent = (isDesktop: boolean) => (
-    <div className="flex flex-col h-full relative">
-      {/* Brand & Toggle */}
-      <div className="p-5 pb-6 border-b border-sidebar-border flex items-center justify-between relative h-[88px]">
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+    } catch {
+      router.push("/login");
+    }
+  };
+
+  // ── Desktop Sidebar Content ──
+  const desktopNav = (
+    <div className="flex flex-col h-full select-none">
+      {/* Brand & Toggle Header */}
+      <div className="p-4 border-b border-white/[0.06] flex items-center justify-between relative h-20">
         <Link
           href="/dashboard"
-          className="flex items-center group pl-1 relative w-full h-full"
-          onClick={() => setMobileOpen(false)}
+          className="flex items-center gap-3 group relative w-full h-full overflow-hidden"
         >
-          {isDesktop ? (
-            <>
-              {/* Collapsed Logo */}
-              <img
-                src="/branding/circle_logo.png"
-                alt="CineTaste"
-                className={cn(
-                  "absolute left-1/2 -translate-x-1/2 w-8 h-8 transition-all duration-300",
-                  isCollapsed ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
-                )}
-              />
-              {/* Expanded Logo */}
-              <div className={cn(
-                "absolute left-1 transition-all duration-300",
-                isCollapsed ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"
-              )}>
-                <BrandLogo variant="full" className="w-36" />
-              </div>
-            </>
-          ) : (
-            <BrandLogo variant="full" className="w-36 absolute left-1" />
-          )}
-        </Link>
-        {isDesktop && (
-          <button
-            onClick={toggleCollapse}
+          {/* Collapsed Circle Logo */}
+          <div
             className={cn(
-              "absolute top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-sidebar border border-sidebar-border shadow-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-all z-20",
-              isCollapsed ? "-right-3" : "right-2"
+              "absolute left-1/2 -translate-x-1/2 transition-all duration-300",
+              isCollapsed ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
             )}
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
-        )}
+            <BrandLogo variant="compact" className="w-8 h-8" />
+          </div>
+
+          {/* Expanded Full Logo */}
+          <div
+            className={cn(
+              "absolute left-2 transition-all duration-300",
+              isCollapsed ? "opacity-0 scale-95 pointer-events-none" : "opacity-100 scale-100"
+            )}
+          >
+            <BrandLogo variant="full" className="w-36" />
+          </div>
+        </Link>
+
+        {/* Collapse toggle */}
+        <button
+          onClick={toggleCollapse}
+          className={cn(
+            "absolute top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-[#121619] border border-white/[0.1] text-[#A1AAA6] hover:text-[#F5F7F6] hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-all z-20 shadow-lg",
+            isCollapsed ? "-right-3" : "right-3"
+          )}
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        </button>
       </div>
 
-      {/* Navigation */}
-      <nav className={cn("flex-1 p-3 space-y-1", isDesktop ? "overflow-visible" : "overflow-y-auto")}>
-        {navItems.map((item) => {
+      {/* Main Navigation Links */}
+      <nav className="flex-1 p-3 space-y-1.5 overflow-visible">
+        {mainNavItems.map((item) => {
           const active = isActive(item.href);
           return (
-            <div key={item.href} className="relative group/navitem flex justify-center">
+            <div key={item.href} className="relative group/nav flex justify-center">
               <Link
                 href={item.href}
-                onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
-                  isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+                  "flex items-center rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden",
+                  isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3.5 py-2.5 gap-3",
                   active
-                    ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
-                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.12)]"
+                    : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04] border border-transparent"
                 )}
               >
                 <item.icon
                   className={cn(
                     "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
-                    active ? "text-primary" : "text-muted-foreground"
+                    active ? "text-emerald-400" : "text-[#A1AAA6] group-hover/nav:text-[#F5F7F6]"
                   )}
                 />
-                <span className={cn(
-                  "whitespace-nowrap transition-all duration-300",
-                  isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
-                )}>
+                <span
+                  className={cn(
+                    "whitespace-nowrap transition-all duration-200",
+                    isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+                  )}
+                >
                   {item.label}
                 </span>
               </Link>
-              {isDesktop && isCollapsed && (
-                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+
+              {/* Tooltip on collapsed */}
+              {isCollapsed && (
+                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#121619] border border-white/[0.1] text-[#F5F7F6] text-xs font-semibold rounded-md opacity-0 group-hover/nav:opacity-100 pointer-events-none transition-all duration-200 translate-x-1 group-hover/nav:translate-x-0 shadow-2xl z-50 whitespace-nowrap">
                   {item.label}
                 </div>
               )}
@@ -147,36 +161,38 @@ export function Sidebar({ isAdmin }: SidebarProps) {
           );
         })}
 
+        {/* Admin Link (Authorized only) */}
         {isAdmin && (
           <>
-            <div className="my-3 border-t border-sidebar-border" />
-            <div className="relative group/navitem flex justify-center">
+            <div className="my-3 border-t border-white/[0.06]" />
+            <div className="relative group/nav flex justify-center">
               <Link
                 href="/admin"
-                onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
-                  isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+                  "flex items-center rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden",
+                  isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3.5 py-2.5 gap-3",
                   isActive("/admin")
-                    ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
-                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.12)]"
+                    : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04] border border-transparent"
                 )}
               >
                 <Shield
                   className={cn(
                     "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
-                    isActive("/admin") ? "text-primary" : "text-muted-foreground"
+                    isActive("/admin") ? "text-emerald-400" : "text-[#A1AAA6] group-hover/nav:text-[#F5F7F6]"
                   )}
                 />
-                <span className={cn(
-                  "whitespace-nowrap transition-all duration-300",
-                  isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
-                )}>
+                <span
+                  className={cn(
+                    "whitespace-nowrap transition-all duration-200",
+                    isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+                  )}
+                >
                   Admin
                 </span>
               </Link>
-              {isDesktop && isCollapsed && (
-                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+              {isCollapsed && (
+                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#121619] border border-white/[0.1] text-[#F5F7F6] text-xs font-semibold rounded-md opacity-0 group-hover/nav:opacity-100 pointer-events-none transition-all duration-200 translate-x-1 group-hover/nav:translate-x-0 shadow-2xl z-50 whitespace-nowrap">
                   Admin
                 </div>
               )}
@@ -185,57 +201,59 @@ export function Sidebar({ isAdmin }: SidebarProps) {
         )}
       </nav>
 
-      {/* Bottom actions */}
-      <div className="p-3 border-t border-sidebar-border space-y-1">
-        <div className="relative group/navitem flex justify-center">
+      {/* Bottom Profile & About */}
+      <div className="p-3 border-t border-white/[0.06] space-y-1.5">
+        <div className="relative group/nav flex justify-center">
           <Link
             href="/profile"
-            onClick={() => setMobileOpen(false)}
             className={cn(
-              "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
-              isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+              "flex items-center rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden",
+              isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3.5 py-2.5 gap-3",
               isActive("/profile")
-                ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
-                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04] border border-transparent"
             )}
           >
-            <User className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
-            <span className={cn(
-              "whitespace-nowrap transition-all duration-300",
-              isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
-            )}>
+            <User className="w-[18px] h-[18px] shrink-0" />
+            <span
+              className={cn(
+                "whitespace-nowrap transition-all duration-200",
+                isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+              )}
+            >
               Profile
             </span>
           </Link>
-          {isDesktop && isCollapsed && (
-            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+          {isCollapsed && (
+            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#121619] border border-white/[0.1] text-[#F5F7F6] text-xs font-semibold rounded-md opacity-0 group-hover/nav:opacity-100 pointer-events-none transition-all duration-200 translate-x-1 group-hover/nav:translate-x-0 shadow-2xl z-50 whitespace-nowrap">
               Profile
             </div>
           )}
         </div>
-        
-        <div className="relative group/navitem flex justify-center mt-1">
+
+        <div className="relative group/nav flex justify-center">
           <Link
             href="/about"
-            onClick={() => setMobileOpen(false)}
             className={cn(
-              "sidebar-nav-item flex items-center rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
-              isDesktop && isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3 py-2.5 gap-3",
+              "flex items-center rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden",
+              isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3.5 py-2.5 gap-3",
               isActive("/about")
-                ? "sidebar-nav-item-active bg-sidebar-accent text-primary shadow-sm"
-                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04] border border-transparent"
             )}
           >
-            <Info className="w-[18px] h-[18px] shrink-0 transition-colors duration-200" />
-            <span className={cn(
-              "whitespace-nowrap transition-all duration-300",
-              isDesktop && isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
-            )}>
+            <Info className="w-[18px] h-[18px] shrink-0" />
+            <span
+              className={cn(
+                "whitespace-nowrap transition-all duration-200",
+                isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+              )}
+            >
               About
             </span>
           </Link>
-          {isDesktop && isCollapsed && (
-            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-md opacity-0 group-hover/navitem:opacity-100 pointer-events-none transition-all duration-200 translate-x-2 group-hover/navitem:translate-x-0 shadow-xl z-50 whitespace-nowrap">
+          {isCollapsed && (
+            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#121619] border border-white/[0.1] text-[#F5F7F6] text-xs font-semibold rounded-md opacity-0 group-hover/nav:opacity-100 pointer-events-none transition-all duration-200 translate-x-1 group-hover/nav:translate-x-0 shadow-2xl z-50 whitespace-nowrap">
               About
             </div>
           )}
@@ -246,46 +264,159 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile toggle button */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="fixed top-4 left-4 z-50 md:hidden bg-card border border-border p-2 rounded-lg shadow-lg hover:bg-secondary transition-colors"
-        aria-label="Open navigation"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+      {/* ── Mobile Top Header (Fixed Glass Bar) ── */}
+      <header className="md:hidden fixed top-0 left-0 right-0 h-14 bg-[#08090C]/85 backdrop-blur-md border-b border-white/[0.07] z-40 px-4 flex items-center justify-between">
+        <Link href="/dashboard" className="flex items-center">
+          <BrandLogo variant="full" className="w-28" />
+        </Link>
+        <button
+          onClick={() => setMobileDrawerOpen(true)}
+          className="p-2 text-[#A1AAA6] hover:text-[#F5F7F6] rounded-lg hover:bg-white/[0.06] transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      </header>
 
-      {/* Mobile overlay */}
-      {mobileOpen && (
+      {/* ── Mobile Bottom Navigation Bar (Fixed Cinema Dock) ── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0D1013]/90 backdrop-blur-xl border-t border-white/[0.08] z-40 px-2 flex items-center justify-around shadow-[0_-8px_30px_rgba(0,0,0,0.5)]">
+        {mainNavItems.map((item) => {
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors",
+                active ? "text-emerald-400" : "text-[#A1AAA6] hover:text-[#F5F7F6]"
+              )}
+            >
+              <item.icon className={cn("w-5 h-5 mb-0.5", active ? "text-emerald-400" : "text-[#A1AAA6]")} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+        <button
+          onClick={() => setMobileDrawerOpen(true)}
+          className="flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium text-[#A1AAA6] hover:text-[#F5F7F6]"
+        >
+          <Menu className="w-5 h-5 mb-0.5 text-[#A1AAA6]" />
+          <span>More</span>
+        </button>
+      </nav>
+
+      {/* ── Mobile Slide-out Drawer ── */}
+      {mobileDrawerOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm md:hidden animate-fade-in"
+          onClick={() => setMobileDrawerOpen(false)}
         />
       )}
 
-      {/* Mobile drawer */}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-64 bg-sidebar border-r border-sidebar-border transform transition-transform duration-300 md:hidden",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed top-0 right-0 z-50 h-full w-72 bg-[#0D1013] border-l border-white/[0.08] shadow-2xl transform transition-transform duration-300 md:hidden flex flex-col p-5",
+          mobileDrawerOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <button
-          onClick={() => setMobileOpen(false)}
-          className="absolute top-4 right-4 p-1 text-muted-foreground hover:text-foreground"
-          aria-label="Close navigation"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        {sidebarContent(false)}
+        <div className="flex items-center justify-between pb-4 border-b border-white/[0.07]">
+          <BrandLogo variant="full" className="w-32" />
+          <button
+            onClick={() => setMobileDrawerOpen(false)}
+            className="p-1.5 text-[#A1AAA6] hover:text-[#F5F7F6] rounded-lg hover:bg-white/[0.06]"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 py-4 space-y-2 overflow-y-auto">
+          {mainNavItems.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileDrawerOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                  active
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
+                )}
+              >
+                <item.icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={() => setMobileDrawerOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                isActive("/admin")
+                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                  : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
+              )}
+            >
+              <Shield className="w-5 h-5" />
+              <span>Admin Dashboard</span>
+            </Link>
+          )}
+
+          <div className="my-3 border-t border-white/[0.07]" />
+
+          <Link
+            href="/profile"
+            onClick={() => setMobileDrawerOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
+              isActive("/profile")
+                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
+            )}
+          >
+            <User className="w-5 h-5" />
+            <span>Profile & Taste DNA</span>
+          </Link>
+
+          <Link
+            href="/about"
+            onClick={() => setMobileDrawerOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
+              isActive("/about")
+                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
+            )}
+          >
+            <Info className="w-5 h-5" />
+            <span>About CineTaste</span>
+          </Link>
+        </div>
+
+        <div className="pt-4 border-t border-white/[0.07]">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </aside>
 
-      {/* Desktop sidebar */}
-      <aside className={cn(
-        "hidden md:flex md:flex-col md:shrink-0 h-screen sticky top-0 bg-sidebar border-r border-sidebar-border transition-[width] duration-300 ease-in-out",
-        mounted && isCollapsed ? "md:w-20" : "md:w-64"
-      )}>
-        {sidebarContent(true)}
+      {/* ── Desktop Sidebar ── */}
+      <aside
+        className={cn(
+          "hidden md:flex md:flex-col md:shrink-0 h-screen sticky top-0 bg-[#0D1013]/90 backdrop-blur-xl border-r border-white/[0.07] transition-[width] duration-300 ease-in-out z-30",
+          mounted && isCollapsed ? "md:w-20" : "md:w-64"
+        )}
+      >
+        {desktopNav}
       </aside>
     </>
   );

@@ -8,9 +8,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { MovieRow } from "@/features/movies/movieRepository";
 import { Button } from "@/components/ui/Button";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, ListTodo, Film, ExternalLink, Calendar } from "lucide-react";
 import Link from "next/link";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
+import { cn } from "@/lib/utils";
 
 export default function UpNextPage() {
   const [queue, setQueue] = useState<MovieRow[]>([]);
@@ -33,18 +34,18 @@ export default function UpNextPage() {
         setQueue(data.data || []);
       } else {
         setError(true);
-        toast.error("Failed to load queue");
+        toast.error("Failed to load watch queue");
       }
     } catch {
       setError(true);
-      toast.error("Failed to load queue");
+      toast.error("Error loading watch queue");
     } finally {
       setLoading(false);
     }
   };
 
   const handleMoveUp = async (movieId: number, index: number) => {
-    if (index === 0) return; // Already first
+    if (index === 0) return;
     setMovingId(movieId);
     try {
       const res = await fetch(`/api/queue/${movieId}`, {
@@ -54,7 +55,7 @@ export default function UpNextPage() {
       });
 
       if (res.ok) {
-        toast.success("Moved up");
+        toast.success("Watch order updated");
         await fetchQueue();
       } else {
         toast.error("Failed to move movie");
@@ -67,7 +68,7 @@ export default function UpNextPage() {
   };
 
   const handleMoveDown = async (movieId: number, index: number) => {
-    if (index === queue.length - 1) return; // Already last
+    if (index === queue.length - 1) return;
     setMovingId(movieId);
     try {
       const res = await fetch(`/api/queue/${movieId}`, {
@@ -77,7 +78,7 @@ export default function UpNextPage() {
       });
 
       if (res.ok) {
-        toast.success("Moved down");
+        toast.success("Watch order updated");
         await fetchQueue();
       } else {
         toast.error("Failed to move movie");
@@ -91,14 +92,29 @@ export default function UpNextPage() {
 
   return (
     <AppShell>
-      <div className="p-4 md:p-8 max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Up Next</h1>
-          <p className="text-muted-foreground">Your watch queue — manage what to watch next</p>
+      <div className="p-4 md:p-8 max-w-5xl mx-auto page-enter space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-heading text-3xl md:text-4xl font-extrabold flex items-center gap-3 text-[#F5F7F6]">
+              <ListTodo className="w-8 h-8 text-emerald-400" />
+              Up Next Queue
+            </h1>
+            <p className="text-sm text-[#A1AAA6] mt-1">
+              Your personalized watch queue — reorder to control what plays next.
+            </p>
+          </div>
+
+          <Link href="/discover">
+            <Button className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-semibold rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)]">
+              + Add Titles to Queue
+            </Button>
+          </Link>
         </div>
 
         {loading ? (
-          <LoadingState message="Loading your queue..." />
+          <div className="glass-panel p-8 rounded-2xl">
+            <LoadingState message="Loading your queue..." />
+          </div>
         ) : error ? (
           <ErrorState
             title="Failed to Load Queue"
@@ -106,22 +122,38 @@ export default function UpNextPage() {
             onRetry={fetchQueue}
           />
         ) : queue.length === 0 ? (
-          <EmptyState
-            title="Queue is Empty"
-            description="You don't have any pending movies. Add one from the Discover page!"
-            action={<Link href="/discover" className="inline-block"><Button>Explore Movies</Button></Link>}
-          />
+          <div className="glass-panel p-10 rounded-2xl text-center">
+            <EmptyState
+              title="Queue is Empty"
+              description="You do not have any pending movies queued. Discover titles to build your watchlist!"
+              action={
+                <Link href="/discover">
+                  <Button className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-semibold rounded-xl">
+                    Explore Discover
+                  </Button>
+                </Link>
+              }
+            />
+          </div>
         ) : (
-          <div className="space-y-2 ct-accent-border">
+          <div className="glass-panel p-4 sm:p-5 rounded-2xl space-y-3">
             {queue.map((movie, index) => (
               <div
                 key={movie.id}
-                onClick={() => setSelectedItem({ id: movie.tmdb_id, type: (movie.type as any) || "movie" })}
-                className="flex items-center gap-4 bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-[0_8px_24px_rgba(46,111,64,0.4)] hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 group cursor-pointer"
+                onClick={() =>
+                  setSelectedItem({
+                    id: movie.tmdb_id,
+                    type: (movie.type as any) || "movie",
+                  })
+                }
+                className={cn(
+                  "group relative flex items-center gap-4 p-3.5 sm:p-4 rounded-xl border border-white/[0.06] bg-[#0D1013]/70 hover:bg-[#161B1F] hover:border-emerald-500/40 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-lg",
+                  movingId === movie.id ? "opacity-60 pointer-events-none" : ""
+                )}
               >
                 {/* Position Badge */}
-                <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <span className="font-bold text-lg text-primary">{index + 1}</span>
+                <div className="flex-shrink-0 w-11 h-11 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center font-heading font-extrabold text-base">
+                  #{index + 1}
                 </div>
 
                 {/* Poster */}
@@ -129,18 +161,32 @@ export default function UpNextPage() {
                   <img
                     src={movie.poster_url}
                     alt={movie.movie_name}
-                    className="w-12 h-18 object-cover rounded flex-shrink-0"
+                    className="w-12 h-16 sm:w-14 sm:h-20 object-cover rounded-xl shadow-md flex-shrink-0 group-hover:scale-105 transition-transform duration-200"
                   />
                 ) : (
-                  <div className="w-12 h-18 bg-secondary rounded flex-shrink-0" />
+                  <div className="w-12 h-16 sm:w-14 sm:h-20 bg-[#121619] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Film className="w-5 h-5 text-[#A1AAA6]" />
+                  </div>
                 )}
 
                 {/* Movie Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base truncate">{movie.movie_name}</h3>
-                  <div className="flex gap-2 mt-1 flex-wrap text-xs text-muted-foreground">
-                    {movie.type && <span className="capitalize">{movie.type}</span>}
-                    {movie.release_year && <span>{movie.release_year}</span>}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <h3 className="font-heading font-bold text-base text-[#F5F7F6] truncate group-hover:text-emerald-300 transition-colors">
+                    {movie.movie_name}
+                  </h3>
+                  <div className="flex items-center gap-2.5 flex-wrap text-xs text-[#A1AAA6]">
+                    {movie.type && (
+                      <span className="capitalize px-2 py-0.5 rounded-md bg-white/[0.06] text-[#A1AAA6] font-semibold text-[10px]">
+                        {movie.type}
+                      </span>
+                    )}
+                    {movie.release_year ? (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-[#A1AAA6]" />
+                        {movie.release_year}
+                      </span>
+                    ) : null}
+                    {movie.runtime ? <span>{movie.runtime} min</span> : null}
                   </div>
                 </div>
 
@@ -151,31 +197,31 @@ export default function UpNextPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="text-primary hover:underline text-sm font-medium flex-shrink-0"
+                    className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-lg flex-shrink-0 transition-colors"
                   >
-                    Watch →
+                    Watch Stream <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
 
-                {/* Move Buttons */}
-                <div className="flex gap-2 flex-shrink-0">
+                {/* Move Up/Down Controls */}
+                <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleMoveUp(movie.id, index); }}
+                    onClick={() => handleMoveUp(movie.id, index)}
                     disabled={index === 0 || movingId === movie.id}
-                    className="p-2 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Move up"
+                    className="p-2 rounded-lg bg-white/[0.04] hover:bg-emerald-500/20 text-[#A1AAA6] hover:text-emerald-300 disabled:opacity-30 disabled:pointer-events-none transition-colors border border-white/[0.06]"
+                    title="Move up in queue"
                     aria-label="Move up"
                   >
-                    <ChevronUp className="w-5 h-5" />
+                    <ChevronUp className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleMoveDown(movie.id, index); }}
+                    onClick={() => handleMoveDown(movie.id, index)}
                     disabled={index === queue.length - 1 || movingId === movie.id}
-                    className="p-2 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Move down"
+                    className="p-2 rounded-lg bg-white/[0.04] hover:bg-emerald-500/20 text-[#A1AAA6] hover:text-emerald-300 disabled:opacity-30 disabled:pointer-events-none transition-colors border border-white/[0.06]"
+                    title="Move down in queue"
                     aria-label="Move down"
                   >
-                    <ChevronDown className="w-5 h-5" />
+                    <ChevronDown className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -183,6 +229,7 @@ export default function UpNextPage() {
           </div>
         )}
       </div>
+
       <MovieDetailsModal
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}

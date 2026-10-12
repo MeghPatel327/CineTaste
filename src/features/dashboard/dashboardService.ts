@@ -99,9 +99,44 @@ export async function getDashboardStatsService(username: string) {
   // Always add average rating as an insight
   insights.push({ title: "Average Rating", value: avgRating.toString(), description: "Your overall taste" });
 
-  // Get 3 recommendation previews from persisted set / hybrid engine
-  const recItems = await getRecommendations(username, { limit: 3 });
+  // Get recommendation previews from persisted set / hybrid engine
+  const recItems = await getRecommendations(username, { limit: 12 });
   const recommendationPreview = toLegacyFormat(recItems);
+
+  // Combine recommendations + up next for dominant hero spotlight (7-8 movies)
+  const parseGenres = (raw: string | undefined): string[] => {
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch { return raw.split(",").map((s) => s.trim()); }
+  };
+
+  const heroCandidates = [
+    ...recommendationPreview,
+    ...next5.map((m) => ({
+      id: m.tmdb_id,
+      movieId: m.tmdb_id,
+      title: m.movie_name,
+      poster_url: m.poster_url,
+      backdrop_url: null,
+      score: 95,
+      reasons: ["In your Up Next queue"],
+      media_type: m.type as "movie" | "tv",
+      genres: parseGenres(m.genres),
+      release_year: m.release_year,
+      vote_average: m.rating || 0,
+      overview: m.overview || "",
+    })),
+  ];
+
+  const seenHeroIds = new Set<number>();
+  const heroMovies: any[] = [];
+  for (const item of heroCandidates) {
+    const id = item.id || item.movieId;
+    if (id && !seenHeroIds.has(id)) {
+      seenHeroIds.add(id);
+      heroMovies.push(item);
+      if (heroMovies.length >= 8) break;
+    }
+  }
   
   logger.info({ module: "dashboardService", action: "FETCH_DASHBOARD", status: "SUCCESS", durationMs: Date.now() - start, message: `Dashboard loaded for ${username}` });
 
@@ -117,5 +152,6 @@ export async function getDashboardStatsService(username: string) {
     favoriteGenres,
     insights,
     recommendationPreview,
+    heroMovies,
   };
 }

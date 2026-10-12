@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -7,6 +7,11 @@ import { AppStoreProvider } from "@/lib/appStore";
 
 const inter = Inter({
   variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-heading",
   subsets: ["latin"],
 });
 
@@ -22,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} antialiased min-h-screen flex flex-col`}>
+      <body className={`${inter.variable} ${plusJakartaSans.variable} font-sans antialiased min-h-screen flex flex-col bg-background text-foreground selection:bg-emerald-500/20 selection:text-emerald-300`}>
         <ThemeProvider>
           <AppStoreProvider>
             {children}

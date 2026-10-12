@@ -9,14 +9,13 @@ interface AppShellProps {
 }
 
 /**
- * Persistent App Shell.
- * The session is fetched ONCE globally via AppStore — never re-fetched on navigation.
- * The Sidebar never unmounts because AppShell is a shared layout wrapper.
+ * Obsidian Cinema Glass Persistent App Shell.
+ * Provides unified dark aesthetic, responsive sidebar on desktop,
+ * and an intentional mobile cinema navigation experience.
  */
 export function AppShell({ children }: AppShellProps) {
   const { state, getUser } = useAppStore();
 
-  // Fetch session once if not already fetched
   useEffect(() => {
     if (!state.userFetched) {
       getUser();
@@ -26,10 +25,9 @@ export function AppShell({ children }: AppShellProps) {
   const isAdmin = state.user?.role === "admin";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background text-foreground selection:bg-emerald-500/20 selection:text-emerald-300">
       <Sidebar isAdmin={isAdmin} />
-      {/* On mobile, left-pad main to clear the fixed hamburger button (left-4 ~44px) */}
-      <main className="flex-1 min-w-0 overflow-x-hidden pl-14 md:pl-0">
+      <main className="flex-1 min-w-0 overflow-x-hidden pb-20 md:pb-0">
         {children}
       </main>
     </div>

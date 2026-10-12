@@ -23,8 +23,6 @@ export const GET = withLogger(async (req: NextRequest) => {
       ? dashboardData.favoriteGenres[0].name 
       : "None";
 
-    // Re-calculate favorite industry from user movies in dashboardService if we wanted, 
-    // but let's just do a quick calculation here.
     const { getUserMovies } = await import("@/features/movies/movieRepository");
     const { getFilmIndustry } = await import("@/lib/utils");
     const movies = await getUserMovies(session.username);
@@ -42,12 +40,17 @@ export const GET = withLogger(async (req: NextRequest) => {
 
     return successResponse({
       username: user.username,
-      role: typeof user.role === 'object' && user.role !== null ? (user.role as any).value : user.role,
+      role: typeof user.role === "object" && user.role !== null ? (user.role as any).value : user.role,
       joinedAt: user.created_at,
       moviesWatched: dashboardData.stats.watched,
+      totalMovies: dashboardData.stats.total,
+      pendingCount: dashboardData.stats.pending,
+      completionRate: dashboardData.stats.completionPercentage,
       avgRating: dashboardData.stats.avgRating,
       favoriteGenre,
-      favoriteIndustry
+      favoriteIndustry,
+      favoriteGenres: dashboardData.favoriteGenres,
+      insights: dashboardData.insights,
     });
   } catch (error: any) {
     return handleApiError(error);

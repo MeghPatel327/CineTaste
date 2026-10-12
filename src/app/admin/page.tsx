@@ -149,33 +149,25 @@ export default function AdminPage() {
 
   return (
     <AppShell>
-      <div className="p-4 md:p-8 max-w-6xl mx-auto page-enter">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto page-enter space-y-10">
         {loading ? (
-          <div className="space-y-12">
-            <Skeleton className="h-9 w-64" />
-            <section>
-              <Skeleton className="h-7 w-32 mb-4" />
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-secondary"><tr>{Array.from({length:6}).map((_,i)=><th key={i} className="p-4"><Skeleton className="h-4 w-full"/></th>)}</tr></thead>
-                  <tbody>{Array.from({length:4}).map((_,i)=><TableRowSkeleton key={i} cols={6}/>)}</tbody>
-                </table>
+          <div className="space-y-10">
+            <Skeleton className="h-10 w-72 rounded-lg" />
+            <div className="glass-panel p-6 rounded-2xl border border-white/[0.08] space-y-4">
+              <Skeleton className="h-6 w-48" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Skeleton className="h-24 w-full rounded-xl" />
+                <Skeleton className="h-24 w-full rounded-xl" />
+                <Skeleton className="h-24 w-full rounded-xl" />
               </div>
-            </section>
-            <section>
-              <Skeleton className="h-7 w-48 mb-4" />
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="bg-card rounded-xl border border-border p-4 space-y-4">
-                  <Skeleton className="h-5 w-24" />
-                  {Array.from({length:3}).map((_,i)=><Skeleton key={i} className="h-9 w-full"/>)}
-                  <Skeleton className="h-9 w-24" />
-                </div>
-                <div className="bg-card rounded-xl border border-border overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-secondary"><tr>{Array.from({length:3}).map((_,i)=><th key={i} className="p-4"><Skeleton className="h-4 w-full"/></th>)}</tr></thead>
-                    <tbody>{Array.from({length:3}).map((_,i)=><TableRowSkeleton key={i} cols={3}/>)}</tbody>
-                  </table>
-                </div>
+            </div>
+            <section className="space-y-4">
+              <Skeleton className="h-7 w-32" />
+              <div className="glass-panel rounded-2xl border border-white/[0.08] overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-white/[0.03]"><tr>{Array.from({length:5}).map((_,i)=><th key={i} className="p-4"><Skeleton className="h-4 w-full"/></th>)}</tr></thead>
+                  <tbody>{Array.from({length:4}).map((_,i)=><TableRowSkeleton key={i} cols={5}/>)}</tbody>
+                </table>
               </div>
             </section>
           </div>
@@ -186,56 +178,92 @@ export default function AdminPage() {
             onRetry={fetchAdminData}
           />
         ) : (
-          <div className="space-y-12">
-            <h1 className="text-3xl font-bold flex items-center gap-2"><Shield className="text-primary"/> Admin Dashboard</h1>
+          <div className="space-y-10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
+              <div>
+                <h1 className="text-3xl font-heading font-bold text-white flex items-center gap-3">
+                  <span className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    <Shield className="w-6 h-6" />
+                  </span>
+                  Admin Console
+                </h1>
+                <p className="text-sm text-[#A1AAA6] mt-1">
+                  Manage core system health, user privileges, and streaming search indexers.
+                </p>
+              </div>
+            </div>
 
             <section>
               <GeminiHealthCard />
             </section>
 
-            <section>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Users /> Users</h2>
-              <div className="ct-accent-border p-0 sm:p-0">
-                <table className="w-full text-left">
-                  <thead className="bg-secondary text-secondary-foreground">
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-heading font-semibold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-emerald-400" /> User Directory
+                </h2>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-[#A1AAA6]">
+                  {users.length} registered
+                </span>
+              </div>
+
+              <div className="glass-panel rounded-2xl border border-white/[0.08] overflow-x-auto shadow-2xl">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-white/[0.03] text-xs font-semibold uppercase tracking-wider text-[#A1AAA6] border-b border-white/[0.06]">
                     <tr>
-                      <th className="p-4">Username</th>
+                      <th className="p-4">User</th>
                       <th className="p-4">Role</th>
                       <th className="p-4">Status</th>
-                      <th className="p-4">Joined</th>
-                      <th className="p-4">Actions</th>
-                    </tr>                  </thead>
-                  <tbody>
+                      <th className="p-4">Created</th>
+                      <th className="p-4 text-right">Administrative Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
                     {users.map((u, index) => (
-                      <tr key={u.id} className="ct-table-row-stagger border-t border-border" style={staggerStyle(index)}>
-                        <td className="p-4 font-medium">{u.username}</td>
-                        <td className="p-4 capitalize">
-                          <span className={`px-2 py-1 rounded text-xs ${u.role === 'admin' ? 'bg-primary/20 text-primary' : 'bg-secondary'}`}>
+                      <tr key={u.id} className="ct-table-row-stagger hover:bg-white/[0.02] transition-colors" style={staggerStyle(index)}>
+                        <td className="p-4 font-medium text-white">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-emerald-950/60 border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-300">
+                              {u.username?.slice(0, 2).toUpperCase() || "CT"}
+                            </div>
+                            <span>{u.username}</span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${u.role === 'admin' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-white/[0.05] border-white/[0.08] text-white/70'}`}>
                             {u.role}
                           </span>
                         </td>
                         <td className="p-4">
-                          {u.blocked ? <span className="text-destructive">Blocked</span> : <span className="text-green-500">Active</span>}
+                          {u.blocked ? (
+                            <span className="px-2 py-0.5 rounded text-xs bg-rose-500/15 text-rose-400 border border-rose-500/30">Blocked</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Active</span>
+                          )}
                         </td>
-                        <td className="p-4 text-sm text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</td>
-                        <td className="p-4 flex gap-2 flex-wrap">
-                          <Button size="sm" variant="outline" onClick={() => updateUserRole(u.id, u.role)}>
-                            Make {u.role === 'admin' ? 'User' : 'Admin'}
-                          </Button>
-                          <Button size="sm" variant={u.blocked ? "default" : "destructive"} onClick={() => toggleUserBlock(u.id, u.blocked)}>
-                            {u.blocked ? 'Unblock' : 'Block'}
-                          </Button>
-                          <div className="flex gap-1 items-center mt-1 w-full">
-                            <input
-                              type="password"
-                              placeholder="New password"
-                              value={resetPasswords[u.id] ?? ""}
-                              onChange={e => setResetPasswords(prev => ({ ...prev, [u.id]: e.target.value }))}
-                              className="h-8 text-xs rounded-md border border-input bg-background px-2 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                            <Button size="sm" variant="secondary" disabled={resettingId === u.id} onClick={() => resetPassword(u.id)}>
-                              <KeyRound className="w-3.5 h-3.5 mr-1" />{resettingId === u.id ? "..." : "Reset"}
+                        <td className="p-4 text-xs text-[#A1AAA6]">
+                          {new Date(u.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-2">
+                            <Button size="sm" variant="outline" className="text-xs h-7 border-white/[0.1] hover:bg-white/[0.05]" onClick={() => updateUserRole(u.id, u.role)}>
+                              Make {u.role === 'admin' ? 'User' : 'Admin'}
                             </Button>
+                            <Button size="sm" variant={u.blocked ? "default" : "destructive"} className="text-xs h-7" onClick={() => toggleUserBlock(u.id, u.blocked)}>
+                              {u.blocked ? 'Unblock' : 'Block'}
+                            </Button>
+                            <div className="flex gap-1.5 items-center mt-1 sm:mt-0">
+                              <input
+                                type="password"
+                                placeholder="Reset pwd"
+                                value={resetPasswords[u.id] ?? ""}
+                                onChange={e => setResetPasswords(prev => ({ ...prev, [u.id]: e.target.value }))}
+                                className="h-7 text-xs rounded-lg border border-white/[0.1] bg-[#08090C] px-2 w-28 focus:outline-none focus:ring-1 focus:ring-emerald-400 text-white placeholder:text-white/30"
+                              />
+                              <Button size="sm" variant="secondary" className="text-xs h-7 bg-white/[0.08] hover:bg-white/[0.15] text-white" disabled={resettingId === u.id} onClick={() => resetPassword(u.id)}>
+                                <KeyRound className="w-3 h-3 mr-1 text-emerald-400" />{resettingId === u.id ? "..." : "Set"}
+                              </Button>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -245,45 +273,61 @@ export default function AdminPage() {
               </div>
             </section>
 
-            <section>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><LinkIcon /> Pirate Sites (Search Templates)</h2>
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="ct-accent-border">
-                  <h3 className="font-bold mb-4">Add Template</h3>
+            <section className="space-y-4">
+              <h2 className="text-xl font-heading font-semibold text-white flex items-center gap-2">
+                <LinkIcon className="w-5 h-5 text-emerald-400" /> Pirate & Streaming Search Templates
+              </h2>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="glass-panel p-6 rounded-2xl border border-white/[0.08] shadow-xl space-y-4">
+                  <div>
+                    <h3 className="font-heading font-semibold text-white">Add Search Template</h3>
+                    <p className="text-xs text-[#A1AAA6] mt-0.5">Define link templates for external streaming indexing.</p>
+                  </div>
                   <form onSubmit={addSite} className="space-y-4">
                     <div>
-                      <label className="text-sm font-medium mb-1 block">Name</label>
-                      <Input value={newSiteName} onChange={e => setNewSiteName(e.target.value)} placeholder="e.g. 1337x" required />
+                      <label className="text-xs font-medium text-[#A1AAA6] mb-1.5 block">Source Name</label>
+                      <Input value={newSiteName} onChange={e => setNewSiteName(e.target.value)} placeholder="e.g. 1337x" required className="bg-[#08090C] border-white/[0.1]" />
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-1 block">Search URL Template</label>
-                      <Input value={newSiteUrl} onChange={e => setNewSiteUrl(e.target.value)} placeholder="https://example.com/search?q={query}" required />
-                      <p className="text-xs text-muted-foreground mt-1">Use {'{query}'} where the movie name should go.</p>
+                      <label className="text-xs font-medium text-[#A1AAA6] mb-1.5 block">Search URL Template</label>
+                      <Input value={newSiteUrl} onChange={e => setNewSiteUrl(e.target.value)} placeholder="https://example.com/search?q={query}" required className="bg-[#08090C] border-white/[0.1]" />
+                      <p className="text-[11px] text-muted-foreground mt-1">Use <code className="text-emerald-400">{"{query}"}</code> where the movie title is interpolated.</p>
                     </div>
-                    <Button type="submit">Add Site</Button>
+                    <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold">
+                      Add Source Template
+                    </Button>
                   </form>
                 </div>
 
-                <div className="ct-accent-border p-0 sm:p-0">
-                  <table className="w-full text-left">
-                    <thead className="bg-secondary text-secondary-foreground">
+                <div className="glass-panel rounded-2xl border border-white/[0.08] overflow-hidden shadow-xl">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-white/[0.03] text-xs font-semibold uppercase tracking-wider text-[#A1AAA6] border-b border-white/[0.06]">
                       <tr>
-                        <th className="p-4">Name</th>
-                        <th className="p-4">Enabled</th>
-                        <th className="p-4">Action</th>
+                        <th className="p-4">Source</th>
+                        <th className="p-4">Active</th>
+                        <th className="p-4 text-right">Delete</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-white/[0.04]">
                       {sites.map((s, index) => (
-                        <tr key={s.id} className="ct-table-row-stagger border-t border-border" style={staggerStyle(index)}>
-                          <td className="p-4 font-medium">{s.name}</td>
+                        <tr key={s.id} className="ct-table-row-stagger hover:bg-white/[0.02] transition-colors" style={staggerStyle(index)}>
+                          <td className="p-4 font-medium text-white">{s.name}</td>
                           <td className="p-4">
-                            <Button size="sm" variant="outline" onClick={() => toggleSiteEnabled(s.id, s.enabled)}>
-                              {s.enabled ? 'Yes' : 'No'}
-                            </Button>
+                            <button
+                              onClick={() => toggleSiteEnabled(s.id, s.enabled)}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                s.enabled
+                                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25'
+                                  : 'bg-white/[0.05] border border-white/[0.08] text-white/50 hover:bg-white/[0.1]'
+                              }`}
+                            >
+                              {s.enabled ? 'Enabled' : 'Disabled'}
+                            </button>
                           </td>
-                          <td className="p-4">
-                            <Button size="sm" variant="destructive" onClick={() => deleteSite(s.id)}><Trash className="w-4 h-4" /></Button>
+                          <td className="p-4 text-right">
+                            <Button size="sm" variant="ghost" className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 h-8 w-8 p-0" onClick={() => deleteSite(s.id)}>
+                              <Trash className="w-4 h-4" />
+                            </Button>
                           </td>
                         </tr>
                       ))}

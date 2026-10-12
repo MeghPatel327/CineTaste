@@ -195,33 +195,59 @@ export default function MovieLibraryPage() {
           <ErrorState title="Library failed to load" message="We couldn't load your movie library. Please try again." onRetry={refresh} />
         ) : (
           <>
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-3xl font-bold">Library</h1>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div>
+                <h1 className="font-heading text-3xl md:text-4xl font-extrabold text-[#F5F7F6]">
+                  Movie & Series Library
+                </h1>
+                <p className="text-sm text-[#A1AAA6] mt-1">
+                  Manage your personal movie collection, ratings, and watch statuses.
+                </p>
+              </div>
               <Link href="/discover" onClick={handleSaveScroll}>
-                <Button><Plus className="w-4 h-4 mr-2" /> Add Movie</Button>
+                <Button className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-semibold rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)]">
+                  <Plus className="w-4 h-4 mr-2" /> Add Title
+                </Button>
               </Link>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-8 ct-accent-border">
+            <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row gap-3 mb-8 border-white/[0.08]">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                <Input className="pl-9" placeholder="Search library..." value={search} onChange={e => setSearch(e.target.value)} />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 pointer-events-none" />
+                <input
+                  className="w-full bg-[#0D1013] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#F5F7F6] focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 placeholder:text-[#A1AAA6]/50"
+                  placeholder="Search library by title..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
               </div>
-              <select className="h-10 rounded-md border border-input bg-background px-3" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <select
+                className="h-10 rounded-xl border border-white/[0.08] bg-[#0D1013] px-3.5 text-sm text-[#F5F7F6] focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+              >
                 <option value="all">All Status</option>
-                <option value="pending">Pending</option>
+                <option value="pending">Pending (Queue)</option>
                 <option value="completed">Completed</option>
                 <option value="dropped">Dropped</option>
               </select>
-              <select className="h-10 rounded-md border border-input bg-background px-3" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-                <option value="all">All Types</option>
+              <select
+                className="h-10 rounded-xl border border-white/[0.08] bg-[#0D1013] px-3.5 text-sm text-[#F5F7F6] focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                value={typeFilter}
+                onChange={e => setTypeFilter(e.target.value)}
+              >
+                <option value="all">All Formats</option>
                 <option value="movie">Movies</option>
                 <option value="series">Series</option>
               </select>
-              <select className="h-10 rounded-md border border-input bg-background px-3" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+              <select
+                className="h-10 rounded-xl border border-white/[0.08] bg-[#0D1013] px-3.5 text-sm text-[#F5F7F6] focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+              >
                 <option value="added_desc">Recently Added</option>
                 <option value="rating_desc">Highest Rated</option>
-                <option value="name_asc">Name (A-Z)</option>
+                <option value="name_asc">Alphabetical (A-Z)</option>
                 <option value="watch_order">Watch Order</option>
               </select>
             </div>
@@ -315,41 +341,61 @@ function LibraryCard({ movie, onClick }: { movie: MovieRow; onClick: () => void 
     ? ({ "--ct-ambient-rgb": ambientRgb } as React.CSSProperties)
     : undefined;
 
+  const statusClass =
+    movie.status === "completed"
+      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+      : movie.status === "pending"
+      ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+      : "bg-rose-500/15 text-rose-400 border-rose-500/30";
+
   return (
     <div
-      className="ct-library-card bg-card rounded-lg overflow-hidden border border-border group relative cursor-pointer"
+      className="glass-panel rounded-2xl overflow-hidden border border-white/[0.08] hover:border-emerald-500/50 hover:shadow-[0_12px_35px_rgba(0,0,0,0.6)] group relative cursor-pointer transition-all duration-300"
       data-ambient={ambientRgb ? "true" : undefined}
       style={cardStyle}
       onClick={onClick}
     >
       {/* Poster */}
-      <div className="relative aspect-[2/3] overflow-hidden bg-secondary">
+      <div className="relative aspect-[2/3] overflow-hidden bg-[#0D1013]">
         <div className={imgPhase === "loading" ? "absolute inset-0 ct-shimmer" : "absolute inset-0 opacity-0 pointer-events-none transition-opacity duration-300"} />
         {movie.poster_url ? (
           <>
             <img
               src={movie.poster_url} alt={movie.movie_name} loading="lazy" decoding="async"
-              className={`ct-poster-img absolute inset-0 w-full h-full object-cover ${imgPhase === "loading" ? "opacity-0" : "opacity-100"}`}
+              className={`ct-poster-img absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${imgPhase === "loading" ? "opacity-0" : "opacity-100"}`}
               onLoad={() => { setImgPhase("revealed"); setTimeout(() => setImgPhase("loaded"), 80); }}
               onError={() => setImgPhase("loaded")}
             />
             <div className={`absolute inset-0 pointer-events-none backdrop-blur-sm bg-black/10 transition-opacity duration-300 ${imgPhase === "loaded" ? "opacity-0" : "opacity-100"}`} />
           </>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">No Poster</div>
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-[#A1AAA6]">No Poster</div>
         )}
       </div>
       {/* Info */}
-      <div className="p-3">
-        <h3 className="ct-card-title font-semibold truncate opacity-95" title={movie.movie_name}>{movie.movie_name}</h3>
-        <div className="ct-card-meta flex gap-2 items-center mt-1.5 mb-1.5 opacity-85">
-          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${movie.type === "series" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
+      <div className="p-3.5 space-y-2">
+        <h3 className="font-heading font-bold text-sm text-[#F5F7F6] truncate group-hover:text-emerald-300 transition-colors" title={movie.movie_name}>
+          {movie.movie_name}
+        </h3>
+        <div className="flex gap-2 items-center flex-wrap">
+          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${movie.type === "series" ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"}`}>
             {movie.type === "series" ? "Series" : "Movie"}
           </span>
+          {movie.release_year ? (
+            <span className="text-[11px] text-[#A1AAA6]">{movie.release_year}</span>
+          ) : null}
         </div>
-        <div className="ct-card-meta flex justify-between items-center text-xs text-muted-foreground opacity-85">
-          <span className="capitalize">{movie.status}</span>
-          <span className="flex items-center text-yellow-500">★ {movie.rating}</span>
+        <div className="flex justify-between items-center text-xs pt-1 border-t border-white/[0.06]">
+          <span className={`capitalize text-[11px] font-semibold px-2 py-0.5 rounded-full border ${statusClass}`}>
+            {movie.status}
+          </span>
+          {movie.rating > 0 ? (
+            <span className="flex items-center gap-1 text-amber-400 font-semibold text-xs">
+              ★ {movie.rating}
+            </span>
+          ) : (
+            <span className="text-[#A1AAA6]/60 text-[11px]">Unrated</span>
+          )}
         </div>
       </div>
     </div>

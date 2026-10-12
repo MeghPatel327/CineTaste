@@ -5,33 +5,43 @@ import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { CheckCircle, Clock, Sparkles, Award, Lightbulb, PlayCircle, Hash } from "lucide-react";
+import {
+  Sparkles,
+  PlayCircle,
+  Star,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  Award,
+  CheckCircle,
+  Lightbulb,
+  Clock,
+  Film,
+  ListTodo,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
+import { HorizontalRow, type RowItem } from "@/components/HorizontalRow";
 import {
   StatCardSkeleton,
-  WatchRowSkeleton,
-  GenreRowSkeleton,
   RecPreviewSkeleton,
+  WatchRowSkeleton,
   Skeleton,
 } from "@/components/ui/Skeleton";
-import { useCountUp } from "@/hooks/useCountUp";
+import { cn } from "@/lib/utils";
 
 let dashboardCacheRef: { data: any; fetchedAt: number } | null = null;
 const DASHBOARD_TTL = 60_000;
-
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6"];
-const staggerStyle = (index: number, step = 50) => ({
-  "--ct-stagger-delay": `${index * step}ms`,
-} as CSSProperties);
+const HERO_ROTATION_MS = 7_000; // 7 seconds per slide
 
 export default function DashboardPage() {
   const [data, setData] = useState<any>(dashboardCacheRef?.data ?? null);
   const [loading, setLoading] = useState(!dashboardCacheRef?.data);
   const [error, setError] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
 
   const fetchDashboard = useCallback(async (force = false) => {
     if (!force && dashboardCacheRef && Date.now() - dashboardCacheRef.fetchedAt < DASHBOARD_TTL) {
@@ -47,7 +57,10 @@ export default function DashboardPage() {
       if (res.ok) {
         dashboardCacheRef = { data: json.data, fetchedAt: Date.now() };
         setData(json.data);
-      } else { setError(true); toast.error("Failed to load dashboard"); }
+      } else {
+        setError(true);
+        toast.error("Failed to load dashboard");
+      }
     } catch {
       setError(true);
       toast.error("Error loading dashboard");
@@ -56,294 +69,551 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
 
   return (
     <AppShell>
-      <div className="p-4 md:p-8 max-w-6xl mx-auto page-enter">
+      <div className="page-enter min-h-screen">
         {error && !loading ? (
-          <ErrorState
-            title="Dashboard failed to load"
-            message="We couldn't load your dashboard data. This might be a temporary issue with the server."
-            onRetry={() => fetchDashboard(true)}
-          />
+          <div className="p-6 md:p-12 max-w-6xl mx-auto">
+            <ErrorState
+              title="Dashboard failed to load"
+              message="We couldn't load your cinematic dashboard. This might be a temporary issue with the server."
+              onRetry={() => fetchDashboard(true)}
+            />
+          </div>
         ) : (
-          <DashboardContent data={data} loading={loading} />
+          <DashboardView
+            data={data}
+            loading={loading}
+            onSelectMovie={(id, type) => setSelectedItem({ id, type })}
+          />
+        )}
+
+        {selectedItem && (
+          <MovieDetailsModal
+            isOpen={true}
+            tmdbId={selectedItem.id}
+            type={selectedItem.type}
+            onClose={() => setSelectedItem(null)}
+            onUpdated={() => fetchDashboard(true)}
+          />
         )}
       </div>
     </AppShell>
   );
 }
 
-function AnimatedStat({ value, decimals = 0, suffix = "" }: { value: number; decimals?: number; suffix?: string }) {
-  const [display, setDisplay] = useState("0");
-  const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    if (value === 0) {
-      setDisplay(decimals > 0 ? (0).toFixed(decimals) : "0");
-      return;
-    }
-    const duration = 800;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const current = eased * value;
-      setDisplay(decimals > 0 ? current.toFixed(decimals) : Math.round(current).toString());
-      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
-      else setDisplay(decimals > 0 ? value.toFixed(decimals) : Math.round(value).toString());
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [value, decimals]);
-
-  return <span>{display}{suffix}</span>;
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard View: Hero + Rails
+// ─────────────────────────────────────────────────────────────────────────────
+interface DashboardViewProps {
+  data: any;
+  loading: boolean;
+  onSelectMovie: (id: number, type: "movie" | "series") => void;
 }
 
-function DashboardContent({ data, loading }: { data: any; loading: boolean }) {
-  const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
-
+function DashboardView({ data, loading, onSelectMovie }: DashboardViewProps) {
   const stats = data?.stats;
   const next5 = data?.next5 ?? [];
   const favoriteGenres = data?.favoriteGenres ?? [];
   const recommendationPreview = data?.recommendationPreview ?? [];
+  const heroMovies = data?.heroMovies ?? recommendationPreview.slice(0, 8);
   const insights = data?.insights ?? [];
 
-  const genreTotal = favoriteGenres.reduce((s: number, g: any) => s + g.value, 0);
-  const genreFloored = (() => {
-    if (!genreTotal) return favoriteGenres.map(() => 0);
-    const raw = favoriteGenres.map((g: any) => (g.value / genreTotal) * 100);
-    const fl = raw.map((p: number) => Math.floor(p));
-    let rem = 100 - fl.reduce((a: number, b: number) => a + b, 0);
-    raw.map((p: number, i: number) => ({ i, r: p - fl[i] })).sort((a: any, b: any) => b.r - a.r).forEach((item: any) => { if (rem > 0) { fl[item.i]++; rem--; } });
-    return fl;
-  })();
+  // Hero state
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const heroTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const InsightIcon = ({ index }: { index: number }) => {
-    const icons = [Award, Sparkles, CheckCircle, Lightbulb, PlayCircle, Hash];
-    const Icon = icons[index % icons.length];
-    return <Icon className="w-6 h-6 text-primary mb-2" />;
+  const heroCount = heroMovies.length;
+  const activeMovie = heroMovies[activeHeroIndex] ?? null;
+
+  // Auto rotation
+  const nextHero = useCallback(() => {
+    if (heroCount <= 1) return;
+    setActiveHeroIndex((prev) => (prev + 1) % heroCount);
+  }, [heroCount]);
+
+  const prevHero = useCallback(() => {
+    if (heroCount <= 1) return;
+    setActiveHeroIndex((prev) => (prev - 1 + heroCount) % heroCount);
+  }, [heroCount]);
+
+  useEffect(() => {
+    if (isPaused || heroCount <= 1) return;
+
+    heroTimerRef.current = setInterval(() => {
+      nextHero();
+    }, HERO_ROTATION_MS);
+
+    return () => {
+      if (heroTimerRef.current) clearInterval(heroTimerRef.current);
+    };
+  }, [isPaused, heroCount, nextHero, activeHeroIndex]);
+
+  // Format recommendations as RowItems
+  const recRowItems: RowItem[] = recommendationPreview.map((r: any) => ({
+    id: r.movieId ?? r.id,
+    movieId: r.movieId ?? r.id,
+    title: r.title,
+    poster_url: r.poster_url,
+    media_type: r.media_type ?? "movie",
+    release_year: r.release_year,
+    vote_average: r.vote_average,
+    score: r.score,
+    genres: r.genres,
+  }));
+
+  const parseGenres = (genres: any): string[] => {
+    if (Array.isArray(genres)) return genres;
+    if (typeof genres === "string") {
+      try {
+        const p = JSON.parse(genres);
+        if (Array.isArray(p)) return p;
+      } catch {
+        return genres.split(",").map((s) => s.trim());
+      }
+    }
+    return [];
   };
 
   return (
-    <>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Welcome back to your CineTaste.</p>
-      </div>
-
-      {/* ── 1. Recommended For You (HERO) ── */}
-      <div className="bg-card p-6 rounded-xl border border-border shadow-md mb-8 ring-1 ring-primary/20 bg-gradient-to-br from-card to-card/50 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-accent" />
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles className="text-primary w-6 h-6" /> Recommended For You
-          </h2>
-          <Link href="/discover">
-            <Button variant="default" size="sm" className="shadow-lg shadow-primary/20">View All</Button>
-          </Link>
-        </div>
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Array.from({ length: 3 }).map((_, i) => <RecPreviewSkeleton key={i} />)}
+    <div className="space-y-10 pb-16">
+      {/* ── 1. DOMINANT CINEMATIC HERO (approx 80vh on desktop) ── */}
+      {loading ? (
+        <div className="relative w-full h-[75vh] md:h-[80vh] min-h-[580px] bg-[#0D1013] animate-pulse flex items-end p-6 md:p-14">
+          <div className="space-y-4 max-w-2xl">
+            <Skeleton className="h-6 w-32 rounded-full" />
+            <Skeleton className="h-12 w-96 rounded-lg" />
+            <Skeleton className="h-5 w-64 rounded-md" />
+            <Skeleton className="h-16 w-full rounded-md" />
+            <div className="flex gap-4 pt-2">
+              <Skeleton className="h-10 w-32 rounded-xl" />
+              <Skeleton className="h-10 w-32 rounded-xl" />
+            </div>
           </div>
-        ) : recommendationPreview.length === 0 ? (
-          <EmptyState
-            title="Recommendations are waiting for your taste."
-            description="Add and rate more titles to unlock a sharper CineTaste feed."
-            action={<Link href="/discover"><Button size="sm">Discover Titles</Button></Link>}
-            compact
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {recommendationPreview.map((rec: any, index: number) => (
+        </div>
+      ) : activeMovie ? (
+        <section
+          className="relative w-full h-[75vh] md:h-[80vh] min-h-[580px] overflow-hidden select-none"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          {/* Backdrop Images with Cross-fade */}
+          {heroMovies.map((movie: any, idx: number) => {
+            const isCurrent = idx === activeHeroIndex;
+            const bgImg = movie.backdrop_url || movie.poster_url;
+            return (
               <div
-                key={rec.movieId}
-                className="ct-stagger-item group flex gap-4 p-4 bg-background/50 rounded-xl border border-border cursor-pointer hover:border-primary/60 hover:bg-background transition-all duration-300 hover:shadow-[0_0_15px_rgba(var(--primary-rgb),0.15)]"
-                style={staggerStyle(index)}
-                onClick={() => setSelectedItem({ id: rec.movieId, type: rec.media_type === "tv" ? "series" : "movie" })}
-              >
-                {rec.poster_url ? (
-                  <img src={rec.poster_url} className="w-20 h-28 object-cover rounded-lg shadow-md group-hover:scale-105 transition-transform duration-300" alt="poster" />
-                ) : (
-                  <div className="w-20 h-28 bg-secondary rounded-lg" />
+                key={movie.id || movie.movieId || idx}
+                className={cn(
+                  "absolute inset-0 transition-opacity duration-1000 ease-out",
+                  isCurrent ? "opacity-100 z-0" : "opacity-0 pointer-events-none -z-10"
                 )}
-                <div className="flex-1 flex flex-col justify-center">
-                  <h3 className="font-bold text-lg leading-tight line-clamp-2">{rec.title}</h3>
-                  <div className="flex gap-2 items-center mt-2 flex-wrap">
-                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${rec.media_type === "tv" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
-                      {rec.media_type === "tv" ? "Series" : "Movie"}
+              >
+                {bgImg ? (
+                  <img
+                    src={bgImg}
+                    alt={movie.title}
+                    className="w-full h-full object-cover object-center scale-105 transition-transform duration-10000 ease-out transform motion-reduce:transform-none"
+                    style={{
+                      transform: isCurrent ? "scale(1.03)" : "scale(1)",
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#121619] to-[#08090C]" />
+                )}
+
+                {/* Obsidian Cinema Glass Multi-layered Gradients */}
+                {/* 1. Deep bottom fade */}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#08090C] via-[#08090C]/75 to-transparent" />
+                {/* 2. Left side reading vignette */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#08090C] via-[#08090C]/85 md:via-[#08090C]/70 to-transparent" />
+                {/* 3. Subtle top shadow */}
+                <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#08090C]/80 to-transparent" />
+              </div>
+            );
+          })}
+
+          {/* Hero Content Overlay */}
+          <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 flex flex-col justify-end pb-28 md:pb-32">
+            <div className="max-w-2xl md:max-w-3xl space-y-3.5">
+              {/* Badge row */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  {activeMovie.score ? `${activeMovie.score}% Taste Match` : "Featured Spotlight"}
+                </span>
+                <span className="text-xs font-medium uppercase tracking-wider text-[#A1AAA6] bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/[0.08]">
+                  {activeMovie.media_type === "tv" ? "TV Series" : "Movie"}
+                </span>
+                {activeMovie.release_year ? (
+                  <span className="text-xs font-medium text-[#A1AAA6] flex items-center gap-1 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/[0.08]">
+                    <Calendar className="w-3 h-3 text-[#A1AAA6]" />
+                    {activeMovie.release_year}
+                  </span>
+                ) : null}
+                {activeMovie.vote_average ? (
+                  <span className="text-xs font-medium text-[#F5F7F6] flex items-center gap-1 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/[0.08]">
+                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                    {Number(activeMovie.vote_average).toFixed(1)}
+                  </span>
+                ) : null}
+              </div>
+
+              {/* Title in Plus Jakarta Sans */}
+              <h1 className="font-heading text-3xl sm:text-5xl md:text-6xl font-extrabold text-[#F5F7F6] tracking-tight leading-[1.1] drop-shadow-lg line-clamp-2">
+                {activeMovie.title}
+              </h1>
+
+              {/* Genre Pills */}
+              {parseGenres(activeMovie.genres).length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap text-xs text-[#A1AAA6]">
+                  {parseGenres(activeMovie.genres).slice(0, 4).map((g: string, i: number) => (
+                    <span key={i} className="text-[#A1AAA6]/90 font-medium">
+                      {g}
+                      {i < Math.min(parseGenres(activeMovie.genres).length, 4) - 1 ? " •" : ""}
                     </span>
-                    <span className="text-[10px] font-bold bg-green-500/20 text-green-500 px-2 py-0.5 rounded">{rec.score}% Match</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed opacity-90">{rec.reasons[0]}</p>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              )}
 
-      {/* ── 2. Intelligent Statistics ── */}
-      <div className="mb-8 ct-accent-border">
-        <h2 className="text-xl font-bold mb-4">Taste Insights</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {loading || (!insights.length && !stats) ? (
-            Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
-          ) : insights.length > 0 ? (
-            insights.slice(0, 4).map((insight: any, i: number) => (
-              <div key={i} className="ct-stagger-item bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col items-center text-center group hover:border-primary/50 transition-colors" style={staggerStyle(i)}>
-                <InsightIcon index={i} />
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">{insight.title}</p>
-                <p className="text-xl font-bold line-clamp-1">{insight.value}</p>
-                <p className="text-[10px] text-muted-foreground mt-1 opacity-70">{insight.description}</p>
-              </div>
-            ))
-          ) : (
-             <div className="col-span-full">
-               <EmptyState title="Not enough data" description="Rate more movies to unlock insights." compact />
-             </div>
-          )}
-        </div>
-      </div>
+              {/* Overview */}
+              {activeMovie.overview && (
+                <p className="text-sm md:text-base text-[#A1AAA6] line-clamp-3 md:line-clamp-3 leading-relaxed max-w-2xl drop-shadow">
+                  {activeMovie.overview}
+                </p>
+              )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-        {/* ── 3. Next 5 to Watch (Premium Queue) ── */}
-        <div className="md:col-span-2 ct-accent-border">
-          <div className="flex justify-between items-center mb-6">
-             <h2 className="text-xl font-bold flex items-center gap-2">
-              <PlayCircle className="text-primary w-5 h-5" /> Up Next
-             </h2>
-             <Link href="/recommendations"><Button variant="ghost" size="sm" className="text-xs">Manage Queue</Button></Link>
+              {/* Personalized Reason (if available) */}
+              {activeMovie.reasons?.[0] && (
+                <p className="text-xs text-emerald-300/90 font-medium flex items-center gap-1.5 pt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  {activeMovie.reasons[0]}
+                </p>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-2">
+                <Button
+                  size="default"
+                  onClick={() =>
+                    onSelectMovie(
+                      activeMovie.id || activeMovie.movieId,
+                      activeMovie.media_type === "tv" ? "series" : "movie"
+                    )
+                  }
+                  className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-semibold gap-2 shadow-[0_4px_20px_rgba(16,185,129,0.35)] px-5 py-2.5 rounded-xl transition-all"
+                >
+                  <Info className="w-4 h-4" />
+                  View Details
+                </Button>
+
+                <Link href="/discover">
+                  <Button
+                    variant="outline"
+                    className="border-white/[0.12] bg-[#121619]/60 backdrop-blur-md text-[#F5F7F6] hover:bg-white/[0.08] hover:border-emerald-500/40 px-5 py-2.5 rounded-xl font-medium"
+                  >
+                    Discover More
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
+
+          {/* ── 7-8 Compact Thumbnail Selectors (Docked at Bottom) ── */}
+          <div className="absolute bottom-5 inset-x-0 z-20 px-4 sm:px-6 md:px-12 max-w-7xl mx-auto flex items-center justify-between gap-4">
+            {/* Thumbnail Strip */}
+            <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-2">
+              {heroMovies.slice(0, 8).map((movie: any, idx: number) => {
+                const isSelected = idx === activeHeroIndex;
+                return (
+                  <button
+                    key={movie.id || movie.movieId || idx}
+                    onClick={() => setActiveHeroIndex(idx)}
+                    className={cn(
+                      "group relative flex items-center gap-2 p-1.5 rounded-xl transition-all duration-300 text-left outline-none shrink-0",
+                      "bg-[#121619]/80 backdrop-blur-md border",
+                      isSelected
+                        ? "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/50 scale-105"
+                        : "border-white/[0.08] hover:border-white/20 hover:bg-[#161B1F]/80 opacity-60 hover:opacity-100"
+                    )}
+                  >
+                    {/* Poster thumbnail */}
+                    {movie.poster_url ? (
+                      <img
+                        src={movie.poster_url}
+                        alt={movie.title}
+                        className="w-8 h-12 object-cover rounded-md"
+                      />
+                    ) : (
+                      <div className="w-8 h-12 bg-[#0D1013] rounded-md flex items-center justify-center">
+                        <Film className="w-3.5 h-3.5 text-[#A1AAA6]" />
+                      </div>
+                    )}
+
+                    {/* Compact Title snippet on desktop */}
+                    <div className="hidden lg:block max-w-[100px] pr-2">
+                      <p className="text-[11px] font-semibold text-[#F5F7F6] truncate">
+                        {movie.title}
+                      </p>
+                      <p className="text-[10px] text-emerald-400/90 font-mono">
+                        {movie.score ? `${movie.score}% match` : movie.release_year || "Movie"}
+                      </p>
+                    </div>
+
+                    {/* Progress indicator when active */}
+                    {isSelected && !isPaused && (
+                      <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-emerald-500 rounded-full animate-pulse" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Prev / Next Chevrons */}
+            <div className="hidden sm:flex items-center gap-1.5 shrink-0 bg-[#121619]/80 backdrop-blur-md border border-white/[0.08] p-1 rounded-xl">
+              <button
+                onClick={prevHero}
+                className="p-1.5 rounded-lg text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.06] transition-colors"
+                aria-label="Previous featured movie"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={nextHero}
+                className="p-1.5 rounded-lg text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.06] transition-colors"
+                aria-label="Next featured movie"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── 2. PERSONALIZED MOVIE RAILS ── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 space-y-12">
+        {/* Rail 1: Recommended For You */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="font-heading text-xl md:text-2xl font-bold flex items-center gap-2.5 text-[#F5F7F6]">
+                <Sparkles className="w-5 h-5 text-emerald-400" />
+                Personalized Recommendations
+              </h2>
+              <p className="text-xs text-[#A1AAA6]">
+                Curated by hybrid Gemini AI + TMDB engine based on your taste profile
+              </p>
+            </div>
+
+            <Link href="/discover">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+              >
+                Explore Discover →
+              </Button>
+            </Link>
+          </div>
+
           {loading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => <WatchRowSkeleton key={i} />)}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <RecPreviewSkeleton key={i} />
+              ))}
+            </div>
+          ) : recRowItems.length === 0 ? (
+            <div className="glass-panel p-8 rounded-2xl text-center">
+              <EmptyState
+                title="Recommendations are shaping your taste"
+                description="Rate and log more movies to sharpen your AI personalized recommendations."
+                action={
+                  <Link href="/discover">
+                    <Button size="sm" className="bg-emerald-500 text-[#08090C] hover:bg-emerald-400">
+                      Discover Titles
+                    </Button>
+                  </Link>
+                }
+                compact
+              />
+            </div>
+          ) : (
+            <HorizontalRow
+              title=""
+              items={recRowItems}
+              showScore={true}
+              onSelect={(id, type) => onSelectMovie(id, type)}
+            />
+          )}
+        </section>
+
+        {/* Rail 2: Up Next in Queue */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="font-heading text-xl md:text-2xl font-bold flex items-center gap-2.5 text-[#F5F7F6]">
+                <ListTodo className="w-5 h-5 text-emerald-400" />
+                Up Next in Queue
+              </h2>
+              <p className="text-xs text-[#A1AAA6]">
+                Your top prioritized titles queued for viewing
+              </p>
+            </div>
+
+            <Link href="/recommendations">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+              >
+                Manage Queue →
+              </Button>
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <WatchRowSkeleton key={i} />
+              ))}
             </div>
           ) : next5.length === 0 ? (
-            <EmptyState
-              title="Your queue is empty."
-              description="Add a movie or series to build your watch order."
-              action={<Link href="/discover"><Button size="sm">Add Movie</Button></Link>}
-              compact
-            />
+            <div className="glass-panel p-8 rounded-2xl text-center">
+              <EmptyState
+                title="Your watch queue is empty"
+                description="Add pending titles from Discover or Library to build your personalized watch order."
+                action={
+                  <Link href="/discover">
+                    <Button size="sm" className="bg-emerald-500 text-[#08090C] hover:bg-emerald-400">
+                      Browse Discover
+                    </Button>
+                  </Link>
+                }
+                compact
+              />
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {next5.map((movie: any, idx: number) => (
                 <div
                   key={movie.id}
-                  className="ct-stagger-item group relative flex items-center gap-4 p-3 pr-4 bg-background rounded-xl border border-border cursor-pointer hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
-                  style={staggerStyle(idx)}
-                  onClick={() => setSelectedItem({ id: movie.tmdb_id, type: movie.type === "series" ? "series" : "movie" })}
+                  onClick={() =>
+                    onSelectMovie(movie.tmdb_id, movie.type === "series" ? "series" : "movie")
+                  }
+                  className="glass-panel group relative flex items-center gap-3.5 p-3 rounded-2xl cursor-pointer hover:border-emerald-500/50 hover:bg-[#161B1F] transition-all duration-300 hover:shadow-[0_8px_25px_rgba(0,0,0,0.5)]"
                 >
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <span className="font-bold text-muted-foreground/50 text-xl w-6 text-center tabular-nums">{idx + 1}</span>
+                  <span className="font-heading font-extrabold text-lg text-emerald-400/80 w-6 text-center tabular-nums">
+                    #{idx + 1}
+                  </span>
                   {movie.poster_url ? (
-                    <img src={movie.poster_url} className="w-14 h-20 object-cover rounded-md shadow-sm" alt="poster" />
+                    <img
+                      src={movie.poster_url}
+                      alt={movie.movie_name}
+                      className="w-14 h-20 object-cover rounded-xl shadow-md group-hover:scale-105 transition-transform duration-300"
+                    />
                   ) : (
-                    <div className="w-14 h-20 bg-secondary rounded-md" />
+                    <div className="w-14 h-20 bg-[#121619] rounded-xl flex items-center justify-center">
+                      <Film className="w-4 h-4 text-[#A1AAA6]" />
+                    </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-base truncate">{movie.movie_name}</h3>
-                    <div className="flex gap-2 items-center mt-1.5 flex-wrap">
-                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${movie.type === "series" ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}>
+                    <h3 className="font-semibold text-sm text-[#F5F7F6] truncate group-hover:text-emerald-300 transition-colors">
+                      {movie.movie_name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-white/[0.06] text-[#A1AAA6]">
                         {movie.type === "series" ? "Series" : "Movie"}
                       </span>
-                      {movie.release_year > 0 && (
-                         <span className="text-xs text-muted-foreground/80">{movie.release_year}</span>
-                      )}
-                      {movie.runtime > 0 && (
-                         <span className="text-xs text-muted-foreground/80 flex items-center gap-1"><Clock className="w-3 h-3" />{movie.runtime}m</span>
-                      )}
+                      {movie.release_year ? (
+                        <span className="text-[11px] text-[#A1AAA6]">
+                          {movie.release_year}
+                        </span>
+                      ) : null}
                     </div>
+                    {movie.rating > 0 && (
+                      <div className="flex items-center gap-1 mt-1 text-[11px] text-amber-400">
+                        <Star className="w-3 h-3 fill-amber-400" />
+                        <span>{movie.rating}/10</span>
+                      </div>
+                    )}
                   </div>
-                  {movie.watch_link && (
-                     <div className="hidden sm:flex px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold items-center gap-1">
-                       <PlayCircle className="w-3 h-3" /> Ready
-                     </div>
-                  )}
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* ── 4. Favorite Genres ── */}
-        <div className="ct-accent-border flex flex-col">
-          <h2 className="text-xl font-bold mb-4">Taste Breakdown</h2>
-          {loading ? (
-            <div className="flex-1 space-y-3">
-              <Skeleton className="w-full h-[200px] rounded-xl" />
-              <div className="space-y-2 mt-4">
-                {Array.from({ length: 4 }).map((_, i) => <GenreRowSkeleton key={i} />)}
-              </div>
+        {/* ── 3. TASTE DNA & INSIGHTS ── */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="font-heading text-xl md:text-2xl font-bold flex items-center gap-2.5 text-[#F5F7F6]">
+                <Award className="w-5 h-5 text-emerald-400" />
+                Taste DNA & Library Insights
+              </h2>
+              <p className="text-xs text-[#A1AAA6]">
+                Calculated strictly from your actual ratings and watch history
+              </p>
             </div>
-          ) : favoriteGenres.length === 0 ? (
-            <EmptyState
-              title="No taste profile yet"
-              description="Rate a few titles so CineTaste can learn your favorite genres."
-              action={<Link href="/movies"><Button size="sm" variant="outline">Open Library</Button></Link>}
-              compact
-            />
-          ) : (
-            <div className="flex-1">
-              <div className="min-h-[200px] mb-4 relative">
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={favoriteGenres}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={85}
-                      dataKey="value"
-                      stroke="none"
-                      isAnimationActive={true}
-                    >
-                      {favoriteGenres.map((_: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--ct-card)",
-                        borderColor: "var(--ct-border)",
-                        color: "var(--ct-card-fg)",
-                        borderRadius: "0.5rem",
-                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                      }}
-                      itemStyle={{ color: "var(--ct-card-fg)", fontSize: "0.875rem", fontWeight: 500 }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-2.5">
-                {favoriteGenres.map((genre: any, index: number) => (
-                  <div
-                    key={genre.name}
-                    className="flex items-center gap-3 chart-legend-item bg-background/50 p-2 rounded-lg"
-                    style={{ animationDelay: `${index * 60}ms` }}
-                  >
-                    <div className="w-3.5 h-3.5 rounded-full shrink-0 shadow-inner" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="text-sm font-semibold flex-1 truncate">{genre.name}</span>
-                    <span className="text-sm font-bold text-muted-foreground w-12 text-right">{genreFloored[index]}%</span>
+            <Link href="/profile">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+              >
+                Profile DNA →
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+            ) : insights.length > 0 ? (
+              insights.slice(0, 4).map((insight: any, i: number) => (
+                <div
+                  key={i}
+                  className="glass-panel p-5 rounded-2xl flex flex-col items-center text-center group hover:border-emerald-500/40 hover:bg-[#161B1F] transition-all duration-300"
+                >
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 mb-3 group-hover:scale-110 transition-transform">
+                    {i === 0 ? (
+                      <Award className="w-5 h-5" />
+                    ) : i === 1 ? (
+                      <Calendar className="w-5 h-5" />
+                    ) : i === 2 ? (
+                      <Film className="w-5 h-5" />
+                    ) : (
+                      <Star className="w-5 h-5" />
+                    )}
                   </div>
-                ))}
+                  <p className="text-[11px] uppercase tracking-wider font-semibold text-[#A1AAA6] mb-1">
+                    {insight.title}
+                  </p>
+                  <p className="text-lg font-heading font-bold text-[#F5F7F6] truncate max-w-full">
+                    {insight.value}
+                  </p>
+                  <p className="text-[11px] text-[#A1AAA6]/70 mt-1">
+                    {insight.description}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full glass-panel p-6 rounded-2xl text-center">
+                <EmptyState
+                  title="Taste DNA in progress"
+                  description="Rate more titles to unlock director, era, and genre insights."
+                  compact
+                />
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </section>
       </div>
-
-      <MovieDetailsModal
-        isOpen={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
-        tmdbId={selectedItem?.id || 0}
-        type={selectedItem?.type || "movie"}
-        onNavigate={(id, type) => setSelectedItem({ id, type: type || "movie" })}
-      />
-    </>
+    </div>
   );
 }

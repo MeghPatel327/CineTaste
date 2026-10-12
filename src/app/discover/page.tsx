@@ -14,6 +14,7 @@ import { Search, Clock, Compass, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/lib/appStore";
+import { cn } from "@/lib/utils";
 
 // Module-level discover cache — survives navigation, only reset on explicit refresh
 let discoverCacheRef: { data: any; fetchedAt: number } | null = null;
@@ -26,6 +27,8 @@ const TMDB_GENRES: Record<number, string> = {
   10759: "Action & Adventure", 10762: "Kids", 10763: "News", 10764: "Reality", 10765: "Sci-Fi & Fantasy",
   10766: "Soap", 10767: "Talk", 10768: "War & Politics"
 };
+
+const GENRE_FILTERS = ["All","Action","Adventure","Animation","Comedy","Crime","Drama","Fantasy","Horror","Mystery","Romance","Science Fiction","Thriller"];
 
 interface DiscoverData {
   topPicks: any[];
@@ -68,6 +71,7 @@ export default function DiscoverPage() {
   // Recent searches (localStorage)
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
+  const [activeGenre, setActiveGenre] = useState<string>("All");
   const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
 
   // Scroll position preservation
@@ -205,39 +209,77 @@ export default function DiscoverPage() {
     <AppShell>
       <div className="p-4 md:p-8 max-w-7xl mx-auto page-enter">
         {/* Page Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Compass className="w-8 h-8 text-primary" /> Discover
+        <div className="mb-8 space-y-2">
+          <h1 className="font-heading text-3xl md:text-4xl font-extrabold flex items-center gap-3 text-[#F5F7F6]">
+            <Compass className="w-8 h-8 text-emerald-400" /> Discover Cinema
           </h1>
-          <p className="text-muted-foreground mt-1">Find your next favorite movie or series.</p>
+          <p className="text-sm text-[#A1AAA6]">
+            Explore global TMDB catalog, filtered by your taste and genre preferences.
+          </p>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative mb-8">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search movies & series..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            className="ct-search-input w-full bg-card border border-border rounded-xl pl-12 pr-12 py-3.5 text-lg focus:outline-none placeholder:text-muted-foreground/50"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
-          {searching && (
-            <BrandLogo
-              variant="compact"
-              className="absolute right-12 top-1/2 -translate-y-1/2 w-5 h-5"
-              imageClassName="animate-[spin_2.5s_linear_infinite]"
+        {/* Search & Filter Dock */}
+        <div className="space-y-4 mb-10">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search movies, TV shows, actors, directors..."
+              value={query}
+              onChange={e => {
+                setQuery(e.target.value);
+                if (activeGenre !== "All") setActiveGenre("All");
+              }}
+              className="w-full bg-[#0D1013]/90 backdrop-blur-md border border-white/[0.08] hover:border-white/[0.15] focus:border-emerald-500/50 rounded-2xl pl-12 pr-14 py-4 text-base md:text-lg text-[#F5F7F6] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 placeholder:text-[#A1AAA6]/50 shadow-lg transition-all"
             />
-          )}
+            {query && (
+              <button
+                onClick={() => {
+                  setQuery("");
+                  setActiveGenre("All");
+                }}
+                aria-label="Clear search"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-[#A1AAA6] hover:text-[#F5F7F6] rounded-md transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+            {searching && (
+              <BrandLogo
+                variant="compact"
+                className="absolute right-12 top-1/2 -translate-y-1/2 w-5 h-5"
+                imageClassName="animate-[spin_2.5s_linear_infinite]"
+              />
+            )}
+          </div>
+
+          {/* Quick Genre Filters */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+            {GENRE_FILTERS.map((genre) => {
+              const isSelected = activeGenre === genre;
+              return (
+                <button
+                  key={genre}
+                  onClick={() => {
+                    setActiveGenre(genre);
+                    if (genre === "All") {
+                      setQuery("");
+                    } else {
+                      setQuery(genre);
+                    }
+                  }}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 shrink-0",
+                    isSelected
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+                      : "bg-[#0D1013]/80 text-[#A1AAA6] hover:text-[#F5F7F6] border border-white/[0.06] hover:border-white/[0.12]"
+                  )}
+                >
+                  {genre}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Content Area */}

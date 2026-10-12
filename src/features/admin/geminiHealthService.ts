@@ -313,37 +313,76 @@ export async function checkFullSystemHealth(options?: { force?: boolean }): Prom
     }
   }
 
-  // Baserow check
+  // Baserow check — uses the actual table row read endpoint supported by Database Tokens
   let baserow: SystemServicesHealth["baserow"] = {
     status: "unknown",
     latencyMs: null,
     error: null,
   };
 
-  if (!env.BASEROW_API_TOKEN || !env.BASEROW_DATABASE_ID) {
+  const probeTableId =
+    env.BASEROW_USERS_TABLE_ID ||
+    env.BASEROW_MOVIES_TABLE_ID ||
+    env.BASEROW_PIRATES_TABLE_ID ||
+    env.BASEROW_RECOMMENDATION_PROFILE_TABLE_ID;
+
+  if (!env.BASEROW_API_TOKEN) {
     baserow = {
       status: "offline",
       latencyMs: null,
-      error: "BASEROW_API_TOKEN or DATABASE_ID not configured",
+      error: "BASEROW_API_TOKEN not configured",
+    };
+  } else if (!probeTableId) {
+    baserow = {
+      status: "offline",
+      latencyMs: null,
+      error: "No Baserow table IDs configured",
     };
   } else {
     const baserowStart = Date.now();
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(`${env.BASEROW_API_URL}/api/database/tables/database/${env.BASEROW_DATABASE_ID}/`, {
-        headers: { Authorization: `Token ${env.BASEROW_API_TOKEN}` },
-        signal: controller.signal,
-      });
+      const res = await fetch(
+        `${env.BASEROW_API_URL.replace(/\/+$/, "")}/api/database/rows/table/${probeTableId}/?size=1&user_field_names=true`,
+        {
+          headers: { Authorization: `Token ${env.BASEROW_API_TOKEN}` },
+          signal: controller.signal,
+        }
+      );
       clearTimeout(timer);
       const latency = Date.now() - baserowStart;
       if (res.ok) {
-        baserow = { status: latency > 3000 ? "degraded" : "operational", latencyMs: latency, error: null };
+        baserow = {
+          status: latency > 3000 ? "degraded" : "operational",
+          latencyMs: latency,
+          error: null,
+        };
+      } else if (res.status === 429) {
+        baserow = {
+          status: "degraded",
+          latencyMs: latency,
+          error: "Baserow API rate limit reached (HTTP 429)",
+        };
+      } else if (res.status === 401 || res.status === 403) {
+        baserow = {
+          status: "offline",
+          latencyMs: latency,
+          error: `Authentication rejected by Baserow (HTTP ${res.status})`,
+        };
       } else {
-        baserow = { status: "offline", latencyMs: latency, error: `Baserow returned HTTP ${res.status}` };
+        baserow = {
+          status: "offline",
+          latencyMs: latency,
+          error: `Baserow returned HTTP ${res.status}`,
+        };
       }
     } catch (err: any) {
-      baserow = { status: "offline", latencyMs: Date.now() - baserowStart, error: err.name === "AbortError" ? "Timeout" : "Connection failed" };
+      baserow = {
+        status: "offline",
+        latencyMs: Date.now() - baserowStart,
+        error: err.name === "AbortError" ? "Request timed out" : "Connection failed",
+      };
     }
   }
 
