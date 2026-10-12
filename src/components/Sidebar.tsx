@@ -4,9 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
+  Home,
   Library,
-  Compass,
   Shield,
   User,
   Menu,
@@ -16,7 +15,6 @@ import {
   ChevronRight,
   Info,
   LogOut,
-  Sparkles,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -27,10 +25,11 @@ interface SidebarProps {
 }
 
 const mainNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/recommendations", label: "Queue", icon: ListTodo },
   { href: "/movies", label: "Library", icon: Library },
-  { href: "/recommendations", label: "Up Next", icon: ListTodo },
-  { href: "/discover", label: "Discover", icon: Compass },
+  { href: "/profile", label: "Profile", icon: User },
+  { href: "/about", label: "About", icon: Info },
 ];
 
 export function Sidebar({ isAdmin }: SidebarProps) {
@@ -55,7 +54,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
   // Prefetch core routes
   useEffect(() => {
-    const routes = ["/dashboard", "/movies", "/discover", "/recommendations", "/profile", "/about"];
+    const routes = ["/dashboard", "/recommendations", "/movies", "/profile", "/about"];
     if (isAdmin) routes.push("/admin");
     routes.forEach((r) => router.prefetch(r));
   }, [isAdmin, router]);
@@ -201,60 +200,29 @@ export function Sidebar({ isAdmin }: SidebarProps) {
         )}
       </nav>
 
-      {/* Bottom Profile & About */}
-      <div className="p-3 border-t border-white/[0.06] space-y-1.5">
+      {/* Bottom Sign Out */}
+      <div className="p-3 border-t border-white/[0.06]">
         <div className="relative group/nav flex justify-center">
-          <Link
-            href="/profile"
+          <button
+            onClick={handleLogout}
             className={cn(
-              "flex items-center rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden",
-              isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3.5 py-2.5 gap-3",
-              isActive("/profile")
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04] border border-transparent"
+              "flex items-center rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden text-rose-400 hover:bg-rose-500/10 border border-transparent",
+              isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3.5 py-2.5 gap-3"
             )}
           >
-            <User className="w-[18px] h-[18px] shrink-0" />
+            <LogOut className="w-[18px] h-[18px] shrink-0" />
             <span
               className={cn(
                 "whitespace-nowrap transition-all duration-200",
                 isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
               )}
             >
-              Profile
+              Sign Out
             </span>
-          </Link>
+          </button>
           {isCollapsed && (
             <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#121619] border border-white/[0.1] text-[#F5F7F6] text-xs font-semibold rounded-md opacity-0 group-hover/nav:opacity-100 pointer-events-none transition-all duration-200 translate-x-1 group-hover/nav:translate-x-0 shadow-2xl z-50 whitespace-nowrap">
-              Profile
-            </div>
-          )}
-        </div>
-
-        <div className="relative group/nav flex justify-center">
-          <Link
-            href="/about"
-            className={cn(
-              "flex items-center rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden",
-              isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3.5 py-2.5 gap-3",
-              isActive("/about")
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04] border border-transparent"
-            )}
-          >
-            <Info className="w-[18px] h-[18px] shrink-0" />
-            <span
-              className={cn(
-                "whitespace-nowrap transition-all duration-200",
-                isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
-              )}
-            >
-              About
-            </span>
-          </Link>
-          {isCollapsed && (
-            <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#121619] border border-white/[0.1] text-[#F5F7F6] text-xs font-semibold rounded-md opacity-0 group-hover/nav:opacity-100 pointer-events-none transition-all duration-200 translate-x-1 group-hover/nav:translate-x-0 shadow-2xl z-50 whitespace-nowrap">
-              About
+              Sign Out
             </div>
           )}
         </div>
@@ -296,13 +264,6 @@ export function Sidebar({ isAdmin }: SidebarProps) {
             </Link>
           );
         })}
-        <button
-          onClick={() => setMobileDrawerOpen(true)}
-          className="flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium text-[#A1AAA6] hover:text-[#F5F7F6]"
-        >
-          <Menu className="w-5 h-5 mb-0.5 text-[#A1AAA6]" />
-          <span>More</span>
-        </button>
       </nav>
 
       {/* ── Mobile Slide-out Drawer ── */}
@@ -352,50 +313,23 @@ export function Sidebar({ isAdmin }: SidebarProps) {
           })}
 
           {isAdmin && (
-            <Link
-              href="/admin"
-              onClick={() => setMobileDrawerOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                isActive("/admin")
-                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                  : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
-              )}
-            >
-              <Shield className="w-5 h-5" />
-              <span>Admin Dashboard</span>
-            </Link>
+            <>
+              <div className="my-3 border-t border-white/[0.07]" />
+              <Link
+                href="/admin"
+                onClick={() => setMobileDrawerOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                  isActive("/admin")
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
+                )}
+              >
+                <Shield className="w-5 h-5" />
+                <span>Admin Console</span>
+              </Link>
+            </>
           )}
-
-          <div className="my-3 border-t border-white/[0.07]" />
-
-          <Link
-            href="/profile"
-            onClick={() => setMobileDrawerOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
-              isActive("/profile")
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
-            )}
-          >
-            <User className="w-5 h-5" />
-            <span>Profile & Taste DNA</span>
-          </Link>
-
-          <Link
-            href="/about"
-            onClick={() => setMobileDrawerOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
-              isActive("/about")
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
-            )}
-          >
-            <Info className="w-5 h-5" />
-            <span>About CineTaste</span>
-          </Link>
         </div>
 
         <div className="pt-4 border-t border-white/[0.07]">

@@ -259,7 +259,7 @@ export default function MovieLibraryPage() {
                 action={<Link href="/discover"><Button>Add Movie</Button></Link>}
               />
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 py-4 -my-4">
                 {filteredMovies.map((movie, index) => (
                   <div key={movie.id} className="ct-stagger-item ct-card-lift-wrapper" style={staggerStyle(index)}>
                     <LibraryCard
@@ -350,7 +350,7 @@ function LibraryCard({ movie, onClick }: { movie: MovieRow; onClick: () => void 
 
   return (
     <div
-      className="glass-panel rounded-2xl overflow-hidden border border-white/[0.08] hover:border-emerald-500/50 hover:shadow-[0_12px_35px_rgba(0,0,0,0.6)] group relative cursor-pointer transition-all duration-300"
+      className="ct-library-card glass-panel rounded-2xl overflow-hidden group relative cursor-pointer"
       data-ambient={ambientRgb ? "true" : undefined}
       style={cardStyle}
       onClick={onClick}

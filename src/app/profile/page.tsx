@@ -16,21 +16,16 @@ import {
   Globe,
   KeyRound,
   LogOut,
-  Sun,
-  Moon,
-  Monitor,
   Sparkles,
   Dna,
   Award,
 } from "lucide-react";
-import { useTheme } from "@/components/ThemeProvider";
 import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const { theme, setTheme } = useTheme();
   const router = useRouter();
 
   // Password change state
@@ -239,48 +234,6 @@ export default function ProfilePage() {
 
             {/* ── Right Column: Preferences, Password & Security ── */}
             <div className="space-y-8">
-              {/* Appearance Preferences */}
-              <div className="glass-panel p-6 rounded-2xl space-y-4">
-                <h3 className="font-heading text-lg font-bold flex items-center gap-2 text-[#F5F7F6]">
-                  <Sun className="w-5 h-5 text-emerald-400" />
-                  Appearance & Theme
-                </h3>
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-sm text-[#A1AAA6]">Interface Theme</span>
-                  <div className="flex bg-[#0D1013] border border-white/[0.08] rounded-xl p-1 gap-1">
-                    <button
-                      onClick={() => setTheme("dark")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                        theme === "dark"
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                          : "text-[#A1AAA6] hover:text-[#F5F7F6]"
-                      }`}
-                    >
-                      <Moon className="w-3.5 h-3.5" /> Dark
-                    </button>
-                    <button
-                      onClick={() => setTheme("light")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                        theme === "light"
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                          : "text-[#A1AAA6] hover:text-[#F5F7F6]"
-                      }`}
-                    >
-                      <Sun className="w-3.5 h-3.5" /> Light
-                    </button>
-                    <button
-                      onClick={() => setTheme("system")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                        theme === "system"
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                          : "text-[#A1AAA6] hover:text-[#F5F7F6]"
-                      }`}
-                    >
-                      <Monitor className="w-3.5 h-3.5" /> System
-                    </button>
-                  </div>
-                </div>
-              </div>
 
               {/* Password Change */}
               <div className="glass-panel p-6 rounded-2xl space-y-4">

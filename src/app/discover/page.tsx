@@ -361,7 +361,7 @@ function SearchResultsGrid({
   onSelect: (id: number, type: "movie" | "series") => void;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 py-4 -my-4">
       {results.map((r: any, index: number) => {
         const posterUrl = r.poster_path
           ? `https://image.tmdb.org/t/p/w342${r.poster_path}`
@@ -372,7 +372,7 @@ function SearchResultsGrid({
           .filter(Boolean);
 
         return (
-          <div key={r.id} className="ct-stagger-item" style={staggerStyle(index)}>
+          <div key={r.id} className="ct-stagger-item ct-card-lift-wrapper" style={staggerStyle(index)}>
             <MovieCard
               id={r.id}
               title={r.title || r.name}

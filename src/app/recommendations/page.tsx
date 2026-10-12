@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -44,50 +44,65 @@ export default function UpNextPage() {
     }
   };
 
-  const handleMoveUp = async (movieId: number, index: number) => {
-    if (index === 0) return;
-    setMovingId(movieId);
-    try {
-      const res = await fetch(`/api/queue/${movieId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ direction: "up" }),
-      });
+  // Serialization: only one reorder request in-flight at a time
+  const pendingRef = useRef<Promise<void>>(Promise.resolve());
 
-      if (res.ok) {
-        toast.success("Watch order updated");
-        await fetchQueue();
-      } else {
-        toast.error("Failed to move movie");
+  const handleMoveUp = async (movieId: number, index: number) => {
+    if (index === 0 || movingId !== null) return;
+
+    // Optimistic: swap immediately in local state
+    const prevQueue = [...queue];
+    const newQueue = [...queue];
+    [newQueue[index - 1], newQueue[index]] = [newQueue[index], newQueue[index - 1]];
+    setQueue(newQueue);
+    setMovingId(movieId);
+
+    // Serialize writes to prevent race conditions
+    pendingRef.current = pendingRef.current.then(async () => {
+      try {
+        const res = await fetch(`/api/queue/${movieId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ direction: "up" }),
+        });
+        if (!res.ok) throw new Error("Server rejected reorder");
+      } catch {
+        // Revert to previous order on failure
+        setQueue(prevQueue);
+        toast.error("Failed to save queue order");
+      } finally {
+        setMovingId(null);
       }
-    } catch {
-      toast.error("Error moving movie");
-    } finally {
-      setMovingId(null);
-    }
+    });
   };
 
   const handleMoveDown = async (movieId: number, index: number) => {
-    if (index === queue.length - 1) return;
-    setMovingId(movieId);
-    try {
-      const res = await fetch(`/api/queue/${movieId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ direction: "down" }),
-      });
+    if (index === queue.length - 1 || movingId !== null) return;
 
-      if (res.ok) {
-        toast.success("Watch order updated");
-        await fetchQueue();
-      } else {
-        toast.error("Failed to move movie");
+    // Optimistic: swap immediately in local state
+    const prevQueue = [...queue];
+    const newQueue = [...queue];
+    [newQueue[index], newQueue[index + 1]] = [newQueue[index + 1], newQueue[index]];
+    setQueue(newQueue);
+    setMovingId(movieId);
+
+    // Serialize writes to prevent race conditions
+    pendingRef.current = pendingRef.current.then(async () => {
+      try {
+        const res = await fetch(`/api/queue/${movieId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ direction: "down" }),
+        });
+        if (!res.ok) throw new Error("Server rejected reorder");
+      } catch {
+        // Revert to previous order on failure
+        setQueue(prevQueue);
+        toast.error("Failed to save queue order");
+      } finally {
+        setMovingId(null);
       }
-    } catch {
-      toast.error("Error moving movie");
-    } finally {
-      setMovingId(null);
-    }
+    });
   };
 
   return (

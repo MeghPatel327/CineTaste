@@ -773,3 +773,80 @@
 .font-heading {
   font-family: var(--font-heading), system-ui, sans-serif;
 }
+
+/* ════════════════════════════════════════════════════════
+   LIBRARY CARD (grid card in /movies)
+   ════════════════════════════════════════════════════════ */
+.ct-library-card {
+  border: 1px solid var(--ct-border-subtle);
+  box-shadow: var(--ct-shadow-card);
+  border-radius: 1rem;
+  transition:
+    transform 220ms cubic-bezier(0, 0, 0.2, 1),
+    box-shadow 220ms cubic-bezier(0, 0, 0.2, 1),
+    border-color 220ms cubic-bezier(0, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+}
+
+.ct-library-card:hover,
+.ct-library-card:focus-visible {
+  transform: translateY(-6px) scale(1.035);
+  border-color: var(--ct-border-hover);
+  box-shadow:
+    0 0 0 1px rgba(104, 186, 127, 0.45),
+    0 4px 20px 2px rgba(104, 186, 127, 0.50),
+    0 12px 50px 8px rgba(104, 186, 127, 0.30),
+    0 4px 16px rgba(0, 0, 0, 0.50);
+}
+
+.ct-library-card[data-ambient="true"]:hover,
+.ct-library-card[data-ambient="true"]:focus-visible {
+  box-shadow:
+    0 0 0 1px rgba(var(--ct-ambient-rgb), 0.50),
+    0 4px 20px 2px rgba(var(--ct-ambient-rgb), 0.55),
+    0 12px 50px 8px rgba(var(--ct-ambient-rgb), 0.35),
+    0 4px 16px rgba(0, 0, 0, 0.50);
+}
+
+/* ════════════════════════════════════════════════════════
+   REDUCED MOTION
+   Disable scale/translate animations for users who prefer it
+   ════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .ct-movie-card,
+  .ct-library-card,
+  .ct-poster-img,
+  .ct-poster-gradient,
+  .ct-badge,
+  .ct-card-title,
+  .ct-card-meta,
+  .ct-card-lift-wrapper {
+    transition: none !important;
+  }
+
+  .ct-movie-card:hover,
+  .ct-movie-card:focus-visible,
+  .ct-library-card:hover,
+  .ct-library-card:focus-visible {
+    transform: none !important;
+  }
+
+  .ct-movie-card:hover .ct-poster-img,
+  .ct-movie-card:focus-visible .ct-poster-img,
+  .ct-library-card:hover .ct-poster-img,
+  .ct-library-card:focus-visible .ct-poster-img {
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   TOUCH DEVICE ACTIVE STATES
+   ════════════════════════════════════════════════════════ */
+@media (hover: none) {
+  .ct-movie-card:active,
+  .ct-library-card:active {
+    transform: scale(0.97);
+    transition-duration: 80ms;
+  }
+}
