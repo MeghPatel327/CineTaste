@@ -29,6 +29,7 @@ export interface RecommendationItem {
   score: number;            // 0-99 match score
   reasons: string[];        // explanation strings
   gemini_reason: string;    // original Gemini explanation
+  is_anime?: boolean;
 }
 
 const TABLE_ID = () => env.BASEROW_RECOMMENDATION_SETS_TABLE_ID;

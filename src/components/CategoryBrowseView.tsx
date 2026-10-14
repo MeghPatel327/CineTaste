@@ -1,31 +1,35 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useTransition } from "react";
 import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
-import { HorizontalRow, type RowItem } from "@/components/HorizontalRow";
 import { MovieCard } from "@/components/MovieCard";
-import { MovieCardSkeleton, Skeleton } from "@/components/ui/Skeleton";
+import { MovieCardSkeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { BrandLogo } from "@/components/BrandLogo";
 import {
   Search,
   X,
-  Star,
-  Info,
-  ChevronLeft,
-  ChevronRight,
+  Filter,
+  Check,
+  ChevronDown,
   Sparkles,
+  ArrowUpDown,
+  Calendar,
+  Layers,
+  Star,
+  Film,
+  Tv,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   BrowseCategory,
-  BrowseData,
   BrowseItem,
+  BrowseCatalogueResult,
 } from "@/features/movies/browseService";
 
 interface CategoryBrowseViewProps {
@@ -35,11 +39,29 @@ interface CategoryBrowseViewProps {
   icon?: React.ReactNode;
 }
 
-const HERO_ROTATION_MS = 7_000;
+interface CategoryCacheItem {
+  items: BrowseItem[];
+  total: number;
+  page: number;
+  hasMore: boolean;
+  availableGenres: string[];
+  availableEras: string[];
+  featuredSpotlight: BrowseItem | null;
+  selectedGenres: string[];
+  selectedEra: string;
+  subType: string;
+  sort: "recommended" | "rating" | "year" | "title";
+  searchQuery: string;
+  fetchedAt: number;
+}
 
-const staggerStyle = (index: number, step = 45) =>
+// Module-level persistent cache across route changes
+const browseCache = new Map<BrowseCategory, CategoryCacheItem>();
+const CACHE_TTL_MS = 8 * 60 * 1000;
+
+const staggerStyle = (index: number, step = 35) =>
   ({
-    "--ct-stagger-delay": `${index * step}ms`,
+    "--ct-stagger-delay": `${Math.min(index, 20) * step}ms`,
   } as CSSProperties);
 
 export function CategoryBrowseView({
@@ -48,127 +70,300 @@ export function CategoryBrowseView({
   subtitle,
   icon,
 }: CategoryBrowseViewProps) {
-  const [data, setData] = useState<BrowseData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [, startTransition] = useTransition();
 
-  // Search & Filter state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeGenre, setActiveGenre] = useState("All");
-  const [searchResults, setSearchResults] = useState<BrowseItem[]>([]);
-  const [searching, setSearching] = useState(false);
+  // Restore initial state from cache if fresh
+  const cached = browseCache.get(category);
+  const isCacheFresh = cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS;
+
+  const [items, setItems] = useState<BrowseItem[]>(isCacheFresh ? cached.items : []);
+  const [total, setTotal] = useState<number>(isCacheFresh ? cached.total : 0);
+  const [page, setPage] = useState<number>(isCacheFresh ? cached.page : 1);
+  const [hasMore, setHasMore] = useState<boolean>(isCacheFresh ? cached.hasMore : true);
+  const [availableGenres, setAvailableGenres] = useState<string[]>(
+    isCacheFresh ? cached.availableGenres : [],
+  );
+  const [availableEras, setAvailableEras] = useState<string[]>(
+    isCacheFresh ? cached.availableEras : ["2020s", "2010s", "2000s", "1990s", "Classic"],
+  );
+  const [featuredSpotlight, setFeaturedSpotlight] = useState<BrowseItem | null>(
+    isCacheFresh ? cached.featuredSpotlight : null,
+  );
+
+  const [initialLoading, setInitialLoading] = useState(!isCacheFresh);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(false);
+  const [expandedNotice, setExpandedNotice] = useState(false);
+
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState(isCacheFresh ? cached.searchQuery : "");
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(
+    isCacheFresh ? cached.selectedGenres : [],
+  );
+  const [selectedEra, setSelectedEra] = useState<string>(isCacheFresh ? cached.selectedEra : "");
+  const [subType, setSubType] = useState<string>(isCacheFresh ? cached.subType : "all");
+  const [sort, setSort] = useState<"recommended" | "rating" | "year" | "title">(
+    isCacheFresh ? cached.sort : "recommended",
+  );
+
+  // Modal State
   const [selectedItem, setSelectedItem] = useState<{
     id: number;
     type: "movie" | "series";
   } | null>(null);
 
-  // Hero carousel state
-  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
-  const [isHeroPaused, setIsHeroPaused] = useState(false);
-  const heroTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Refs for infinite scroll and request locking
+  const loadingRef = useRef(false);
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const savedScrollPos = useRef(0);
+  const isInitialMount = useRef(true);
 
-  const isSearchMode = searchQuery.trim().length > 0 || activeGenre !== "All";
+  // Scroll key for session storage
+  const scrollKey = `ct_scroll_${category}`;
 
-  // ── 1. Fetch Main Browse Feed ──
-  const fetchFeed = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const res = await fetch(`/api/browse?category=${category}`);
-      const json = await res.json();
-      if (res.ok && json.data) {
-        setData(json.data);
+  // ─────────────────────────────────────────────────────────────────────────
+  // 1. Fetch Catalogue Function (Primary essential content)
+  // ─────────────────────────────────────────────────────────────────────────
+  const fetchCatalogue = useCallback(
+    async (pageNum: number, isAppend = false) => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
+
+      if (!isAppend) {
+        setInitialLoading(true);
+        setError(false);
       } else {
-        setError(true);
-        toast.error(`Failed to load ${title}`);
+        setLoadingMore(true);
       }
-    } catch {
-      setError(true);
-      toast.error(`Error connecting to ${title} service`);
-    } finally {
-      setLoading(false);
-    }
-  }, [category, title]);
 
-  useEffect(() => {
-    fetchFeed();
-  }, [fetchFeed]);
-
-  // ── 2. Hero Rotation ──
-  const heroList = data?.featuredList ?? (data?.featured ? [data.featured] : []);
-  const heroCount = heroList.length;
-
-  const nextHero = useCallback(() => {
-    if (heroCount <= 1) return;
-    setActiveHeroIndex((prev) => (prev + 1) % heroCount);
-  }, [heroCount]);
-
-  const prevHero = useCallback(() => {
-    if (heroCount <= 1) return;
-    setActiveHeroIndex((prev) => (prev - 1 + heroCount) % heroCount);
-  }, [heroCount]);
-
-  useEffect(() => {
-    if (isHeroPaused || heroCount <= 1 || isSearchMode) return;
-    heroTimerRef.current = setInterval(() => {
-      nextHero();
-    }, HERO_ROTATION_MS);
-
-    return () => {
-      if (heroTimerRef.current) clearInterval(heroTimerRef.current);
-    };
-  }, [isHeroPaused, heroCount, nextHero, isSearchMode]);
-
-  // ── 3. Debounced Search / Live Filter ──
-  useEffect(() => {
-    if (!searchQuery.trim() && activeGenre === "All") {
-      setSearchResults([]);
-      setSearching(false);
-      return;
-    }
-
-    setSearching(true);
-    const timer = setTimeout(async () => {
       try {
         const params = new URLSearchParams({
           category,
-          query: searchQuery.trim(),
-          genre: activeGenre !== "All" ? activeGenre : "",
+          page: String(pageNum),
+          limit: "24",
+          sort,
+          subType,
         });
-        const res = await fetch(`/api/browse?${params.toString()}`);
-        const json = await res.json();
-        if (res.ok && json.data?.results) {
-          setSearchResults(json.data.results);
-        } else {
-          setSearchResults([]);
+
+        if (selectedGenres.length > 0) {
+          params.set("genres", selectedGenres.join(","));
         }
-      } catch {
-        setSearchResults([]);
+        if (selectedEra) {
+          params.set("era", selectedEra);
+        }
+        if (searchQuery.trim()) {
+          params.set("query", searchQuery.trim());
+        }
+
+        const res = await fetch(`/api/browse?${params.toString()}`);
+        if (!res.ok) throw new Error("Network response not ok");
+
+        const json = await res.json();
+        const data: BrowseCatalogueResult = json.data;
+
+        if (!data) throw new Error("Empty catalogue payload");
+
+        startTransition(() => {
+          if (isAppend) {
+            // Deduplicate incoming items against existing ones
+            const existingIds = new Set(itemsRef.current.map((i) => i.id));
+            const freshItems = data.items.filter((i) => !existingIds.has(i.id));
+
+            setItems((prev) => [...prev, ...freshItems]);
+            setPage(pageNum);
+            setHasMore(data.hasMore);
+          } else {
+            setItems(data.items);
+            setPage(1);
+            setTotal(data.total);
+            setHasMore(data.hasMore);
+            if (data.availableGenres?.length) setAvailableGenres(data.availableGenres);
+            if (data.availableEras?.length) setAvailableEras(data.availableEras);
+            setFeaturedSpotlight(data.featuredSpotlight);
+
+            if (data.expanded) {
+              setExpandedNotice(true);
+              setTimeout(() => setExpandedNotice(false), 5000);
+            }
+          }
+        });
+
+        // Update module cache
+        browseCache.set(category, {
+          items: isAppend ? [...itemsRef.current, ...data.items] : data.items,
+          total: data.total,
+          page: pageNum,
+          hasMore: data.hasMore,
+          availableGenres: data.availableGenres || availableGenres,
+          availableEras: data.availableEras || availableEras,
+          featuredSpotlight: data.featuredSpotlight || featuredSpotlight,
+          selectedGenres,
+          selectedEra,
+          subType,
+          sort,
+          searchQuery,
+          fetchedAt: Date.now(),
+        });
+      } catch (err) {
+        if (!isAppend) setError(true);
+        toast.error(`Could not load ${title}`);
       } finally {
-        setSearching(false);
+        loadingRef.current = false;
+        setInitialLoading(false);
+        setLoadingMore(false);
       }
-    }, 320);
+    },
+    [category, sort, subType, selectedGenres, selectedEra, searchQuery, title],
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 2. Initial Mount & Filter Reaction
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    // If not cached or filter parameters changed, fetch page 1
+    if (!isCacheFresh || !isInitialMount.current) {
+      fetchCatalogue(1, false);
+    } else {
+      // Restore scroll if fresh
+      const savedPos = parseInt(sessionStorage.getItem(scrollKey) || "0", 10);
+      if (savedPos > 0) {
+        requestAnimationFrame(() => window.scrollTo(0, savedPos));
+      }
+    }
+    isInitialMount.current = false;
+  }, [category, sort, subType, selectedGenres, selectedEra, searchQuery]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 3. Non-blocking Background Prefetching for other categories
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (initialLoading) return;
+
+    const timer = setTimeout(() => {
+      const otherCategories: BrowseCategory[] = (
+        ["movies", "series", "anime"] as BrowseCategory[]
+      ).filter((c) => c !== category);
+
+      for (const other of otherCategories) {
+        if (!browseCache.has(other)) {
+          fetch(`/api/browse?category=${other}&page=1&limit=24`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((json) => {
+              if (json?.data) {
+                browseCache.set(other, {
+                  items: json.data.items,
+                  total: json.data.total,
+                  page: 1,
+                  hasMore: json.data.hasMore,
+                  availableGenres: json.data.availableGenres || [],
+                  availableEras: json.data.availableEras || [],
+                  featuredSpotlight: json.data.featuredSpotlight,
+                  selectedGenres: [],
+                  selectedEra: "",
+                  subType: "all",
+                  sort: "recommended",
+                  searchQuery: "",
+                  fetchedAt: Date.now(),
+                });
+              }
+            })
+            .catch(() => {});
+        }
+      }
+    }, 1200);
 
     return () => clearTimeout(timer);
-  }, [category, searchQuery, activeGenre]);
+  }, [category, initialLoading]);
 
-  const activeHero = heroList[activeHeroIndex] ?? null;
+  // ─────────────────────────────────────────────────────────────────────────
+  // 4. Smooth YouTube-like Continuous Infinite Scroll
+  // ─────────────────────────────────────────────────────────────────────────
+  const loadNextPage = useCallback(() => {
+    if (loadingRef.current || !hasMoreRef.current) return;
+    const nextPage = pageRef.current + 1;
+    fetchCatalogue(nextPage, true);
+  }, [fetchCatalogue]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadNextPage();
+        }
+      },
+      { rootMargin: "650px" },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadNextPage]);
+
+  // Save scroll position before unload or navigate
+  useEffect(() => {
+    const handleScroll = () => {
+      sessionStorage.setItem(scrollKey, String(window.scrollY));
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [scrollKey]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 5. Multi-Select Genre Toggles
+  // ─────────────────────────────────────────────────────────────────────────
+  const toggleGenre = (genre: string) => {
+    if (genre === "All") {
+      setSelectedGenres([]);
+      return;
+    }
+    setSelectedGenres((prev) =>
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre],
+    );
+  };
+
+  const clearAllFilters = () => {
+    setSelectedGenres([]);
+    setSelectedEra("");
+    setSubType("all");
+    setSearchQuery("");
+    setSort("recommended");
+  };
+
+  const hasAnyFilterActive =
+    selectedGenres.length > 0 ||
+    selectedEra !== "" ||
+    subType !== "all" ||
+    searchQuery.trim().length > 0 ||
+    sort !== "recommended";
 
   return (
     <AppShell>
-      <div className="page-enter min-h-screen pb-16">
-        {/* ── Page Header / Search Controls Bar ── */}
-        <div className="p-4 md:px-8 max-w-7xl mx-auto pt-6 space-y-4">
+      <div className="page-enter min-h-screen pb-20">
+        {/* ── Page Header ── */}
+        <div className="p-4 md:px-8 max-w-7xl mx-auto pt-6 space-y-5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 className="font-heading text-3xl md:text-4xl font-extrabold text-[#F5F7F6] flex items-center gap-3">
+            <div className="space-y-1">
+              <h1 className="font-heading text-3xl md:text-4xl font-black text-[#F5F7F6] flex items-center gap-3">
                 {icon}
                 {title}
+                {total > 0 && (
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/[0.06] text-[#A1AAA6] border border-white/[0.08]">
+                    {total} titles
+                  </span>
+                )}
               </h1>
-              <p className="text-sm text-[#A1AAA6] mt-1">{subtitle}</p>
+              <p className="text-sm text-[#A1AAA6]">{subtitle}</p>
             </div>
 
-            {/* Search Input */}
+            {/* Quick Search */}
             <div className="relative w-full md:w-80">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 pointer-events-none" />
               <input
@@ -176,7 +371,7 @@ export function CategoryBrowseView({
                 placeholder={`Search ${title.toLowerCase()}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#0D1013] border border-white/[0.08] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#F5F7F6] focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 placeholder:text-[#A1AAA6]/50 shadow-inner"
+                className="w-full bg-[#0D1013] border border-white/[0.08] hover:border-white/[0.15] focus:border-emerald-500/50 rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#F5F7F6] focus:outline-none focus:ring-1 focus:ring-emerald-500/30 placeholder:text-[#A1AAA6]/50 shadow-inner transition-colors"
               />
               {searchQuery && (
                 <button
@@ -190,111 +385,236 @@ export function CategoryBrowseView({
             </div>
           </div>
 
-          {/* Quick Genre Chips */}
-          {data?.genres && data.genres.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-              {data.genres.map((g) => {
-                const isSelected = activeGenre === g;
-                return (
-                  <button
+          {/* ── Multi-Select Filtering Interface Dock ── */}
+          <div className="bg-[#0D1013]/90 backdrop-blur-md border border-white/[0.08] rounded-2xl p-4 space-y-4 shadow-xl">
+            {/* Top Filter Controls: Sort, Era, SubType, Clear */}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Sort selector */}
+                <div className="flex items-center gap-1.5 bg-[#121619] border border-white/[0.08] rounded-xl px-3 py-1.5 text-[#F5F7F6]">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[#A1AAA6]">Sort:</span>
+                  <select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as any)}
+                    aria-label="Sort order"
+                    className="bg-transparent text-[#F5F7F6] focus:outline-none font-medium cursor-pointer"
+                  >
+                    <option value="recommended" className="bg-[#121619]">Taste Match</option>
+                    <option value="rating" className="bg-[#121619]">Highest Rated</option>
+                    <option value="year" className="bg-[#121619]">Release Year</option>
+                    <option value="title" className="bg-[#121619]">Title (A-Z)</option>
+                  </select>
+                </div>
+
+                {/* Era selector */}
+                <div className="flex items-center gap-1.5 bg-[#121619] border border-white/[0.08] rounded-xl px-3 py-1.5 text-[#F5F7F6]">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[#A1AAA6]">Era:</span>
+                  <select
+                    value={selectedEra}
+                    onChange={(e) => setSelectedEra(e.target.value)}
+                    aria-label="Release era filter"
+                    className="bg-transparent text-[#F5F7F6] focus:outline-none font-medium cursor-pointer"
+                  >
+                    <option value="" className="bg-[#121619]">All Eras</option>
+                    {availableEras.map((era) => (
+                      <option key={era} value={era} className="bg-[#121619]">
+                        {era}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* SubType selector (Anime only) */}
+                {category === "anime" && (
+                  <div className="flex items-center gap-1.5 bg-[#121619] border border-white/[0.08] rounded-xl px-3 py-1.5 text-[#F5F7F6]">
+                    <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-[#A1AAA6]">Format:</span>
+                    <select
+                      value={subType}
+                      onChange={(e) => setSubType(e.target.value)}
+                      aria-label="Anime format"
+                      className="bg-transparent text-[#F5F7F6] focus:outline-none font-medium cursor-pointer"
+                    >
+                      <option value="all" className="bg-[#121619]">All Anime</option>
+                      <option value="tv" className="bg-[#121619]">Anime Series</option>
+                      <option value="movie" className="bg-[#121619]">Anime Movies</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Reset All Filters button */}
+              {hasAnyFilterActive && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 transition-colors ml-auto"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Clear all filters
+                </button>
+              )}
+            </div>
+
+            {/* Multi-Select Genre Chips */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-xs text-[#A1AAA6]">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Filter className="w-3 h-3 text-emerald-400" />
+                  Filter by Genres (multi-select):
+                </span>
+                {selectedGenres.length > 0 && (
+                  <span className="text-emerald-400 font-semibold">
+                    {selectedGenres.length} selected
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                {/* "All" button */}
+                <button
+                  onClick={() => toggleGenre("All")}
+                  className={cn(
+                    "px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0",
+                    selectedGenres.length === 0
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                      : "bg-[#121619] text-[#A1AAA6] hover:text-[#F5F7F6] border border-white/[0.06]",
+                  )}
+                >
+                  All Genres
+                </button>
+
+                {/* Available Genres */}
+                {availableGenres.map((g) => {
+                  const isSelected = selectedGenres.includes(g);
+                  return (
+                    <button
+                      key={g}
+                      onClick={() => toggleGenre(g)}
+                      className={cn(
+                        "px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center gap-1 transition-all shrink-0",
+                        isSelected
+                          ? "bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                          : "bg-[#121619] text-[#A1AAA6] hover:text-[#F5F7F6] border border-white/[0.06] hover:border-white/[0.12]",
+                      )}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Active Filters Pill Bar */}
+            {hasAnyFilterActive && (
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/[0.06]">
+                <span className="text-[11px] text-[#A1AAA6]">Active:</span>
+                {selectedGenres.map((g) => (
+                  <span
                     key={g}
-                    onClick={() => setActiveGenre(g)}
-                    className={cn(
-                      "px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 shrink-0",
-                      isSelected
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-                        : "bg-[#0D1013]/80 text-[#A1AAA6] hover:text-[#F5F7F6] border border-white/[0.06] hover:border-white/[0.12]"
-                    )}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                   >
                     {g}
-                  </button>
-                );
-              })}
+                    <button
+                      onClick={() => toggleGenre(g)}
+                      aria-label={`Remove filter ${g}`}
+                      className="hover:text-emerald-200"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                {selectedEra && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                    Era: {selectedEra}
+                    <button
+                      onClick={() => setSelectedEra("")}
+                      aria-label="Remove era filter"
+                      className="hover:text-blue-200"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {subType !== "all" && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                    {subType === "tv" ? "Series Only" : "Movies Only"}
+                    <button
+                      onClick={() => setSubType("all")}
+                      aria-label="Remove format filter"
+                      className="hover:text-purple-200"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                    "{searchQuery}"
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      aria-label="Clear query filter"
+                      className="hover:text-amber-200"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* AI Discovery Auto-Expansion Notification */}
+          {expandedNotice && (
+            <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs shadow-md animate-fade-in">
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>
+                Gemini AI discovered and added additional verified titles matching your specific filter criteria.
+              </span>
             </div>
           )}
         </div>
 
-        {/* ── Content Switch: Loading vs Error vs Search Mode vs Feed Mode ── */}
-        {loading ? (
-          <div className="p-4 md:px-8 max-w-7xl mx-auto space-y-10 mt-6">
-            <div className="w-full h-80 rounded-2xl bg-[#0D1013] animate-pulse flex items-end p-8">
-              <div className="space-y-3">
-                <Skeleton className="h-6 w-32 rounded-full" />
-                <Skeleton className="h-10 w-80 rounded-lg" />
-                <Skeleton className="h-4 w-60 rounded-md" />
-              </div>
+        {/* ── Main Unified Catalogue Content ── */}
+        <div className="p-4 md:px-8 max-w-7xl mx-auto mt-6">
+          {initialLoading ? (
+            /* Shimmer Skeleton Grid */
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <MovieCardSkeleton key={i} />
+              ))}
             </div>
-            {[1, 2, 3].map((idx) => (
-              <div key={idx} className="space-y-3">
-                <Skeleton className="h-6 w-48 rounded" />
-                <div className="flex gap-4 overflow-hidden">
-                  {Array.from({ length: 6 }).map((_, j) => (
-                    <MovieCardSkeleton key={j} className="shrink-0" />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : error ? (
-          <div className="p-6 md:p-12 max-w-4xl mx-auto">
-            <ErrorState
-              title={`Failed to load ${title}`}
-              message="Could not load the catalog. Please verify connection and retry."
-              onRetry={fetchFeed}
-            />
-          </div>
-        ) : isSearchMode ? (
-          /* ── Search / Filter Results Mode ── */
-          <div className="p-4 md:px-8 max-w-7xl mx-auto mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-[#A1AAA6]">
-                {searching
-                  ? "Searching catalog..."
-                  : `Found ${searchResults.length} result${searchResults.length === 1 ? "" : "s"} for "${searchQuery || activeGenre}"`}
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchQuery("");
-                  setActiveGenre("All");
-                }}
-                className="text-xs text-[#A1AAA6] hover:text-[#F5F7F6]"
-              >
-                Clear Filters
-              </Button>
+          ) : error ? (
+            <div className="py-12">
+              <ErrorState
+                title={`Failed to load ${title}`}
+                message="Could not load the catalogue. Please check connection and retry."
+                onRetry={() => fetchCatalogue(1, false)}
+              />
             </div>
-
-            {searching && searchResults.length === 0 ? (
-              <div className="flex justify-center py-24">
-                <BrandLogo
-                  variant="compact"
-                  className="w-10 h-10"
-                  imageClassName="animate-[spin_2.5s_linear_infinite]"
-                />
-              </div>
-            ) : searchResults.length === 0 ? (
+          ) : items.length === 0 ? (
+            <div className="py-16">
               <EmptyState
-                title="No titles found"
-                description={`Try a different title or select "All" genres.`}
+                title="No titles match your filters"
+                description="Try loosening your filters or resetting to view the full catalogue."
                 action={
-                  <Button
-                    onClick={() => {
-                      setSearchQuery("");
-                      setActiveGenre("All");
-                    }}
-                  >
-                    Reset Search
+                  <Button onClick={clearAllFilters} className="bg-emerald-500 text-[#08090C] hover:bg-emerald-400 font-bold">
+                    Reset All Filters
                   </Button>
                 }
               />
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 py-4 -my-4">
-                {searchResults.map((item, index) => (
+            </div>
+          ) : (
+            <>
+              {/* Unified Catalogue Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {items.map((item, index) => (
                   <div
                     key={`${item.id}-${index}`}
                     className="ct-stagger-item ct-card-lift-wrapper"
-                    style={staggerStyle(index)}
+                    style={staggerStyle(index % 24)}
                   >
                     <MovieCard
                       id={item.id}
@@ -303,223 +623,66 @@ export function CategoryBrowseView({
                       mediaType={item.media_type}
                       releaseYear={item.release_year}
                       voteAverage={item.vote_average}
+                      score={item.score}
+                      showScore={true}
                       genres={item.genres}
-                      onClick={(id, type) => setSelectedItem({ id, type })}
+                      onClick={(id, type) => {
+                        savedScrollPos.current = window.scrollY;
+                        sessionStorage.setItem(scrollKey, String(window.scrollY));
+                        setSelectedItem({ id, type });
+                      }}
                     />
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        ) : (
-          /* ── Main Feed Mode: Cinematic Hero + Category Rails ── */
-          <div className="space-y-10 mt-4">
-            {/* 1. Cinematic Spotlight Hero */}
-            {activeHero && (
-              <section
-                className="relative w-full h-[65vh] md:h-[72vh] min-h-[500px] overflow-hidden select-none"
-                onMouseEnter={() => setIsHeroPaused(true)}
-                onMouseLeave={() => setIsHeroPaused(false)}
-              >
-                {/* Backdrop Carousel */}
-                {heroList.map((hero, idx) => {
-                  const isCurrent = idx === activeHeroIndex;
-                  const bg = hero.backdrop_url || hero.poster_url;
-                  return (
-                    <div
-                      key={`${hero.id}-${idx}`}
-                      className={cn(
-                        "absolute inset-0 transition-opacity duration-1000 ease-out",
-                        isCurrent
-                          ? "opacity-100 z-0"
-                          : "opacity-0 pointer-events-none -z-10"
-                      )}
-                    >
-                      {bg ? (
-                        <img
-                          src={bg}
-                          alt={hero.title}
-                          className="w-full h-full object-cover object-center scale-105 transition-transform duration-10000 ease-out transform"
-                          style={{
-                            transform: isCurrent ? "scale(1.03)" : "scale(1)",
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-[#121619] to-[#08090C]" />
-                      )}
 
-                      {/* Obsidian Glass Gradient Layers */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#08090C] via-[#08090C]/75 to-transparent" />
-                      <div className="absolute inset-0 bg-gradient-to-r from-[#08090C] via-[#08090C]/85 md:via-[#08090C]/65 to-transparent" />
-                      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#08090C]/80 to-transparent" />
-                    </div>
-                  );
-                })}
+              {/* Infinite Scroll Sentinel */}
+              <div ref={sentinelRef} className="h-4 w-full" aria-hidden="true" />
 
-                {/* Hero Content Overlay */}
-                <div className="absolute inset-0 z-10 flex flex-col justify-end p-6 md:p-14 max-w-7xl mx-auto">
-                  <div className="max-w-2xl space-y-4">
-                    {/* Meta Badges */}
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <span
-                        className={cn(
-                          "px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider",
-                          activeHero.media_type === "tv"
-                            ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                            : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                        )}
-                      >
-                        {category === "anime"
-                          ? activeHero.media_type === "tv"
-                            ? "Anime Series"
-                            : "Anime Movie"
-                          : activeHero.media_type === "tv"
-                          ? "TV Series"
-                          : "Movie"}
-                      </span>
-
-                      {activeHero.vote_average && (
-                        <span className="flex items-center gap-1 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-xs font-bold text-amber-400 border border-white/[0.08]">
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          {activeHero.vote_average}
-                        </span>
-                      )}
-
-                      {activeHero.release_year && (
-                        <span className="text-xs text-[#A1AAA6] bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/[0.06]">
-                          {activeHero.release_year}
-                        </span>
-                      )}
-
-                      {activeHero.genres.map((g) => (
-                        <span
-                          key={g}
-                          className="text-xs text-[#A1AAA6] hidden sm:inline-block"
-                        >
-                          · {g}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Title */}
-                    <h2 className="font-heading text-3xl md:text-5xl font-black text-[#F5F7F6] leading-tight drop-shadow-md">
-                      {activeHero.title}
-                    </h2>
-
-                    {/* Overview */}
-                    {activeHero.overview && (
-                      <p className="text-sm md:text-base text-[#D0D7D4] line-clamp-3 leading-relaxed drop-shadow max-w-xl">
-                        {activeHero.overview}
-                      </p>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-4 pt-2">
-                      <Button
-                        size="lg"
-                        className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-bold rounded-xl shadow-[0_4px_20px_rgba(16,185,129,0.35)] flex items-center gap-2"
-                        onClick={() =>
-                          setSelectedItem({
-                            id: activeHero.id,
-                            type:
-                              activeHero.media_type === "tv"
-                                ? "series"
-                                : "movie",
-                          })
-                        }
-                      >
-                        <Info className="w-4 h-4" />
-                        Inspect Details
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Carousel Controls */}
-                  {heroCount > 1 && (
-                    <div className="flex items-center justify-between pt-6 mt-4 border-t border-white/[0.08]">
-                      <div className="flex items-center gap-2">
-                        {heroList.map((_, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setActiveHeroIndex(i)}
-                            className={cn(
-                              "h-1.5 rounded-full transition-all duration-300",
-                              i === activeHeroIndex
-                                ? "w-8 bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                                : "w-2 bg-white/20 hover:bg-white/40"
-                            )}
-                            aria-label={`Slide ${i + 1}`}
-                          />
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={prevHero}
-                          className="p-2 rounded-full bg-[#121619]/80 border border-white/[0.1] text-[#A1AAA6] hover:text-[#F5F7F6] hover:border-emerald-500/40 transition-colors"
-                          aria-label="Previous slide"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={nextHero}
-                          className="p-2 rounded-full bg-[#121619]/80 border border-white/[0.1] text-[#A1AAA6] hover:text-[#F5F7F6] hover:border-emerald-500/40 transition-colors"
-                          aria-label="Next slide"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* 2. Category Rails */}
-            <div className="p-4 md:px-8 max-w-7xl mx-auto space-y-10">
-              {data?.rails.map((rail) => {
-                const rowItems: RowItem[] = rail.items.map((it) => ({
-                  id: it.id,
-                  movieId: it.id,
-                  title: it.title,
-                  poster_url: it.poster_url,
-                  backdrop_url: it.backdrop_url,
-                  media_type: it.media_type,
-                  release_year: it.release_year,
-                  vote_average: it.vote_average,
-                  score: it.score,
-                  genres: it.genres,
-                }));
-
-                return (
-                  <HorizontalRow
-                    key={rail.id}
-                    title={rail.title}
-                    subtitle={rail.subtitle}
-                    items={rowItems}
-                    showScore={rail.showScore}
-                    accentBorder={rail.accentBorder}
-                    onSelect={(id, type) => setSelectedItem({ id, type })}
+              {/* Loading More Indicator */}
+              {loadingMore && (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <BrandLogo
+                    variant="compact"
+                    className="w-8 h-8"
+                    imageClassName="animate-[spin_2s_linear_infinite]"
                   />
-                );
-              })}
-            </div>
-          </div>
-        )}
+                  <span className="text-xs text-[#A1AAA6]">Loading more {title.toLowerCase()}...</span>
+                </div>
+              )}
 
-        {/* ── Movie / Series Details Modal ── */}
-        {selectedItem && (
-          <MovieDetailsModal
-            isOpen={true}
-            onClose={() => setSelectedItem(null)}
-            tmdbId={selectedItem.id}
-            type={selectedItem.type}
-            onNavigate={(id, type) =>
-              setSelectedItem({ id, type: type || "movie" })
-            }
-          />
-        )}
+              {/* End of Catalogue Footer */}
+              {!hasMore && items.length > 0 && (
+                <div className="text-center py-14 border-t border-white/[0.06] mt-10 space-y-2">
+                  <p className="text-sm font-semibold text-[#D0D7D4]">
+                    You've reached the end of the {title} catalogue.
+                  </p>
+                  <p className="text-xs text-[#A1AAA6]">
+                    Rate more titles in your library to help CineTaste discover even more gems.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Movie / Series Details Modal */}
+      <MovieDetailsModal
+        isOpen={!!selectedItem}
+        onClose={() => {
+          setSelectedItem(null);
+          requestAnimationFrame(() => {
+            window.scrollTo(0, savedScrollPos.current);
+          });
+        }}
+        tmdbId={selectedItem?.id || 0}
+        type={selectedItem?.type || "movie"}
+        onNavigate={(id, type) => {
+          savedScrollPos.current = window.scrollY;
+          setSelectedItem({ id, type: type || "movie" });
+        }}
+      />
     </AppShell>
   );
 }

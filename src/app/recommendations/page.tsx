@@ -119,9 +119,9 @@ export default function UpNextPage() {
             </p>
           </div>
 
-          <Link href="/discover">
+          <Link href="/movies">
             <Button className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-semibold rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)]">
-              + Add Titles to Queue
+              + Browse Movies
             </Button>
           </Link>
         </div>
@@ -142,9 +142,9 @@ export default function UpNextPage() {
               title="Queue is Empty"
               description="You do not have any pending movies queued. Discover titles to build your watchlist!"
               action={
-                <Link href="/discover">
+                <Link href="/movies">
                   <Button className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-semibold rounded-xl">
-                    Explore Discover
+                    Browse Movies
                   </Button>
                 </Link>
               }

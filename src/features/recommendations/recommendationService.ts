@@ -22,11 +22,49 @@ import {
   generateRecommendations as generateTmdbRecommendations,
   type RecommendationExplanation,
 } from "./recommendationEngine";
+import { isAnime } from "@/features/movies/animeClassifier";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// In-flight generation dedup: prevents concurrent Gemini calls for same user
+// In-flight generation dedup: prevents concurrent calls for same user
 // ─────────────────────────────────────────────────────────────────────────────
 const inflightGenerations = new Map<string, Promise<RecommendationItem[]>>();
+
+// In-memory hot cache for recommendation sets (resets on server redeploy)
+interface HotRecCache {
+  items: RecommendationItem[];
+  tasteHash: string;
+  expiresAt: number;
+}
+const serverRecMemoryCache = new Map<string, HotRecCache>();
+
+// TMDB constants & genre mapping
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_GENRE_MAP: Record<number, string> = {
+  28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
+  99: "Documentary", 18: "Drama", 10751: "Family", 14: "Fantasy", 36: "History",
+  27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance", 878: "Science Fiction",
+  10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western",
+  10759: "Action & Adventure", 10762: "Kids", 10765: "Sci-Fi & Fantasy",
+};
+
+const GENRE_NAME_TO_TMDB_ID: Record<string, number> = {
+  "Action": 28, "Adventure": 12, "Animation": 16, "Comedy": 35, "Crime": 80,
+  "Documentary": 99, "Drama": 18, "Family": 10751, "Fantasy": 14, "History": 36,
+  "Horror": 27, "Music": 10402, "Mystery": 9648, "Romance": 10749, "Science Fiction": 878,
+  "Thriller": 53, "War": 10752, "Western": 37,
+};
+
+async function tmdbFetch(path: string): Promise<any> {
+  if (!env.TMDB_API_KEY) return null;
+  const sep = path.includes("?") ? "&" : "?";
+  try {
+    const res = await fetch(`${TMDB_BASE_URL}${path}${sep}api_key=${env.TMDB_API_KEY}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Taste hash — fingerprint of user state that affects recommendations
@@ -59,7 +97,6 @@ function scoreResolvedCandidates(
 ): RecommendationItem[] {
   if (!candidates.length) return [];
 
-  // Parse profile for scoring
   let favGenres: Record<string, number> = {};
   let dislikedGenres: Record<string, number> = {};
   let favDirectors: Record<string, number> = {};
@@ -70,27 +107,25 @@ function scoreResolvedCandidates(
     try { favDirectors = JSON.parse(profile.favorite_directors || "{}"); } catch { /* skip */ }
   }
 
-  // Normalize genre scores
   const maxGenre = Math.max(...Object.values(favGenres).map(Math.abs), 1);
 
   const scored = candidates.map((c) => {
     let score = 50; // base score
 
-    // Genre match (+/- up to 25)
+    // Genre match
     for (const g of c.genres) {
       if (favGenres[g]) score += (favGenres[g] / maxGenre) * 15;
       if (dislikedGenres[g]) score -= 10;
     }
 
-    // TMDB quality signal (+up to 10)
+    // TMDB quality signal
     score += Math.min(c.vote_average * 1.2, 10);
 
-    // Variety bonus for less common genres (+up to 5)
+    // Variety bonus
     const uncommon = c.genres.filter((g) => !favGenres[g]);
     if (uncommon.length > 0) score += Math.min(uncommon.length * 2, 5);
 
-    // Clamp to 0-99
-    score = Math.max(0, Math.min(99, Math.round(score)));
+    score = Math.max(10, Math.min(99, Math.round(score)));
 
     const item: RecommendationItem = {
       tmdb_id: c.tmdb_id,
@@ -105,14 +140,14 @@ function scoreResolvedCandidates(
       score,
       reasons: buildReasons(c, favGenres, favDirectors),
       gemini_reason: c.gemini_reason,
+      is_anime: c.is_anime,
     };
 
     return item;
   });
 
-  // Sort by score descending, apply diversity
   scored.sort((a, b) => b.score - a.score);
-  return applyDiversity(scored);
+  return scored;
 }
 
 function buildReasons(
@@ -122,16 +157,13 @@ function buildReasons(
 ): string[] {
   const reasons: string[] = [];
 
-  // Gemini reason first (the personalized explanation)
   if (c.gemini_reason) reasons.push(c.gemini_reason);
 
-  // Genre match
   const matchedGenres = c.genres.filter((g) => favGenres[g] && favGenres[g] > 0);
   if (matchedGenres.length) {
     reasons.push(`Matches genres you enjoy: ${matchedGenres.slice(0, 2).join(", ")}`);
   }
 
-  // High rating
   if (c.vote_average >= 7.5) {
     reasons.push("Highly rated globally");
   }
@@ -140,32 +172,204 @@ function buildReasons(
   return reasons.slice(0, 3);
 }
 
-/**
- * Diversity filter — limit genre clusters and ensure variety.
- */
-function applyDiversity(items: RecommendationItem[]): RecommendationItem[] {
-  const genreCount: Record<string, number> = {};
-  const result: RecommendationItem[] = [];
-  const deferred: RecommendationItem[] = [];
+// ─────────────────────────────────────────────────────────────────────────────
+// TMDB Supplementation: ensures each category reaches at least 100 titles
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchTmdbSupplement(
+  category: "movies" | "series" | "anime",
+  neededCount: number,
+  excludeIds: Set<number>,
+  ratedMovies: MovieRow[],
+): Promise<ResolvedCandidate[]> {
+  const results: ResolvedCandidate[] = [];
+  const seenIds = new Set<number>(excludeIds);
 
-  for (const item of items) {
-    const primaryGenre = item.genres[0] || "__none__";
-    const count = genreCount[primaryGenre] || 0;
+  const add = (items: any[], forceType?: "movie" | "tv") => {
+    for (const r of items || []) {
+      if (!r?.id || seenIds.has(r.id)) continue;
 
-    if (count >= 5) {
-      deferred.push(item);
-      continue;
+      const mediaType: "movie" | "tv" =
+        forceType || (r.media_type === "tv" || r.first_air_date ? "tv" : "movie");
+
+      const isAnimeTitle = isAnime({
+        id: r.id,
+        media_type: mediaType,
+        title: r.title || r.name,
+        genre_ids: r.genre_ids,
+        original_language: r.original_language,
+        origin_country: r.origin_country,
+        overview: r.overview,
+      });
+
+      // Strict mutual exclusivity
+      if (category === "movies" && (isAnimeTitle || mediaType !== "movie")) continue;
+      if (category === "series" && (isAnimeTitle || mediaType !== "tv")) continue;
+      if (category === "anime" && !isAnimeTitle) continue;
+
+      seenIds.add(r.id);
+
+      const releaseDate = r.release_date || r.first_air_date || "";
+      const releaseYear = parseInt(releaseDate.split("-")[0], 10) || 0;
+      const genres = (r.genre_ids || [])
+        .map((id: number) => TMDB_GENRE_MAP[id])
+        .filter(Boolean);
+
+      results.push({
+        tmdb_id: r.id,
+        title: r.title || r.name || "Untitled",
+        poster_url: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+        backdrop_url: r.backdrop_path ? `https://image.tmdb.org/t/p/w780${r.backdrop_path}` : null,
+        media_type: mediaType,
+        genres,
+        release_year: releaseYear,
+        vote_average: r.vote_average ? parseFloat(Number(r.vote_average).toFixed(1)) : 0,
+        overview: r.overview || "",
+        gemini_reason: "Acclaimed title tailored to your profile",
+        is_anime: isAnimeTitle,
+      });
+
+      if (results.length >= neededCount) break;
     }
+  };
 
-    genreCount[primaryGenre] = count + 1;
-    result.push(item);
+  if (category === "movies") {
+    // 1. Similar/recommendations for user's favorite rated movies
+    const favMovies = ratedMovies.filter((m) => m.rating >= 8 && m.type !== "series");
+    for (const fav of favMovies.slice(0, 6)) {
+      if (results.length >= neededCount) break;
+      const recs = await tmdbFetch(`/movie/${fav.tmdb_id}/recommendations`);
+      add(recs?.results, "movie");
+    }
+    // 2. High quality TMDB feeds
+    for (let page = 1; page <= 6 && results.length < neededCount; page++) {
+      const [topRated, popular] = await Promise.all([
+        tmdbFetch(`/movie/top_rated?page=${page}`),
+        tmdbFetch(`/movie/popular?page=${page}`),
+      ]);
+      add(topRated?.results, "movie");
+      add(popular?.results, "movie");
+    }
+  } else if (category === "series") {
+    // 1. Similar/recommendations for user's favorite rated series
+    const favSeries = ratedMovies.filter((m) => m.rating >= 8 && m.type === "series");
+    for (const fav of favSeries.slice(0, 6)) {
+      if (results.length >= neededCount) break;
+      const recs = await tmdbFetch(`/tv/${fav.tmdb_id}/recommendations`);
+      add(recs?.results, "tv");
+    }
+    // 2. High quality TMDB TV feeds
+    for (let page = 1; page <= 6 && results.length < neededCount; page++) {
+      const [topRated, popular] = await Promise.all([
+        tmdbFetch(`/tv/top_rated?page=${page}`),
+        tmdbFetch(`/tv/popular?page=${page}`),
+      ]);
+      add(topRated?.results, "tv");
+      add(popular?.results, "tv");
+    }
+  } else if (category === "anime") {
+    // Japanese animation (series & movies)
+    for (let page = 1; page <= 6 && results.length < neededCount; page++) {
+      const [tvTop, movieTop, tvPop, moviePop] = await Promise.all([
+        tmdbFetch(`/discover/tv?with_genres=16&with_original_language=ja&sort_by=vote_average.desc&vote_count.gte=80&page=${page}`),
+        tmdbFetch(`/discover/movie?with_genres=16&with_original_language=ja&sort_by=vote_average.desc&vote_count.gte=80&page=${page}`),
+        tmdbFetch(`/discover/tv?with_genres=16&with_original_language=ja&sort_by=popularity.desc&page=${page}`),
+        tmdbFetch(`/discover/movie?with_genres=16&with_original_language=ja&sort_by=popularity.desc&page=${page}`),
+      ]);
+      add(tvTop?.results, "tv");
+      add(movieTop?.results, "movie");
+      add(tvPop?.results, "tv");
+      add(moviePop?.results, "movie");
+    }
   }
 
-  return [...result, ...deferred];
+  return results;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Full generation pipeline: Gemini → TMDB → Score → Persist
+// Category Pool Generation: Generates at least 100 unique items for a category
+// ─────────────────────────────────────────────────────────────────────────────
+async function generateCategoryPool(
+  username: string,
+  category: "movies" | "series" | "anime",
+  movies: MovieRow[],
+  profile: RecommendationProfileRow | null,
+  previousTitles: string[],
+  seenAcrossCategories: Set<number>,
+): Promise<RecommendationItem[]> {
+  const ratedMovies = movies.filter((m) => m.status === "completed" && m.rating > 0);
+  const libraryIds = new Set(movies.map((m) => m.tmdb_id));
+  const libraryNames = new Set(movies.map((m) => m.movie_name.toLowerCase().trim()));
+
+  const TARGET_PER_CATEGORY = 100;
+  const resolvedMap = new Map<number, ResolvedCandidate>();
+
+  // 1. Try Gemini generation for this category
+  try {
+    const geminiCandidates = await generateGeminiCandidates(
+      {
+        username,
+        profile,
+        ratedMovies,
+        allMovies: movies,
+        previousRecommendations: previousTitles,
+      },
+      {
+        category,
+        targetCount: 85,
+      },
+    );
+
+    if (geminiCandidates.length) {
+      const resolved = await resolveGeminiCandidates(geminiCandidates, { concurrency: 5 });
+      for (const r of resolved) {
+        if (!r?.tmdb_id) continue;
+        if (libraryIds.has(r.tmdb_id) || seenAcrossCategories.has(r.tmdb_id)) continue;
+        if (libraryNames.has(r.title.toLowerCase().trim())) continue;
+
+        // Verify mutual exclusivity
+        if (category === "movies" && (r.is_anime || r.media_type !== "movie")) continue;
+        if (category === "series" && (r.is_anime || r.media_type !== "tv")) continue;
+        if (category === "anime" && !r.is_anime) continue;
+
+        resolvedMap.set(r.tmdb_id, r);
+        seenAcrossCategories.add(r.tmdb_id);
+      }
+    }
+  } catch (err) {
+    logger.warn({
+      module: "recommendationService",
+      action: "CATEGORY_GEMINI_FALLBACK",
+      category,
+      error: err,
+      message: `Gemini failed for ${category}, relying on TMDB supplement`,
+    });
+  }
+
+  // 2. Supplement from TMDB if under 100
+  if (resolvedMap.size < TARGET_PER_CATEGORY) {
+    const needed = TARGET_PER_CATEGORY - resolvedMap.size;
+    const combinedExclude = new Set<number>([
+      ...Array.from(libraryIds),
+      ...Array.from(seenAcrossCategories),
+    ]);
+
+    const supplements = await fetchTmdbSupplement(category, needed, combinedExclude, ratedMovies);
+    for (const sup of supplements) {
+      if (resolvedMap.size >= TARGET_PER_CATEGORY) break;
+      if (!resolvedMap.has(sup.tmdb_id) && !libraryIds.has(sup.tmdb_id)) {
+        resolvedMap.set(sup.tmdb_id, sup);
+        seenAcrossCategories.add(sup.tmdb_id);
+      }
+    }
+  }
+
+  // 3. Score candidates with user profile
+  const scored = scoreResolvedCandidates(Array.from(resolvedMap.values()), profile);
+  return scored;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Full generation pipeline: at least 100 Movies + 100 Series + 100 Anime = 300
 // ─────────────────────────────────────────────────────────────────────────────
 async function runGenerationPipeline(
   username: string,
@@ -179,105 +383,38 @@ async function runGenerationPipeline(
     module: "recommendationService",
     action: "GENERATION_PIPELINE",
     status: "STARTED",
-    message: `Starting Gemini recommendation pipeline for ${username}`,
+    message: `Starting 300-title recommendation pipeline for ${username}`,
   });
 
-  const ratedMovies = movies.filter((m) => m.status === "completed" && m.rating > 0);
-  const libraryIds = new Set(movies.map((m) => m.tmdb_id));
-  const libraryNames = new Set(movies.map((m) => m.movie_name.toLowerCase().trim()));
+  const seenAcrossCategories = new Set<number>();
 
-  // Stage 1: Generate candidates via Gemini
-  let geminiCandidates;
-  try {
-    geminiCandidates = await generateGeminiCandidates({
-      username,
-      profile,
-      ratedMovies,
-      allMovies: movies,
-      previousRecommendations: previousTitles,
-    });
-  } catch (err: any) {
-    logger.warn({
-      module: "recommendationService",
-      action: "GEMINI_FALLBACK",
-      status: "STARTED",
-      message: "Gemini failed, falling back to TMDB-only recommendations",
-      error: err,
-    });
-    // Fallback to existing TMDB-only engine
-    return fallbackToTmdb(username, movies, profile, tasteHash);
-  }
+  // Generate 100+ Movies, 100+ Series, 100+ Anime in parallel
+  const [moviesPool, seriesPool, animePool] = await Promise.all([
+    generateCategoryPool(username, "movies", movies, profile, previousTitles, seenAcrossCategories),
+    generateCategoryPool(username, "series", movies, profile, previousTitles, seenAcrossCategories),
+    generateCategoryPool(username, "anime", movies, profile, previousTitles, seenAcrossCategories),
+  ]);
 
-  if (!geminiCandidates.length) {
-    logger.warn({
-      module: "recommendationService",
-      action: "GEMINI_EMPTY",
-      status: "FAILED",
-      message: "Gemini returned no candidates, falling back to TMDB-only",
-    });
-    return fallbackToTmdb(username, movies, profile, tasteHash);
-  }
+  const recommendations = [...moviesPool, ...seriesPool, ...animePool];
 
-  // Stage 2: Resolve through TMDB
-  const resolved = await resolveGeminiCandidates(geminiCandidates, {
-    concurrency: 5,
+  logger.info({
+    module: "recommendationService",
+    action: "GENERATION_PIPELINE",
+    status: "SUCCESS",
+    moviesCount: moviesPool.length,
+    seriesCount: seriesPool.length,
+    animeCount: animePool.length,
+    totalCount: recommendations.length,
+    durationMs: Date.now() - start,
   });
 
-  // Stage 3: Filter out library items and duplicates
-  const filtered = resolved.filter((r) => {
-    if (libraryIds.has(r.tmdb_id)) return false;
-    if (libraryNames.has(r.title.toLowerCase().trim())) return false;
-    return true;
-  });
-
-  // Stage 4: Score and rank
-  let recommendations = scoreResolvedCandidates(filtered, profile);
-
-  // If we got too few from Gemini, supplement with TMDB-only engine
-  if (recommendations.length < 10) {
-    logger.info({
-      module: "recommendationService",
-      action: "SUPPLEMENT_TMDB",
-      status: "STARTED",
-      message: `Only ${recommendations.length} Gemini results, supplementing with TMDB engine`,
-    });
-
-    const tmdbRecs = await generateTmdbRecommendations(username, {
-      allMovies: movies,
-    });
-    const geminiIds = new Set(recommendations.map((r) => r.tmdb_id));
-
-    for (const tmdbRec of tmdbRecs) {
-      if (geminiIds.has(tmdbRec.movieId)) continue;
-      if (libraryIds.has(tmdbRec.movieId)) continue;
-
-      recommendations.push({
-        tmdb_id: tmdbRec.movieId,
-        title: tmdbRec.title,
-        poster_url: tmdbRec.poster_url,
-        backdrop_url: null,
-        media_type: tmdbRec.media_type || "movie",
-        genres: tmdbRec.genres || [],
-        release_year: tmdbRec.release_year || 0,
-        vote_average: tmdbRec.vote_average || 0,
-        overview: "",
-        score: tmdbRec.score,
-        reasons: tmdbRec.reasons,
-        gemini_reason: "",
-      });
-
-      if (recommendations.length >= 30) break;
-    }
-  }
-
-  // Stage 5: Persist
+  // Persist to Baserow
   const now = new Date();
   const expiresAt = new Date(
     now.getTime() + env.RECOMMENDATION_FRESHNESS_HOURS * 60 * 60 * 1000,
   );
 
   try {
-    // Mark any existing active sets as stale
     await markUserSetsStale(username);
 
     await createRecommendationSet({
@@ -287,15 +424,14 @@ async function runGenerationPipeline(
       taste_hash: tasteHash,
       created_at: now.toISOString(),
       expires_at: expiresAt.toISOString(),
-      generation_model: env.GEMINI_MODEL,
+      generation_model: `${env.GEMINI_MODEL}+tmdb-hybrid-300`,
       item_count: recommendations.length,
     });
 
     logger.info({
       module: "recommendationService",
-      action: "GENERATION_PIPELINE",
+      action: "PERSIST_SET",
       status: "SUCCESS",
-      durationMs: Date.now() - start,
       message: `Persisted ${recommendations.length} recommendations for ${username}`,
     });
   } catch (err: any) {
@@ -304,71 +440,193 @@ async function runGenerationPipeline(
       action: "PERSIST_SET",
       status: "FAILED",
       error: err,
-      message: "Failed to persist recommendation set, returning in-memory results",
+      message: "Failed to persist recommendation set to Baserow, keeping in-memory",
     });
-    // Still return the recommendations even if persistence failed
   }
+
+  // Update in-memory hot cache
+  serverRecMemoryCache.set(username, {
+    items: recommendations,
+    tasteHash,
+    expiresAt: expiresAt.getTime(),
+  });
 
   return recommendations;
 }
 
-/**
- * Fallback: convert TMDB-only engine results to RecommendationItem format and persist.
- */
-async function fallbackToTmdb(
+// ─────────────────────────────────────────────────────────────────────────────
+// Filter-Targeted Recommendation Expansion (< 10 suitable titles)
+// ─────────────────────────────────────────────────────────────────────────────
+const userExpansionCache = new Map<string, number>();
+
+export async function expandRecommendationsForFilter(
   username: string,
-  movies: MovieRow[],
-  profile: RecommendationProfileRow | null,
-  tasteHash: string,
+  category: "movies" | "series" | "anime",
+  filters: { genres?: string[]; era?: string },
+  currentSet: RecommendationItem[],
 ): Promise<RecommendationItem[]> {
-  const tmdbRecs = await generateTmdbRecommendations(username, {
-    allMovies: movies,
+  const filterKey = `${username}:${category}:${(filters.genres || []).sort().join(",")}:${filters.era || ""}`;
+  const now = Date.now();
+
+  // Rate limit expansion per filter combination to 15 minutes
+  if (userExpansionCache.has(filterKey) && now - userExpansionCache.get(filterKey)! < 15 * 60 * 1000) {
+    return currentSet;
+  }
+  userExpansionCache.set(filterKey, now);
+
+  logger.info({
+    module: "recommendationService",
+    action: "FILTER_EXPANSION",
+    category,
+    filters,
+    username,
+    status: "STARTED",
   });
 
-  const recommendations: RecommendationItem[] = tmdbRecs.slice(0, 30).map((r) => ({
-    tmdb_id: r.movieId,
-    title: r.title,
-    poster_url: r.poster_url,
-    backdrop_url: null,
-    media_type: r.media_type || "movie",
-    genres: r.genres || [],
-    release_year: r.release_year || 0,
-    vote_average: r.vote_average || 0,
-    overview: "",
-    score: r.score,
-    reasons: r.reasons,
-    gemini_reason: "",
-  }));
+  const [movies, profile] = await Promise.all([
+    getUserMovies(username),
+    getRecommendationProfile(username),
+  ]);
 
-  // Persist fallback results too
-  const now = new Date();
-  const expiresAt = new Date(
-    now.getTime() + env.RECOMMENDATION_FRESHNESS_HOURS * 60 * 60 * 1000,
-  );
+  const existingIds = new Set(currentSet.map((r) => r.tmdb_id));
+  const libraryIds = new Set(movies.map((m) => m.tmdb_id));
+  const newCandidates: ResolvedCandidate[] = [];
 
+  const filterPrompt = [
+    filters.genres?.length ? `Genres: ${filters.genres.join(", ")}` : "",
+    filters.era ? `Era / Decade: ${filters.era}` : "",
+  ].filter(Boolean).join(". ");
+
+  // 1. Try prompt-adjusted Gemini candidate generation
   try {
-    await markUserSetsStale(username);
-    await createRecommendationSet({
-      username,
-      recommendations: JSON.stringify(recommendations),
-      status: "active",
-      taste_hash: tasteHash,
-      created_at: now.toISOString(),
-      expires_at: expiresAt.toISOString(),
-      generation_model: "tmdb-fallback",
-      item_count: recommendations.length,
-    });
-  } catch (err: any) {
-    logger.error({
+    const geminiCandidates = await generateGeminiCandidates(
+      {
+        username,
+        profile,
+        ratedMovies: movies.filter((m) => m.status === "completed" && m.rating > 0),
+        allMovies: movies,
+      },
+      {
+        category,
+        targetCount: 25,
+        filterPrompt,
+      },
+    );
+
+    if (geminiCandidates.length) {
+      const resolved = await resolveGeminiCandidates(geminiCandidates, { concurrency: 5 });
+      for (const r of resolved) {
+        if (!r?.tmdb_id || existingIds.has(r.tmdb_id) || libraryIds.has(r.tmdb_id)) continue;
+        if (category === "movies" && (r.is_anime || r.media_type !== "movie")) continue;
+        if (category === "series" && (r.is_anime || r.media_type !== "tv")) continue;
+        if (category === "anime" && !r.is_anime) continue;
+
+        newCandidates.push(r);
+        existingIds.add(r.tmdb_id);
+      }
+    }
+  } catch (err) {
+    logger.warn({
       module: "recommendationService",
-      action: "PERSIST_FALLBACK",
-      status: "FAILED",
+      action: "FILTER_EXPANSION_GEMINI",
       error: err,
-      message: "Failed to persist fallback recommendation set",
     });
   }
 
-  return recommendations;
+  // 2. Supplement from TMDB discover for these filters if still needed
+  if (newCandidates.length < 15 && filters.genres?.length) {
+    const genreIds = filters.genres
+      .map((g) => GENRE_NAME_TO_TMDB_ID[g])
+      .filter(Boolean)
+      .join(",");
+
+    let eraParam = "";
+    if (filters.era === "2020s") eraParam = "&primary_release_date.gte=2020-01-01&first_air_date.gte=2020-01-01";
+    else if (filters.era === "2010s") eraParam = "&primary_release_date.gte=2010-01-01&primary_release_date.lte=2019-12-31";
+    else if (filters.era === "2000s") eraParam = "&primary_release_date.gte=2000-01-01&primary_release_date.lte=2009-12-31";
+    else if (filters.era === "1990s") eraParam = "&primary_release_date.gte=1990-01-01&primary_release_date.lte=1999-12-31";
+    else if (filters.era === "Classic") eraParam = "&primary_release_date.lte=1989-12-31";
+
+    const endpoints: string[] = [];
+    if (category === "movies") {
+      endpoints.push(`/discover/movie?with_genres=${genreIds}${eraParam}&sort_by=vote_average.desc&vote_count.gte=100&page=1`);
+    } else if (category === "series") {
+      endpoints.push(`/discover/tv?with_genres=${genreIds}${eraParam}&sort_by=vote_average.desc&vote_count.gte=80&page=1`);
+    } else if (category === "anime") {
+      endpoints.push(`/discover/tv?with_genres=16${genreIds ? `,${genreIds}` : ""}&with_original_language=ja${eraParam}&sort_by=vote_average.desc&vote_count.gte=50&page=1`);
+      endpoints.push(`/discover/movie?with_genres=16${genreIds ? `,${genreIds}` : ""}&with_original_language=ja${eraParam}&sort_by=vote_average.desc&vote_count.gte=50&page=1`);
+    }
+
+    for (const ep of endpoints) {
+      const data = await tmdbFetch(ep);
+      for (const item of data?.results || []) {
+        if (!item?.id || existingIds.has(item.id) || libraryIds.has(item.id)) continue;
+        const mediaType = item.media_type === "tv" || item.first_air_date ? "tv" : "movie";
+        const isAnimeTitle = isAnime({
+          id: item.id,
+          media_type: mediaType,
+          title: item.title || item.name,
+          genre_ids: item.genre_ids,
+          original_language: item.original_language,
+          origin_country: item.origin_country,
+        });
+
+        if (category === "movies" && (isAnimeTitle || mediaType !== "movie")) continue;
+        if (category === "series" && (isAnimeTitle || mediaType !== "tv")) continue;
+        if (category === "anime" && !isAnimeTitle) continue;
+
+        existingIds.add(item.id);
+        const releaseDate = item.release_date || item.first_air_date || "";
+        const genres = (item.genre_ids || []).map((id: number) => TMDB_GENRE_MAP[id]).filter(Boolean);
+
+        newCandidates.push({
+          tmdb_id: item.id,
+          title: item.title || item.name || "Untitled",
+          poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+          backdrop_url: item.backdrop_path ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}` : null,
+          media_type: mediaType,
+          genres,
+          release_year: parseInt(releaseDate.split("-")[0], 10) || 0,
+          vote_average: item.vote_average ? parseFloat(Number(item.vote_average).toFixed(1)) : 0,
+          overview: item.overview || "",
+          gemini_reason: `Discovered for filters: ${filterPrompt}`,
+          is_anime: isAnimeTitle,
+        });
+      }
+    }
+  }
+
+  if (!newCandidates.length) return currentSet;
+
+  const scoredNew = scoreResolvedCandidates(newCandidates, profile);
+  const updatedSet = [...currentSet, ...scoredNew];
+
+  // Update in-memory and database
+  const cached = serverRecMemoryCache.get(username);
+  if (cached) {
+    cached.items = updatedSet;
+  }
+
+  if (env.BASEROW_RECOMMENDATION_SETS_TABLE_ID) {
+    getActiveRecommendationSet(username).then((activeRow) => {
+      if (activeRow?.id) {
+        updateRecommendationSet(activeRow.id, {
+          recommendations: JSON.stringify(updatedSet),
+          item_count: updatedSet.length,
+        }).catch(() => {});
+      }
+    });
+  }
+
+  logger.info({
+    module: "recommendationService",
+    action: "FILTER_EXPANSION",
+    status: "SUCCESS",
+    addedCount: scoredNew.length,
+    newTotal: updatedSet.length,
+  });
+
+  return updatedSet;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,10 +640,11 @@ export interface GetRecommendationsOptions {
 }
 
 /**
- * Get recommendations for a user using the hybrid lifecycle:
- * 1. Check for fresh persisted set → return if valid
- * 2. Generate new set via Gemini + TMDB → persist and return
- * 3. Revalidate watched/excluded items before serving
+ * Get recommendations for a user:
+ * 1. Check in-memory server cache
+ * 2. Check fresh persisted set in database
+ * 3. Generate new 300-title set (100 movies, 100 series, 100 anime)
+ * 4. Filter out newly added library titles before serving
  */
 export async function getRecommendations(
   username: string,
@@ -394,14 +653,6 @@ export async function getRecommendations(
   const start = Date.now();
   const forceRefresh = options?.forceRefresh ?? false;
 
-  logger.info({
-    module: "recommendationService",
-    action: "GET_RECOMMENDATIONS",
-    status: "STARTED",
-    message: `Getting recommendations for ${username} (force=${forceRefresh})`,
-  });
-
-  // Load user context
   const [movies, profile] = await Promise.all([
     getUserMovies(username),
     getRecommendationProfile(username),
@@ -409,62 +660,48 @@ export async function getRecommendations(
 
   const tasteHash = computeTasteHash(profile, movies);
 
-  // Check for persisted set (unless forcing refresh)
+  // 1. Check in-memory cache
+  if (!forceRefresh) {
+    const mem = serverRecMemoryCache.get(username);
+    if (mem && mem.tasteHash === tasteHash && mem.expiresAt > Date.now()) {
+      const items = revalidateItems(mem.items, movies);
+      return applyPagination(items, options);
+    }
+  }
+
+  // 2. Check database set
   if (!forceRefresh && env.BASEROW_RECOMMENDATION_SETS_TABLE_ID) {
     const existingSet = await getActiveRecommendationSet(username);
 
     if (existingSet && isSetFresh(existingSet, tasteHash)) {
-      logger.info({
-        module: "recommendationService",
-        action: "GET_RECOMMENDATIONS",
-        status: "SUCCESS",
-        durationMs: Date.now() - start,
-        message: `Serving ${existingSet.item_count} persisted recommendations (cached)`,
-      });
+      const raw = parseRecommendations(existingSet);
+      if (raw.length > 0) {
+        serverRecMemoryCache.set(username, {
+          items: raw,
+          tasteHash,
+          expiresAt: new Date(existingSet.expires_at).getTime(),
+        });
 
-      // Revalidate: filter out newly watched/excluded items
-      const items = revalidateItems(
-        parseRecommendations(existingSet),
-        movies,
-      );
-
-      return applyPagination(items, options);
-    }
-
-    // Set exists but is stale or taste changed — need regeneration
-    if (existingSet && !isSetFresh(existingSet, tasteHash)) {
-      logger.info({
-        module: "recommendationService",
-        action: "SET_STALE",
-        status: "STARTED",
-        message: `Existing set is stale (hash mismatch or expired), regenerating`,
-      });
+        const items = revalidateItems(raw, movies);
+        return applyPagination(items, options);
+      }
     }
   }
 
-  // Dedup concurrent generation requests
+  // 3. Deduplicate concurrent generation requests
   const inflightKey = `${username}:${tasteHash}`;
   if (inflightGenerations.has(inflightKey)) {
-    logger.info({
-      module: "recommendationService",
-      action: "DEDUP_INFLIGHT",
-      status: "SUCCESS",
-      message: "Joining existing in-flight generation",
-    });
     const result = await inflightGenerations.get(inflightKey)!;
     return applyPagination(revalidateItems(result, movies), options);
   }
 
-  // Get previous recommendation titles for diversity
+  // 4. Generate fresh 300-title recommendation set
   let previousTitles: string[] = [];
   if (env.BASEROW_RECOMMENDATION_SETS_TABLE_ID) {
     const prevSet = await getActiveRecommendationSet(username);
-    if (prevSet) {
-      previousTitles = parseRecommendations(prevSet).map((r) => r.title);
-    }
+    if (prevSet) previousTitles = parseRecommendations(prevSet).map((r) => r.title);
   }
 
-  // Generate new recommendations
   const generationPromise = runGenerationPipeline(
     username,
     movies,
@@ -476,36 +713,23 @@ export async function getRecommendations(
   });
 
   inflightGenerations.set(inflightKey, generationPromise);
-
   const items = await generationPromise;
-
-  logger.info({
-    module: "recommendationService",
-    action: "GET_RECOMMENDATIONS",
-    status: "SUCCESS",
-    durationMs: Date.now() - start,
-    message: `Generated and persisted ${items.length} fresh recommendations`,
-  });
 
   return applyPagination(revalidateItems(items, movies), options);
 }
 
-/**
- * Revalidate persisted items against current user state.
- * Removes watched, excluded items.
- */
 function revalidateItems(
   items: RecommendationItem[],
   movies: MovieRow[],
 ): RecommendationItem[] {
-  const watchedIds = new Set(
-    movies
-      .filter((m) => m.status === "completed")
-      .map((m) => m.tmdb_id),
-  );
   const libraryIds = new Set(movies.map((m) => m.tmdb_id));
+  const libraryNames = new Set(movies.map((m) => m.movie_name.toLowerCase().trim()));
 
-  return items.filter((item) => !libraryIds.has(item.tmdb_id));
+  return items.filter((item) => {
+    if (libraryIds.has(item.tmdb_id)) return false;
+    if (libraryNames.has(item.title.toLowerCase().trim())) return false;
+    return true;
+  });
 }
 
 function applyPagination(
@@ -518,30 +742,17 @@ function applyPagination(
   return items;
 }
 
-/**
- * Invalidate recommendations for a user (mark as stale).
- * Called when meaningful taste changes occur.
- */
-export async function invalidateRecommendations(
-  username: string,
-): Promise<void> {
+export async function invalidateRecommendations(username: string): Promise<void> {
+  serverRecMemoryCache.delete(username);
   if (!env.BASEROW_RECOMMENDATION_SETS_TABLE_ID) return;
-
   try {
     await markUserSetsStale(username);
-    logger.info({
-      module: "recommendationService",
-      action: "INVALIDATE",
-      status: "SUCCESS",
-      message: `Invalidated recommendations for ${username}`,
-    });
   } catch (err: any) {
     logger.error({
       module: "recommendationService",
       action: "INVALIDATE",
       status: "FAILED",
       error: err,
-      message: `Failed to invalidate recommendations for ${username}`,
     });
   }
 }
@@ -551,6 +762,7 @@ export function toLegacyFormat(items: RecommendationItem[]): (RecommendationExpl
   gemini_reason?: string;
   overview?: string;
   backdrop_url?: string | null;
+  is_anime?: boolean;
 })[] {
   return items.map((item) => ({
     id: item.tmdb_id,
@@ -566,6 +778,6 @@ export function toLegacyFormat(items: RecommendationItem[]): (RecommendationExpl
     overview: item.overview,
     backdrop_url: item.backdrop_url,
     gemini_reason: item.gemini_reason,
+    is_anime: item.is_anime,
   }));
 }
-

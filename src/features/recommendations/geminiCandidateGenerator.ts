@@ -160,37 +160,68 @@ function buildTasteSummary(ctx: UserTasteContext): string {
   return parts.join("\n\n");
 }
 
+export interface GeminiGenerationOptions {
+  category?: "movies" | "series" | "anime";
+  targetCount?: number;
+  filterPrompt?: string;
+}
+
 /**
  * Generate recommendation candidates using Gemini.
- * Returns 30 candidates for TMDB resolution and filtering.
+ * Supports category-specific generation (Movies, Series, Anime)
+ * and filter-targeted candidate discovery for low-result filter expansion.
  */
 export async function generateGeminiCandidates(
   ctx: UserTasteContext,
-  targetCount = 30,
+  optionsOrCount?: number | GeminiGenerationOptions,
 ): Promise<GeminiCandidate[]> {
   const start = Date.now();
+
+  const options: GeminiGenerationOptions =
+    typeof optionsOrCount === "number"
+      ? { targetCount: optionsOrCount }
+      : optionsOrCount || {};
+
+  const targetCount = options.targetCount ?? 80;
+  const category = options.category;
+  const filterPrompt = options.filterPrompt;
 
   const tasteSummary = buildTasteSummary(ctx);
   const hasTaste = ctx.ratedMovies.length >= 3;
 
-  const systemPrompt = `You are a movie and TV show recommendation expert. Given a user's taste profile, suggest ${targetCount} movies and TV shows they would genuinely enjoy.
+  let categoryDescription = "movies and TV shows";
+  let mediaTypeInstruction = `Each recommendation must have media_type: "movie" or "tv".`;
+  if (category === "movies") {
+    categoryDescription = "live-action and Western cinema feature films (DO NOT include Japanese anime or TV series)";
+    mediaTypeInstruction = `All recommendations MUST be media_type: "movie". Do NOT recommend Japanese anime.`;
+  } else if (category === "series") {
+    categoryDescription = "live-action and Western episodic TV series (DO NOT include Japanese anime or movies)";
+    mediaTypeInstruction = `All recommendations MUST be media_type: "tv". Do NOT recommend Japanese anime or standalone movies.`;
+  } else if (category === "anime") {
+    categoryDescription = "Japanese anime productions (including both acclaimed anime TV series and theatrical anime movies)";
+    mediaTypeInstruction = `All recommendations MUST be Japanese anime. Set media_type to "tv" for anime series or "movie" for anime films.`;
+  }
+
+  const systemPrompt = `You are a cinematic recommendation specialist. Suggest ${targetCount} ${categoryDescription} that the user will genuinely love.
 
 Rules:
-- Suggest REAL movies and TV shows that actually exist. Do not invent titles.
-- Include a mix of well-known and lesser-known titles for variety.
-- Include both movies and TV series.
-- Each recommendation must include the exact title, approximate release year, whether it's a "movie" or "tv" show, and a brief personal reason why this user would enjoy it based on their specific taste.
-- Do NOT recommend anything already in their library.
-- Prioritize personal taste fit over generic popularity.
-- Include diverse genres but weight toward their preferences.
-- Output ONLY a JSON array with no additional text.
+- Suggest REAL, verified titles that actually exist in the TMDB database. Do NOT hallucinate or invent titles.
+- ${mediaTypeInstruction}
+- Mix well-known acclaimed masterpieces with lesser-known hidden gems.
+- For each recommendation, provide:
+  * "title": Exact official title (English or commonly known international title). For anime, common English or Romaji title.
+  * "year": Release year as an integer (e.g. 2019).
+  * "media_type": "movie" or "tv".
+  * "reason": Concise, personalized explanation of why this matches the user's taste.
+- Do NOT suggest titles already in their library or previous recommendations.
+${filterPrompt ? `- STRICT FILTER REQUIREMENT: Every single suggestion MUST strictly match these user filters: ${filterPrompt}` : ""}
+- Output ONLY a JSON array of objects. No markdown explanations or preamble.`;
 
-Each item format:
-{"title": "Movie Title", "year": 2020, "media_type": "movie", "reason": "Brief reason based on user taste"}`;
-
-  const userPrompt = hasTaste
-    ? `Based on this user's taste profile, recommend ${targetCount} movies and TV shows:\n\n${tasteSummary}`
-    : `This is a new user with very few ratings. Recommend ${targetCount} diverse, critically acclaimed and popular movies and TV shows across different genres that most people enjoy. Mix classics with recent hits.\n\n${tasteSummary}`;
+  const userPrompt = filterPrompt
+    ? `Find titles specifically matching these filters: "${filterPrompt}". User taste context:\n\n${tasteSummary}`
+    : hasTaste
+    ? `Based on this user's taste profile, recommend ${targetCount} ${categoryDescription}:\n\n${tasteSummary}`
+    : `This user is exploring ${categoryDescription}. Recommend ${targetCount} top-rated, critically acclaimed and beloved titles across diverse genres:\n\n${tasteSummary}`;
 
   try {
     const candidates = await geminiJsonChat<GeminiCandidate[]>({
@@ -198,29 +229,44 @@ Each item format:
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: hasTaste ? 0.8 : 0.6,
-      maxTokens: 4096,
-      timeoutMs: 45_000,
+      temperature: hasTaste ? 0.75 : 0.6,
+      maxTokens: 8192,
+      timeoutMs: 50_000,
     });
 
     if (!Array.isArray(candidates)) {
       throw new Error("Gemini did not return an array");
     }
 
-    // Validate structure
-    const valid = candidates.filter(
-      (c) =>
-        typeof c.title === "string" &&
-        c.title.length > 0 &&
-        typeof c.reason === "string",
-    );
+    // Validate structure & tag categoryHint
+    const valid = candidates
+      .filter(
+        (c) =>
+          typeof c.title === "string" &&
+          c.title.trim().length > 0 &&
+          typeof c.reason === "string",
+      )
+      .map((c) => ({
+        ...c,
+        title: c.title.trim(),
+        categoryHint: category,
+        media_type:
+          category === "movies"
+            ? "movie"
+            : category === "series"
+            ? "tv"
+            : c.media_type === "tv" || c.media_type === "movie"
+            ? c.media_type
+            : undefined,
+      }));
 
     logger.info({
       module: "geminiCandidateGenerator",
       action: "GENERATE_CANDIDATES",
+      category: category || "all",
       status: "SUCCESS",
       durationMs: Date.now() - start,
-      message: `Gemini generated ${valid.length} valid candidates (${candidates.length} total)`,
+      message: `Gemini generated ${valid.length} valid candidates for ${category || "all"}`,
     });
 
     return valid;
@@ -228,6 +274,7 @@ Each item format:
     logger.error({
       module: "geminiCandidateGenerator",
       action: "GENERATE_CANDIDATES",
+      category: category || "all",
       status: "FAILED",
       durationMs: Date.now() - start,
       error: err,

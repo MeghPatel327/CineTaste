@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function AddMovieRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/discover");
+    router.replace("/movies");
   }, [router]);
   return null;
 }

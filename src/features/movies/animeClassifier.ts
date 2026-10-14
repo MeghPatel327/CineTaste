@@ -112,8 +112,9 @@ export function hasAnimeKeyword(item: AnimeCandidate): boolean {
 /**
  * Returns true if the title is classified as Anime.
  */
-export function isAnime(item: AnimeCandidate): boolean {
+export function isAnime(item: AnimeCandidate & { is_anime?: boolean }): boolean {
   if (!item) return false;
+  if (typeof (item as any).is_anime === "boolean") return (item as any).is_anime;
 
   const hasAnimation = hasAnimationGenre(item);
   const isJP = hasJapaneseOrigin(item);

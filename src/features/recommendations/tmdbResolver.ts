@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { isAnime } from "@/features/movies/animeClassifier";
 
 /**
  * TMDB resolver for Gemini-generated candidates.
@@ -11,6 +12,7 @@ export interface GeminiCandidate {
   year?: number;
   reason: string;
   media_type?: "movie" | "tv";
+  categoryHint?: "movies" | "series" | "anime";
 }
 
 export interface ResolvedCandidate {
@@ -24,6 +26,7 @@ export interface ResolvedCandidate {
   vote_average: number;
   overview: string;
   gemini_reason: string;
+  is_anime: boolean;
 }
 
 const TMDB = "https://api.themoviedb.org/3";
@@ -93,6 +96,16 @@ async function resolveOne(
       .map((id: number) => TMDB_GENRE_MAP[id])
       .filter(Boolean);
 
+    const isAnimeTitle = isAnime({
+      id: match.id,
+      media_type: mediaType,
+      title: match.title || match.name,
+      genre_ids: match.genre_ids,
+      original_language: match.original_language,
+      origin_country: match.origin_country,
+      overview: match.overview,
+    });
+
     return {
       tmdb_id: match.id,
       title: match.title || match.name,
@@ -108,6 +121,7 @@ async function resolveOne(
       vote_average: match.vote_average || 0,
       overview: match.overview || "",
       gemini_reason: reason,
+      is_anime: isAnimeTitle,
     };
   }
 

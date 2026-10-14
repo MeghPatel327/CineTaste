@@ -204,9 +204,9 @@ export default function MovieLibraryPage() {
                   Manage your personal movie collection, ratings, and watch statuses.
                 </p>
               </div>
-              <Link href="/discover" onClick={handleSaveScroll}>
+              <Link href="/movies" onClick={handleSaveScroll}>
                 <Button className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-semibold rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)]">
-                  <Plus className="w-4 h-4 mr-2" /> Add Title
+                  <Plus className="w-4 h-4 mr-2" /> Browse Movies
                 </Button>
               </Link>
             </div>
@@ -256,7 +256,7 @@ export default function MovieLibraryPage() {
               <EmptyState
                 title="Your library is waiting for its first masterpiece."
                 description="Add a movie or series, or adjust your filters to reveal saved titles."
-                action={<Link href="/discover"><Button>Add Movie</Button></Link>}
+                action={<Link href="/movies"><Button>Browse Movies</Button></Link>}
               />
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 py-4 -my-4">
