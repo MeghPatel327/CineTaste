@@ -44,3 +44,4 @@ next-env.d.ts
 temp.txt
 structure_root.txt
 *.txt
+.agents
