@@ -45,3 +45,4 @@ temp.txt
 structure_root.txt
 *.txt
 .agents
+.codegraph

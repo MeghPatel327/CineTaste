@@ -22,7 +22,7 @@ export const GET = withLogger(async (req: NextRequest) => {
     : "movies";
 
   const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = parseInt(searchParams.get("limit") || "24", 10);
+  const limit = parseInt(searchParams.get("limit") || "50", 10);
   const query = searchParams.get("query") || "";
   const era = searchParams.get("era") || "";
   const subType = searchParams.get("subType") || "all";
@@ -30,7 +30,9 @@ export const GET = withLogger(async (req: NextRequest) => {
     | "recommended"
     | "rating"
     | "year"
-    | "title";
+    | "year-asc"
+    | "title"
+    | "title-desc";
 
   // Support both comma-separated genres and multiple genre query params
   const rawGenres = searchParams.get("genres") || searchParams.get("genre") || "";

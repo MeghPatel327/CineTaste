@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AppShell } from "@/components/AppShell";
 import {
+  Search,
+  X,
   Sparkles,
   PlayCircle,
   Star,
@@ -24,59 +26,288 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
+import { MovieCard } from "@/components/MovieCard";
 import { HorizontalRow, type RowItem } from "@/components/HorizontalRow";
 import {
   StatCardSkeleton,
   RecPreviewSkeleton,
   WatchRowSkeleton,
+  MovieCardSkeleton,
   Skeleton,
 } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/lib/appStore";
+import { startBackgroundCataloguePrefetch } from "@/features/movies/browseClientCache";
+import type { UnifiedSearchResultItem } from "@/features/movies/searchService";
 
 let dashboardCacheRef: { data: any; fetchedAt: number } | null = null;
 const DASHBOARD_TTL = 60_000;
 const HERO_ROTATION_MS = 7_000; // 7 seconds per slide
 
 export default function DashboardPage() {
-  const [data, setData] = useState<any>(dashboardCacheRef?.data ?? null);
-  const [loading, setLoading] = useState(!dashboardCacheRef?.data);
+  const { state: appState, getDashboard } = useAppStore();
+  const [data, setData] = useState<any>(
+    appState.dashboardData?.data ?? dashboardCacheRef?.data ?? null
+  );
+  const [loading, setLoading] = useState(!data);
   const [error, setError] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
 
-  const fetchDashboard = useCallback(async (force = false) => {
-    if (!force && dashboardCacheRef && Date.now() - dashboardCacheRef.fetchedAt < DASHBOARD_TTL) {
-      setData(dashboardCacheRef.data);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(false);
-    try {
-      const res = await fetch("/api/dashboard");
-      const json = await res.json();
-      if (res.ok) {
-        dashboardCacheRef = { data: json.data, fetchedAt: Date.now() };
-        setData(json.data);
-      } else {
-        setError(true);
-        toast.error("Failed to load dashboard");
-      }
-    } catch {
-      setError(true);
-      toast.error("Error loading dashboard");
-    } finally {
-      setLoading(false);
-    }
+  // Unified Search State
+  const [searchQueryInput, setSearchQueryInput] = useState("");
+  const [activeSearchQuery, setActiveSearchQuery] = useState("");
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchResults, setSearchResults] = useState<UnifiedSearchResultItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchStatusMessage, setSearchStatusMessage] = useState<string | null>(null);
+  const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+
+  // Scroll listener for pinned controls
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsPinned(window.scrollY > 30);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const fetchDashboard = useCallback(
+    async (force = false) => {
+      if (!force && data) {
+        // Revalidate in background if stale
+        getDashboard(false)
+          .then((res) => {
+            if (res?.data) {
+              dashboardCacheRef = { data: res.data, fetchedAt: Date.now() };
+              setData(res.data);
+            }
+          })
+          .catch(() => {});
+        return;
+      }
+
+      setLoading(true);
+      setError(false);
+      try {
+        const res = await getDashboard(force);
+        if (res?.data) {
+          dashboardCacheRef = { data: res.data, fetchedAt: Date.now() };
+          setData(res.data);
+        } else {
+          if (!data) setError(true);
+        }
+      } catch {
+        if (!data) setError(true);
+        toast.error("Error loading dashboard");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [data, getDashboard]
+  );
 
   useEffect(() => {
     fetchDashboard();
+    startBackgroundCataloguePrefetch();
   }, [fetchDashboard]);
+
+  const executeSearch = async (queryText: string) => {
+    const q = queryText.trim();
+    if (!q) {
+      handleClearSearch();
+      return;
+    }
+
+    setIsSearchActive(true);
+    setActiveSearchQuery(q);
+    setIsSearching(true);
+    setSearchStatusMessage(null);
+    setSearchFallbackUsed(false);
+
+    try {
+      // 1. Direct TMDB multi-search across movies, series, anime (bypasses Gemini)
+      const res = await fetch(
+        `/api/search?query=${encodeURIComponent(q)}&category=all&fallback=false`
+      );
+      const resJson = await res.json();
+      const results: UnifiedSearchResultItem[] = resJson?.data?.results || [];
+
+      if (results.length > 0) {
+        setSearchResults(results);
+        setIsSearching(false);
+        return;
+      }
+
+      // 2. Direct search produced 0 results -> Show status message and invoke Gemini fallback
+      setSearchStatusMessage("CineTaste is looking for suitable alternatives...");
+
+      const fallbackRes = await fetch(
+        `/api/search?query=${encodeURIComponent(q)}&category=all&fallback=true`
+      );
+      const fallbackJson = await fallbackRes.json();
+      const fallbackResults: UnifiedSearchResultItem[] = fallbackJson?.data?.results || [];
+
+      setSearchResults(fallbackResults);
+      setSearchFallbackUsed(fallbackJson?.data?.fallbackUsed ?? false);
+    } catch {
+      toast.error("Search failed. Please retry.");
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+      setSearchStatusMessage(null);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setIsSearchActive(false);
+    setActiveSearchQuery("");
+    setSearchQueryInput("");
+    setSearchResults([]);
+    setSearchStatusMessage(null);
+  };
 
   return (
     <AppShell>
       <div className="page-enter min-h-screen">
-        {error && !loading ? (
+        {/* ── Persistent Sticky Unified Search Header (Movies, Series, Anime) ── */}
+        <div
+          className={cn(
+            "sticky top-0 z-30 transition-all duration-300 ease-out",
+            isPinned
+              ? "bg-[#08090C]/95 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.85)] py-3 px-4 md:px-12"
+              : "bg-transparent pt-4 pb-2 px-4 md:px-12"
+          )}
+        >
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                executeSearch(searchQueryInput);
+              }}
+              className="flex items-center gap-2 w-full max-w-2xl"
+            >
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search across Movies, Series & Anime (TMDB)..."
+                  value={searchQueryInput}
+                  onChange={(e) => setSearchQueryInput(e.target.value)}
+                  className="w-full bg-[#0D1013] border border-white/[0.1] hover:border-white/[0.18] focus:border-emerald-500/60 rounded-xl pl-10 pr-9 py-2 text-sm text-[#F5F7F6] focus:outline-none focus:ring-1 focus:ring-emerald-500/30 placeholder:text-[#A1AAA6]/50 shadow-inner transition-colors"
+                />
+                {searchQueryInput && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A1AAA6] hover:text-[#F5F7F6]"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-bold px-4 rounded-xl shrink-0 shadow-[0_2px_12px_rgba(16,185,129,0.3)]"
+              >
+                Apply
+              </Button>
+            </form>
+
+            {isSearchActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSearch}
+                className="text-xs text-[#A1AAA6] hover:text-[#F5F7F6]"
+              >
+                <X className="w-3.5 h-3.5 mr-1" />
+                Close Search
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Main View: Unified Search Results vs Dashboard Rails ── */}
+        {isSearchActive ? (
+          <div className="max-w-7xl mx-auto px-4 md:px-12 py-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+              <div>
+                <h2 className="font-heading text-xl font-bold text-[#F5F7F6] flex items-center gap-2">
+                  <Search className="w-4 h-4 text-emerald-400" />
+                  Search Results for "{activeSearchQuery}"
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/[0.06] text-[#A1AAA6]">
+                    {searchResults.length} {searchResults.length === 1 ? "match" : "matches"}
+                  </span>
+                </h2>
+                {searchFallbackUsed && (
+                  <p className="text-xs text-emerald-400 flex items-center gap-1 mt-1">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Intelligent alternative matches discovered via Gemini AI & resolved on TMDB
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {searchStatusMessage && (
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm animate-pulse shadow-md">
+                <Sparkles className="w-5 h-5 text-emerald-400 animate-spin" />
+                <span>{searchStatusMessage}</span>
+              </div>
+            )}
+
+            {isSearching ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <MovieCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div className="py-16">
+                <EmptyState
+                  title={`No titles found for "${activeSearchQuery}"`}
+                  description="No direct TMDB or AI alternative matches were found. Try searching with different keywords."
+                  action={
+                    <Button
+                      onClick={handleClearSearch}
+                      className="bg-emerald-500 text-[#08090C] hover:bg-emerald-400 font-bold"
+                    >
+                      Return to Home
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {searchResults.map((item, index) => (
+                  <div key={`dash-search-${item.id}-${index}`} className="relative group">
+                    <MovieCard
+                      id={item.id}
+                      title={item.title}
+                      posterUrl={item.poster_url}
+                      mediaType={item.media_type}
+                      releaseYear={item.release_year}
+                      voteAverage={item.vote_average}
+                      score={item.score}
+                      showScore={true}
+                      genres={item.genres}
+                      onClick={(id, type) => setSelectedItem({ id, type })}
+                    />
+                    {item.fallbackMatch && (
+                      <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-emerald-500/90 text-[#08090C] text-[10px] font-bold shadow-md flex items-center gap-1 backdrop-blur-sm">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        AI Match
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : error && !loading && !data ? (
           <div className="p-6 md:p-12 max-w-6xl mx-auto">
             <ErrorState
               title="Dashboard failed to load"

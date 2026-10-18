@@ -34,6 +34,7 @@ interface AppState {
 
   library: CachedEntry<any[]> | null;
   discoverData: CachedEntry<any> | null;
+  dashboardData: CachedEntry<any> | null;
   profile: CachedEntry<any> | null;
   pirateSites: CachedEntry<any[]> | null;
 
@@ -52,6 +53,7 @@ type Action =
   | { type: "UPDATE_LIBRARY_ITEM"; payload: { id: number; updates: any } }
   | { type: "REMOVE_LIBRARY_ITEM"; payload: number }
   | { type: "SET_DISCOVER"; payload: any }
+  | { type: "SET_DASHBOARD"; payload: any }
   | { type: "SET_PROFILE"; payload: any }
   | { type: "SET_PIRATE_SITES"; payload: any[] }
   | { type: "SET_TMDB_DETAIL"; key: string; payload: any }
@@ -65,6 +67,7 @@ const initialState: AppState = {
   userFetched: false,
   library: null,
   discoverData: null,
+  dashboardData: null,
   profile: null,
   pirateSites: null,
   tmdbDetails: {},
@@ -102,6 +105,8 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case "SET_DISCOVER":
       return { ...state, discoverData: { data: action.payload, fetchedAt: Date.now() } };
+    case "SET_DASHBOARD":
+      return { ...state, dashboardData: { data: action.payload, fetchedAt: Date.now() } };
     case "SET_PROFILE":
       return { ...state, profile: { data: action.payload, fetchedAt: Date.now() } };
     case "SET_PIRATE_SITES":
@@ -125,8 +130,10 @@ interface AppStoreContextValue {
   // Convenience helpers
   getUser: () => Promise<AppUser | null>;
   getLibrary: (force?: boolean) => Promise<any[]>;
+  getDashboard: (force?: boolean) => Promise<{ data: any; isStale: boolean } | null>;
   getPirateSites: () => Promise<any[]>;
   invalidateLibrary: () => void;
+  invalidateDashboard: () => void;
   invalidateDiscover: () => void;
 }
 
@@ -136,6 +143,7 @@ const AppStoreContext = createContext<AppStoreContextValue | null>(null);
 
 // Cache TTL in ms
 const LIBRARY_TTL   = 60_000;    // 1 min
+const DASHBOARD_TTL = 60_000;    // 1 min
 const DISCOVER_TTL  = 5 * 60_000; // 5 min
 const PROFILE_TTL   = 5 * 60_000;
 const SITES_TTL     = 10 * 60_000;
@@ -146,6 +154,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   // Inflight request dedup refs
   const userInflight   = useRef<Promise<AppUser | null> | null>(null);
   const libraryInflight = useRef<Promise<any[]> | null>(null);
+  const dashboardInflight = useRef<Promise<any> | null>(null);
   const sitesInflight   = useRef<Promise<any[]> | null>(null);
 
   // Initialize sidebar state from localStorage on mount
@@ -202,6 +211,45 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     return libraryInflight.current;
   }, [state.library]);
 
+  const getDashboard = useCallback(
+    async (force = false): Promise<{ data: any; isStale: boolean } | null> => {
+      const cached = state.dashboardData;
+      const isStale = !cached || Date.now() - cached.fetchedAt >= DASHBOARD_TTL;
+
+      // Non-blocking background revalidation if stale or force
+      if (force || isStale) {
+        if (!dashboardInflight.current) {
+          dashboardInflight.current = fetch("/api/dashboard")
+            .then((res) => (res.ok ? res.json() : null))
+            .then((json) => {
+              if (json?.data) {
+                dispatch({ type: "SET_DASHBOARD", payload: json.data });
+              }
+              dashboardInflight.current = null;
+              return json?.data ?? null;
+            })
+            .catch(() => {
+              dashboardInflight.current = null;
+              return null;
+            });
+        }
+      }
+
+      if (cached) {
+        return { data: cached.data, isStale };
+      }
+
+      // If no cache yet, await the inflight request
+      if (dashboardInflight.current) {
+        const freshData = await dashboardInflight.current;
+        return freshData ? { data: freshData, isStale: false } : null;
+      }
+
+      return null;
+    },
+    [state.dashboardData]
+  );
+
   const getPirateSites = useCallback(async (): Promise<any[]> => {
     const cached = state.pirateSites;
     if (cached && Date.now() - cached.fetchedAt < SITES_TTL) return cached.data;
@@ -226,12 +274,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const invalidateLibrary = useCallback(() => {
     dispatch({ type: "SET_LIBRARY", payload: state.library?.data ?? [] });
-    // Force next getLibrary to re-fetch by setting fetchedAt to 0
     if (state.library) {
-      // Trick: set fetchedAt very old
       dispatch({ type: "SET_LIBRARY", payload: [] });
     }
   }, [state.library]);
+
+  const invalidateDashboard = useCallback(() => {
+    // Invalidate dashboard cache
+    dispatch({ type: "SET_DASHBOARD", payload: null });
+  }, []);
 
   const invalidateDiscover = useCallback(() => {
     dispatch({ type: "SET_DISCOVER", payload: null });
@@ -239,7 +290,17 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppStoreContext.Provider
-      value={{ state, dispatch, getUser, getLibrary, getPirateSites, invalidateLibrary, invalidateDiscover }}
+      value={{
+        state,
+        dispatch,
+        getUser,
+        getLibrary,
+        getDashboard,
+        getPirateSites,
+        invalidateLibrary,
+        invalidateDashboard,
+        invalidateDiscover,
+      }}
     >
       {children}
     </AppStoreContext.Provider>

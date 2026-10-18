@@ -13,36 +13,47 @@ import Link from "next/link";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import { cn } from "@/lib/utils";
 
+let queueCacheRef: { data: MovieRow[]; fetchedAt: number } | null = null;
+const QUEUE_TTL = 60_000;
+
 export default function UpNextPage() {
-  const [queue, setQueue] = useState<MovieRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [queue, setQueue] = useState<MovieRow[]>(queueCacheRef?.data ?? []);
+  const [loading, setLoading] = useState(!queueCacheRef?.data);
   const [error, setError] = useState(false);
   const [movingId, setMovingId] = useState<number | null>(null);
   const [selectedItem, setSelectedItem] = useState<{ id: number; type: "movie" | "series" } | null>(null);
 
-  useEffect(() => {
-    fetchQueue();
-  }, []);
+  const fetchQueue = async (force = false) => {
+    if (!force && queueCacheRef && Date.now() - queueCacheRef.fetchedAt < QUEUE_TTL) {
+      setQueue(queueCacheRef.data);
+      setLoading(false);
+      return;
+    }
 
-  const fetchQueue = async () => {
-    setLoading(true);
+    if (!queueCacheRef?.data) setLoading(true);
     setError(false);
     try {
       const res = await fetch("/api/queue");
       const data = await res.json();
       if (res.ok) {
-        setQueue(data.data || []);
+        const freshQueue = data.data || [];
+        queueCacheRef = { data: freshQueue, fetchedAt: Date.now() };
+        setQueue(freshQueue);
       } else {
-        setError(true);
+        if (!queueCacheRef?.data) setError(true);
         toast.error("Failed to load watch queue");
       }
     } catch {
-      setError(true);
+      if (!queueCacheRef?.data) setError(true);
       toast.error("Error loading watch queue");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchQueue();
+  }, []);
 
   // Serialization: only one reorder request in-flight at a time
   const pendingRef = useRef<Promise<void>>(Promise.resolve());
@@ -130,7 +141,7 @@ export default function UpNextPage() {
           <div className="glass-panel p-8 rounded-2xl">
             <LoadingState message="Loading your queue..." />
           </div>
-        ) : error ? (
+        ) : error && queue.length === 0 ? (
           <ErrorState
             title="Failed to Load Queue"
             message="We couldn't load your watch queue. Please try again."

@@ -58,6 +58,15 @@ export async function addPirateSiteService(body: any) {
   return await addPirateSite(result.data);
 }
 
+/**
+ * Build external search URL from template.
+ * Uses {q} as primary query placeholder, preserving backwards compatibility with {query}.
+ */
+export function formatStreamingSearchUrl(template: string, title: string): string {
+  const encoded = encodeURIComponent(title);
+  return template.replace(/\{q\}|\{query\}/g, encoded);
+}
+
 export async function updatePirateSiteService(id: number, body: any) {
   const result = updateSiteSchema.safeParse(body);
   if (!result.success) throw new ApiError(400, "VALIDATION_ERROR", "Validation error");

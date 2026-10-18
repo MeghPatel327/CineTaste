@@ -395,7 +395,14 @@ async function runGenerationPipeline(
     generateCategoryPool(username, "anime", movies, profile, previousTitles, seenAcrossCategories),
   ]);
 
-  const recommendations = [...moviesPool, ...seriesPool, ...animePool];
+  // Interleave round-robin targeting ~1/3 each (Movie, Series, Anime)
+  const recommendations: RecommendationItem[] = [];
+  const maxPoolLen = Math.max(moviesPool.length, seriesPool.length, animePool.length);
+  for (let i = 0; i < maxPoolLen; i++) {
+    if (i < moviesPool.length) recommendations.push(moviesPool[i]);
+    if (i < seriesPool.length) recommendations.push(seriesPool[i]);
+    if (i < animePool.length) recommendations.push(animePool[i]);
+  }
 
   logger.info({
     module: "recommendationService",
@@ -521,6 +528,14 @@ export async function expandRecommendationsForFilter(
         if (category === "series" && (r.is_anime || r.media_type !== "tv")) continue;
         if (category === "anime" && !r.is_anime) continue;
 
+        // Strict multi-genre matching: must match ALL specified genres
+        if (filters.genres?.length) {
+          const matchesAll = filters.genres.every((sg) =>
+            r.genres.some((rg: string) => rg.toLowerCase() === sg.toLowerCase()),
+          );
+          if (!matchesAll) continue;
+        }
+
         newCandidates.push(r);
         existingIds.add(r.tmdb_id);
       }
@@ -575,9 +590,18 @@ export async function expandRecommendationsForFilter(
         if (category === "series" && (isAnimeTitle || mediaType !== "tv")) continue;
         if (category === "anime" && !isAnimeTitle) continue;
 
-        existingIds.add(item.id);
         const releaseDate = item.release_date || item.first_air_date || "";
-        const genres = (item.genre_ids || []).map((id: number) => TMDB_GENRE_MAP[id]).filter(Boolean);
+        const genres: string[] = (item.genre_ids || []).map((id: number) => TMDB_GENRE_MAP[id]).filter(Boolean);
+
+        // Strict multi-genre matching: must match ALL specified genres
+        if (filters.genres?.length) {
+          const matchesAll = filters.genres.every((sg) =>
+            genres.some((rg: string) => rg.toLowerCase() === sg.toLowerCase()),
+          );
+          if (!matchesAll) continue;
+        }
+
+        existingIds.add(item.id);
 
         newCandidates.push({
           tmdb_id: item.id,
@@ -664,7 +688,7 @@ export async function getRecommendations(
   if (!forceRefresh) {
     const mem = serverRecMemoryCache.get(username);
     if (mem && mem.tasteHash === tasteHash && mem.expiresAt > Date.now()) {
-      const items = revalidateItems(mem.items, movies);
+      const items = balanceRecommendations(revalidateItems(mem.items, movies));
       return applyPagination(items, options);
     }
   }
@@ -682,7 +706,7 @@ export async function getRecommendations(
           expiresAt: new Date(existingSet.expires_at).getTime(),
         });
 
-        const items = revalidateItems(raw, movies);
+        const items = balanceRecommendations(revalidateItems(raw, movies));
         return applyPagination(items, options);
       }
     }
@@ -692,7 +716,7 @@ export async function getRecommendations(
   const inflightKey = `${username}:${tasteHash}`;
   if (inflightGenerations.has(inflightKey)) {
     const result = await inflightGenerations.get(inflightKey)!;
-    return applyPagination(revalidateItems(result, movies), options);
+    return applyPagination(balanceRecommendations(revalidateItems(result, movies)), options);
   }
 
   // 4. Generate fresh 300-title recommendation set
@@ -715,7 +739,46 @@ export async function getRecommendations(
   inflightGenerations.set(inflightKey, generationPromise);
   const items = await generationPromise;
 
-  return applyPagination(revalidateItems(items, movies), options);
+  return applyPagination(balanceRecommendations(revalidateItems(items, movies)), options);
+}
+
+/**
+ * Mix Movies, Series, and Anime targeting approximately one-third of each category,
+ * ensuring high variety without any one category dominating.
+ */
+export function balanceRecommendations(items: RecommendationItem[]): RecommendationItem[] {
+  const movies: RecommendationItem[] = [];
+  const series: RecommendationItem[] = [];
+  const anime: RecommendationItem[] = [];
+
+  for (const item of items) {
+    const isAnimeTitle = Boolean(
+      item.is_anime ??
+        isAnime({
+          title: item.title,
+          genres: item.genres,
+          media_type: item.media_type,
+        })
+    );
+
+    if (isAnimeTitle) {
+      anime.push(item);
+    } else if (item.media_type === "tv") {
+      series.push(item);
+    } else {
+      movies.push(item);
+    }
+  }
+
+  // Round-robin interleave to achieve 1/3 Movies, 1/3 Series, 1/3 Anime
+  const result: RecommendationItem[] = [];
+  const maxLen = Math.max(movies.length, series.length, anime.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (i < movies.length) result.push(movies[i]);
+    if (i < series.length) result.push(series[i]);
+    if (i < anime.length) result.push(anime[i]);
+  }
+  return result;
 }
 
 function revalidateItems(

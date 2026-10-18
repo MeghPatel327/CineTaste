@@ -290,8 +290,8 @@ export default function AdminPage() {
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#A1AAA6] mb-1.5 block">Search URL Template</label>
-                      <Input value={newSiteUrl} onChange={e => setNewSiteUrl(e.target.value)} placeholder="https://example.com/search?q={query}" required className="bg-[#08090C] border-white/[0.1]" />
-                      <p className="text-[11px] text-muted-foreground mt-1">Use <code className="text-emerald-400">{"{query}"}</code> where the movie title is interpolated.</p>
+                      <Input value={newSiteUrl} onChange={e => setNewSiteUrl(e.target.value)} placeholder="https://example.com/search?q={q}" required className="bg-[#08090C] border-white/[0.1]" />
+                      <p className="text-[11px] text-muted-foreground mt-1">Use <code className="text-emerald-400">{"{q}"}</code> where the movie title is interpolated.</p>
                     </div>
                     <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold">
                       Add Source Template

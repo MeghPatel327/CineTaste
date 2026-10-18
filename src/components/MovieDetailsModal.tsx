@@ -439,7 +439,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                         {pirateSites.map((site, i) => (
                           <a
                             key={site.id}
-                            href={site.search_url.replace("{query}", encodeURIComponent(data.title))}
+                            href={site.search_url.replace(/\{q\}|\{query\}/g, encodeURIComponent(data.title))}
                             target="_blank"
                             rel="noreferrer"
                             className="modal-btn-stagger"

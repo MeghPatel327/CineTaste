@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { useAppStore } from "@/lib/appStore";
+import { startBackgroundCataloguePrefetch } from "@/features/movies/browseClientCache";
+import type { BrowseCategory } from "@/features/movies/browseService";
 
 interface AppShellProps {
   children: ReactNode;
@@ -15,12 +18,23 @@ interface AppShellProps {
  */
 export function AppShell({ children }: AppShellProps) {
   const { state, getUser } = useAppStore();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!state.userFetched) {
       getUser();
     }
   }, [state.userFetched, getUser]);
+
+  // Non-blocking background catalogue prefetch as soon as user enters the site
+  useEffect(() => {
+    let currentCategory: BrowseCategory | undefined;
+    if (pathname === "/movies") currentCategory = "movies";
+    else if (pathname === "/series") currentCategory = "series";
+    else if (pathname === "/anime") currentCategory = "anime";
+
+    startBackgroundCataloguePrefetch(currentCategory);
+  }, [pathname]);
 
   const isAdmin = state.user?.role === "admin";
 

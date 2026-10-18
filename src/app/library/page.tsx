@@ -63,7 +63,9 @@ export default function MovieLibraryPage() {
     }
     getLibrary(false)
       .then(data => { setMovies(data); setLoading(false); })
-      .catch(() => setError(true));
+      .catch(() => {
+        if (!state.library) setError(true);
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -191,7 +193,7 @@ export default function MovieLibraryPage() {
               {Array.from({ length: 12 }).map((_, i) => <LibraryCardSkeleton key={i} />)}
             </div>
           </>
-        ) : error ? (
+        ) : error && movies.length === 0 ? (
           <ErrorState title="Library failed to load" message="We couldn't load your movie library. Please try again." onRetry={refresh} />
         ) : (
           <>
