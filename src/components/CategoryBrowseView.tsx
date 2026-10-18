@@ -184,11 +184,19 @@ export function CategoryBrowseView({
 
   // Hard category guard on catalogue items (final line of defence — prevents leakage from cache/server)
   const categoryFilteredItems = useMemo(() => {
-    if (category === "movies") return items.filter((i) => !i.is_anime && i.media_type === "movie");
-    if (category === "series") return items.filter((i) => !i.is_anime && i.media_type === "tv");
-    if (category === "anime") return items.filter((i) => Boolean(i.is_anime));
-    return items;
-  }, [items, category]);
+    let filtered = items;
+    if (category === "movies") {
+      filtered = filtered.filter((i) => !i.is_anime && i.media_type === "movie");
+    } else if (category === "series") {
+      filtered = filtered.filter((i) => !i.is_anime && i.media_type === "tv");
+    } else if (category === "anime") {
+      filtered = filtered.filter((i) => Boolean(i.is_anime));
+      // Enforce subType: "tv" = series only, "movie" = movies only
+      if (appliedSubType === "tv") filtered = filtered.filter((i) => i.media_type === "tv");
+      else if (appliedSubType === "movie") filtered = filtered.filter((i) => i.media_type === "movie");
+    }
+    return filtered;
+  }, [items, category, appliedSubType]);
 
   // Pinned Viewport-Fixed state for search and filter controls
   const [isPinned, setIsPinned] = useState(false);
