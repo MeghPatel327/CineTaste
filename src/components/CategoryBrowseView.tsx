@@ -54,9 +54,18 @@ const staggerStyle = (index: number, step = 30) =>
 
 function applyFiltersToResults<T extends UnifiedSearchResultItem>(
   results: T[],
-  filters: { genres: string[]; era: string; subType: string; sort: string }
+  filters: { genres: string[]; era: string; subType: string; sort: string; category: BrowseCategory }
 ): T[] {
   let filtered = results;
+
+  // Hard category guard: enforce correct media_type + anime classification per destination
+  filtered = filtered.filter((item) => {
+    const isAnimeItem = Boolean(item.is_anime);
+    if (filters.category === "movies") return !isAnimeItem && item.media_type === "movie";
+    if (filters.category === "series") return !isAnimeItem && item.media_type === "tv";
+    if (filters.category === "anime") return isAnimeItem;
+    return true;
+  });
 
   // Genre AND matching
   if (filters.genres.length > 0) {
@@ -144,9 +153,10 @@ export function CategoryBrowseView({
             era: appliedEra,
             subType: appliedSubType,
             sort: appliedSort,
+            category,
           })
         : [],
-    [searchResults, isSearchActive, appliedGenres, appliedEra, appliedSubType, appliedSort]
+    [searchResults, isSearchActive, appliedGenres, appliedEra, appliedSubType, appliedSort, category]
   );
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -171,6 +181,14 @@ export function CategoryBrowseView({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
   const [expandedNotice, setExpandedNotice] = useState(false);
+
+  // Hard category guard on catalogue items (final line of defence — prevents leakage from cache/server)
+  const categoryFilteredItems = useMemo(() => {
+    if (category === "movies") return items.filter((i) => !i.is_anime && i.media_type === "movie");
+    if (category === "series") return items.filter((i) => !i.is_anime && i.media_type === "tv");
+    if (category === "anime") return items.filter((i) => Boolean(i.is_anime));
+    return items;
+  }, [items, category]);
 
   // Pinned Viewport-Fixed state for search and filter controls
   const [isPinned, setIsPinned] = useState(false);
@@ -1029,7 +1047,7 @@ export function CategoryBrowseView({
                     onRetry={() => fetchCatalogue(1, false)}
                   />
                 </div>
-              ) : items.length === 0 ? (
+              ) : categoryFilteredItems.length === 0 ? (
                 <div className="py-16">
                   <EmptyState
                     title="No titles match your filters"
@@ -1047,7 +1065,7 @@ export function CategoryBrowseView({
               ) : (
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {items.map((item, index) => (
+                    {categoryFilteredItems.map((item, index) => (
                       <div
                         key={`${item.id}-${index}`}
                         className="ct-stagger-item ct-card-lift-wrapper"
@@ -1089,7 +1107,7 @@ export function CategoryBrowseView({
                   )}
 
                   {/* End of Catalogue Footer */}
-                  {!hasMore && items.length > 0 && (
+                  {!hasMore && categoryFilteredItems.length > 0 && (
                     <div className="text-center py-14 border-t border-white/[0.06] mt-10 space-y-2">
                       <p className="text-sm font-semibold text-[#D0D7D4]">
                         You've reached the end of the {title} catalogue.

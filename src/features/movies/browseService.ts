@@ -394,7 +394,8 @@ export async function getBrowseCatalogueService(
       );
 
       if (category === "movies") {
-        return !isAnimeTitle && (r.media_type === "movie" || !r.media_type);
+        // Only explicit movies; unknown media_type is NOT assumed to be a movie
+        return !isAnimeTitle && r.media_type === "movie";
       }
       if (category === "series") {
         return !isAnimeTitle && r.media_type === "tv";
