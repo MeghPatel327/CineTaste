@@ -63,11 +63,24 @@ export default function DashboardPage() {
   const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
 
-  // Scroll listener for pinned controls
+  // Scroll listener for pinned controls with hysteresis and rAF throttling
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      setIsPinned(window.scrollY > 30);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const y = window.scrollY;
+          setIsPinned((prev) => {
+            if (!prev && y > 50) return true;
+            if (prev && y < 20) return false;
+            return prev;
+          });
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
+    if (window.scrollY > 50) setIsPinned(true);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -173,10 +186,10 @@ export default function DashboardPage() {
         {/* ── Persistent Sticky Unified Search Header (Movies, Series, Anime) ── */}
         <div
           className={cn(
-            "sticky top-0 z-30 transition-all duration-300 ease-out",
+            "sticky z-30 transition-all duration-300 ease-out motion-reduce:transition-none",
             isPinned
-              ? "bg-[#08090C]/95 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.85)] py-3 px-4 md:px-12"
-              : "bg-transparent pt-4 pb-2 px-4 md:px-12"
+              ? "top-16 md:top-3 mx-4 md:mx-auto max-w-3xl rounded-2xl bg-[#0D1013]/90 backdrop-blur-xl border border-white/[0.12] shadow-[0_16px_40px_rgba(0,0,0,0.8),0_0_1px_rgba(255,255,255,0.1)] px-3.5 py-2.5 sm:px-4 sm:py-3"
+              : "top-14 md:top-0 w-full mx-0 rounded-none bg-[#08090C]/90 md:bg-[#08090C]/80 backdrop-blur-md border-b border-white/[0.08] border-x-0 border-t-0 px-4 md:px-12 py-3.5 shadow-none"
           )}
         >
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">

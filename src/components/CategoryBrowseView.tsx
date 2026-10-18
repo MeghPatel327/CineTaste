@@ -308,12 +308,25 @@ export function CategoryBrowseView({
   // 6. Scroll Listener for Pinned Controls and Infinite Scroll
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
       const scrollY = window.scrollY;
-      setIsPinned(scrollY > 40);
       sessionStorage.setItem(scrollKey, String(scrollY));
+
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsPinned((prev) => {
+            if (!prev && scrollY > 50) return true;
+            if (prev && scrollY < 20) return false;
+            return prev;
+          });
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
+    if (window.scrollY > 50) setIsPinned(true);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [scrollKey]);
@@ -471,22 +484,29 @@ export function CategoryBrowseView({
         {/* ── Persistent, Animated Sticky Search and Filter Controls ── */}
         <div
           className={cn(
-            "sticky top-0 z-30 transition-all duration-300 ease-out",
+            "sticky z-30 transition-all duration-300 ease-out motion-reduce:transition-none",
             isPinned
-              ? "bg-[#08090C]/95 backdrop-blur-xl border-b border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.85)] py-3 px-4 md:px-8"
-              : "bg-transparent py-5 px-4 md:px-8"
+              ? "top-16 md:top-3 mx-3 sm:mx-6 md:mx-8 lg:mx-auto max-w-7xl rounded-2xl bg-[#0B0E11]/90 backdrop-blur-xl border border-white/[0.12] shadow-[0_16px_40px_rgba(0,0,0,0.8),0_0_1px_rgba(255,255,255,0.1)] p-2.5 sm:p-3"
+              : "top-14 md:top-0 w-full mx-0 rounded-none bg-[#08090C]/95 backdrop-blur-md border-b border-white/[0.08] border-x-0 border-t-0 px-4 md:px-8 py-3.5 sm:py-4 shadow-none"
           )}
         >
-          <div className="max-w-7xl mx-auto space-y-3.5">
+          <div className={cn("mx-auto", isPinned ? "w-full space-y-2" : "max-w-7xl space-y-3")}>
             {/* Top Bar: Title + Unified Search Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                {icon}
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className={cn("transition-transform duration-300 motion-reduce:transition-none shrink-0", isPinned ? "scale-75" : "scale-100")}>
+                  {icon}
+                </div>
                 <div>
-                  <h1 className="font-heading text-2xl md:text-3xl font-extrabold text-[#F5F7F6] flex items-center gap-2.5">
+                  <h1
+                    className={cn(
+                      "font-heading font-extrabold text-[#F5F7F6] flex items-center gap-2 transition-all duration-300 motion-reduce:transition-none",
+                      isPinned ? "text-base sm:text-lg" : "text-2xl md:text-3xl"
+                    )}
+                  >
                     {title}
                     {total > 0 && !isSearchActive && (
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/[0.06] text-[#A1AAA6] border border-white/[0.08]">
+                      <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/[0.06] text-[#A1AAA6] border border-white/[0.08]">
                         {total} titles
                       </span>
                     )}
@@ -503,14 +523,17 @@ export function CategoryBrowseView({
                 }}
                 className="flex items-center gap-2 w-full sm:w-auto"
               >
-                <div className="relative flex-1 sm:w-80">
+                <div className={cn("relative flex-1 transition-all duration-300", isPinned ? "sm:w-72" : "sm:w-80")}>
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 pointer-events-none" />
                   <input
                     type="text"
                     placeholder={`Search ${title.toLowerCase()} (TMDB)...`}
                     value={searchQueryInput}
                     onChange={(e) => setSearchQueryInput(e.target.value)}
-                    className="w-full bg-[#0D1013] border border-white/[0.1] hover:border-white/[0.18] focus:border-emerald-500/60 rounded-xl pl-10 pr-9 py-2 text-sm text-[#F5F7F6] focus:outline-none focus:ring-1 focus:ring-emerald-500/30 placeholder:text-[#A1AAA6]/50 shadow-inner transition-colors"
+                    className={cn(
+                      "w-full bg-[#0D1013] border border-white/[0.1] hover:border-white/[0.18] focus:border-emerald-500/60 rounded-xl pl-10 pr-9 text-sm text-[#F5F7F6] focus:outline-none focus:ring-1 focus:ring-emerald-500/30 placeholder:text-[#A1AAA6]/50 shadow-inner transition-all",
+                      isPinned ? "py-1.5 text-xs sm:text-sm" : "py-2"
+                    )}
                   />
                   {searchQueryInput && (
                     <button
@@ -527,7 +550,10 @@ export function CategoryBrowseView({
                 <Button
                   type="submit"
                   size="sm"
-                  className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-bold px-4 rounded-xl shrink-0 shadow-[0_2px_12px_rgba(16,185,129,0.3)]"
+                  className={cn(
+                    "bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-bold px-4 rounded-xl shrink-0 shadow-[0_2px_12px_rgba(16,185,129,0.3)] transition-all",
+                    isPinned ? "h-8 text-xs" : "h-9"
+                  )}
                 >
                   Search
                 </Button>
@@ -535,7 +561,14 @@ export function CategoryBrowseView({
             </div>
 
             {/* Filter Dock (With Explicit Apply Button & Multi-Genre AND Matching) */}
-            <div className="bg-[#0D1013]/90 backdrop-blur-md border border-white/[0.08] rounded-2xl p-3.5 space-y-3 shadow-lg">
+            <div
+              className={cn(
+                "transition-all duration-300 ease-out",
+                isPinned
+                  ? "pt-2 border-t border-white/[0.07] space-y-2"
+                  : "pt-3 border-t border-white/[0.07] bg-transparent rounded-none border-x-0 border-b-0 shadow-none p-0 space-y-2.5"
+              )}
+            >
               {/* Row 1: Sort, Era, Format, Apply Button, Clear */}
               <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
