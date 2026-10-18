@@ -53,6 +53,17 @@ export function Sidebar({ isAdmin }: SidebarProps) {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    const updateSidebarWidth = () => {
+      const isDesktop = window.innerWidth >= 768;
+      const width = isDesktop ? (isCollapsed ? "5rem" : "16rem") : "0px";
+      document.documentElement.style.setProperty("--sidebar-width", width);
+    };
+    updateSidebarWidth();
+    window.addEventListener("resize", updateSidebarWidth);
+    return () => window.removeEventListener("resize", updateSidebarWidth);
+  }, [isCollapsed]);
+
   const toggleCollapse = () => {
     const next = !isCollapsed;
     dispatch({ type: "SET_SIDEBAR_COLLAPSED", payload: next });
@@ -334,14 +345,14 @@ export function Sidebar({ isAdmin }: SidebarProps) {
       {/* ── Mobile Slide-out Drawer ── */}
       {mobileDrawerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm md:hidden animate-fade-in"
+          className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm md:hidden animate-fade-in"
           onClick={() => setMobileDrawerOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          "fixed top-0 right-0 z-50 h-full w-72 bg-[#0D1013] border-l border-white/[0.08] shadow-2xl transform transition-transform duration-300 md:hidden flex flex-col p-5",
+          "fixed top-0 right-0 z-[200] h-full w-72 bg-[#0D1013] border-l border-white/[0.08] shadow-2xl transform transition-transform duration-300 md:hidden flex flex-col p-5",
           mobileDrawerOpen ? "translate-x-0" : "translate-x-full"
         )}
       >

@@ -65,7 +65,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = "max-w-2xl"
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center md:p-4 lg:p-6">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center md:p-4 lg:p-6">
       {/* Backdrop */}
       <div
         className={cn(

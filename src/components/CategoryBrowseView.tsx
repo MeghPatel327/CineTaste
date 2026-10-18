@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useTransition } from "react";
+import { useEffect, useState, useRef, useCallback, useTransition, useMemo } from "react";
 import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -30,6 +30,7 @@ import type {
   BrowseItem,
   BrowseCatalogueResult,
 } from "@/features/movies/browseService";
+import { matchesEra, itemHasGenre } from "@/features/movies/browseFiltering";
 import {
   getCachedCategoryData,
   setCachedCategoryData,
@@ -50,6 +51,43 @@ const staggerStyle = (index: number, step = 30) =>
   ({
     "--ct-stagger-delay": `${Math.min(index, 24) * step}ms`,
   } as CSSProperties);
+
+function applyFiltersToResults<T extends UnifiedSearchResultItem>(
+  results: T[],
+  filters: { genres: string[]; era: string; subType: string; sort: string }
+): T[] {
+  let filtered = results;
+
+  // Genre AND matching
+  if (filters.genres.length > 0) {
+    filtered = filtered.filter((item) =>
+      filters.genres.every((g) => itemHasGenre(item.genres || [], g))
+    );
+  }
+
+  // Era
+  if (filters.era) {
+    filtered = filtered.filter((item) => matchesEra(item.release_year, filters.era));
+  }
+
+  // SubType (anime page: movie vs tv)
+  if (filters.subType && filters.subType !== "all") {
+    filtered = filtered.filter((item) => item.media_type === filters.subType);
+  }
+
+  // Sort
+  const sorted = [...filtered];
+  sorted.sort((a, b) => {
+    if (filters.sort === "rating") return (b.vote_average || 0) - (a.vote_average || 0);
+    if (filters.sort === "year") return (b.release_year || 0) - (a.release_year || 0);
+    if (filters.sort === "year-asc") return (a.release_year || 0) - (b.release_year || 0);
+    if (filters.sort === "title") return a.title.localeCompare(b.title);
+    if (filters.sort === "title-desc") return b.title.localeCompare(a.title);
+    return (b.score || 0) - (a.score || 0);
+  });
+
+  return sorted;
+}
 
 export function CategoryBrowseView({
   category,
@@ -76,14 +114,6 @@ export function CategoryBrowseView({
     "recommended" | "rating" | "year" | "year-asc" | "title" | "title-desc"
   >("recommended");
 
-  // Check if draft filters differ from applied
-  const hasUnappliedFilterChanges =
-    draftSort !== appliedSort ||
-    draftEra !== appliedEra ||
-    draftSubType !== appliedSubType ||
-    draftGenres.length !== appliedGenres.length ||
-    draftGenres.some((g) => !appliedGenres.includes(g));
-
   // ─────────────────────────────────────────────────────────────────────────
   // 2. Search State (Independent from Filters, TMDB direct + Gemini fallback)
   // ─────────────────────────────────────────────────────────────────────────
@@ -94,6 +124,30 @@ export function CategoryBrowseView({
   const [isSearching, setIsSearching] = useState(false);
   const [searchStatusMessage, setSearchStatusMessage] = useState<string | null>(null);
   const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
+
+  // Check if draft filters differ from applied
+  const hasUnappliedFilterChanges =
+    draftSort !== appliedSort ||
+    draftEra !== appliedEra ||
+    draftSubType !== appliedSubType ||
+    draftGenres.length !== appliedGenres.length ||
+    draftGenres.some((g) => !appliedGenres.includes(g)) ||
+    (searchQueryInput.trim() !== "" && !isSearchActive) ||
+    (searchQueryInput.trim() !== "" && searchQueryInput.trim() !== activeSearchQuery);
+
+  // Derived: apply committed filters to raw search results
+  const filteredSearchResults = useMemo(
+    () =>
+      isSearchActive
+        ? applyFiltersToResults(searchResults, {
+            genres: appliedGenres,
+            era: appliedEra,
+            subType: appliedSubType,
+            sort: appliedSort,
+          })
+        : [],
+    [searchResults, isSearchActive, appliedGenres, appliedEra, appliedSubType, appliedSort]
+  );
 
   // ─────────────────────────────────────────────────────────────────────────
   // 3. Stale-While-Revalidate (SWR) Catalogue Data State
@@ -118,8 +172,31 @@ export function CategoryBrowseView({
   const [error, setError] = useState(false);
   const [expandedNotice, setExpandedNotice] = useState(false);
 
-  // Pinned Sticky state for search and filter controls
+  // Pinned Viewport-Fixed state for search and filter controls
   const [isPinned, setIsPinned] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState<number>(0);
+  const isPinnedRef = useRef(isPinned);
+  isPinnedRef.current = isPinned;
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      if (!isPinnedRef.current) {
+        const rect = el.getBoundingClientRect();
+        if (rect.height > 0) {
+          setHeaderHeight(rect.height);
+        }
+      }
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Modal State
   const [selectedItem, setSelectedItem] = useState<{
@@ -128,6 +205,7 @@ export function CategoryBrowseView({
   } | null>(null);
 
   // Refs for infinite scroll, concurrency locking, and scroll restoration
+  const reqIdRef = useRef(0);
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(hasMore);
   hasMoreRef.current = hasMore;
@@ -156,8 +234,9 @@ export function CategoryBrowseView({
         era?: string;
       }
     ) => {
-      if (loadingRef.current) return;
+      if (isAppend && loadingRef.current) return;
       loadingRef.current = true;
+      const currentReqId = ++reqIdRef.current;
 
       const activeSort = overrideFilters?.sort ?? appliedSort;
       const activeSubType = overrideFilters?.subType ?? appliedSubType;
@@ -186,7 +265,10 @@ export function CategoryBrowseView({
           ...filterOpts,
         });
 
+        if (currentReqId !== reqIdRef.current) return;
+
         startTransition(() => {
+          if (currentReqId !== reqIdRef.current) return;
           if (isAppend) {
             // Deduplicate incoming items against existing ones by canonical ID
             const existingIds = new Set(itemsRef.current.map((i) => i.id));
@@ -252,6 +334,7 @@ export function CategoryBrowseView({
           }
         });
       } catch (err: any) {
+        if (currentReqId !== reqIdRef.current) return;
         // Never replace valid cached content with empty/error during background revalidation
         if (!isAppend && !isBackgroundRevalidation && itemsRef.current.length === 0) {
           setError(true);
@@ -260,9 +343,11 @@ export function CategoryBrowseView({
           toast.error(`Could not load ${title}`);
         }
       } finally {
-        loadingRef.current = false;
-        setInitialLoading(false);
-        setLoadingMore(false);
+        if (currentReqId === reqIdRef.current) {
+          loadingRef.current = false;
+          setInitialLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [category, appliedSort, appliedSubType, appliedGenres, appliedEra, title, availableGenres, availableEras, featuredSpotlight]
@@ -373,19 +458,25 @@ export function CategoryBrowseView({
     setAppliedSubType(draftSubType);
     setAppliedSort(draftSort);
 
-    // If search was active, clear search and apply filters cleanly
-    if (isSearchActive) {
-      setIsSearchActive(false);
-      setActiveSearchQuery("");
-      setSearchResults([]);
-    }
+    const trimmedInput = searchQueryInput.trim();
 
-    fetchCatalogue(1, false, false, {
-      genres: draftGenres,
-      era: draftEra,
-      subType: draftSubType,
-      sort: draftSort,
-    });
+    // Combine active search query with applied filters
+    if (trimmedInput) {
+      executeSearch(trimmedInput);
+    } else {
+      if (isSearchActive) {
+        setIsSearchActive(false);
+        setActiveSearchQuery("");
+        setSearchResults([]);
+        setSearchStatusMessage(null);
+      }
+      fetchCatalogue(1, false, false, {
+        genres: draftGenres,
+        era: draftEra,
+        subType: draftSubType,
+        sort: draftSort,
+      });
+    }
   };
 
   const handleResetFilters = () => {
@@ -399,25 +490,21 @@ export function CategoryBrowseView({
     setAppliedSubType("all");
     setAppliedSort("recommended");
 
-    if (isSearchActive) {
-      setIsSearchActive(false);
-      setActiveSearchQuery("");
-      setSearchQueryInput("");
-      setSearchResults([]);
+    // Reset filters only — search query persists.
+    if (!isSearchActive) {
+      fetchCatalogue(1, false, false, {
+        genres: [],
+        era: "",
+        subType: "all",
+        sort: "recommended",
+      });
     }
-
-    fetchCatalogue(1, false, false, {
-      genres: [],
-      era: "",
-      subType: "all",
-      sort: "recommended",
-    });
   };
 
   // ─────────────────────────────────────────────────────────────────────────
   // 8. Unified TMDB Search with Intelligent Gemini Fallback Execution
   // ─────────────────────────────────────────────────────────────────────────
-  const executeSearch = async (queryText: string) => {
+  const executeSearch = async (queryText: string, forceFallback = false) => {
     const q = queryText.trim();
     if (!q) {
       handleClearSearch();
@@ -470,6 +557,14 @@ export function CategoryBrowseView({
     setSearchQueryInput("");
     setSearchResults([]);
     setSearchStatusMessage(null);
+
+    // Keep applied filters intact, refresh catalogue with current applied filters
+    fetchCatalogue(1, false, false, {
+      genres: appliedGenres,
+      era: appliedEra,
+      subType: appliedSubType,
+      sort: appliedSort,
+    });
   };
 
   const hasAnyActiveFilter =
@@ -480,17 +575,36 @@ export function CategoryBrowseView({
 
   return (
     <AppShell>
-      <div className="page-enter min-h-screen pb-20">
-        {/* ── Persistent, Animated Sticky Search and Filter Controls ── */}
+      <div className="min-h-screen pb-20">
+        {/* Layout Spacer to guarantee exact content offset and prevent layout jump */}
         <div
+          style={{ height: headerHeight ? `${headerHeight}px` : undefined }}
+          className={cn("w-full transition-[height] duration-150 ease-out", !headerHeight && "min-h-[165px]")}
+          aria-hidden="true"
+        />
+
+        {/* ── Persistent, Animated Viewport-Fixed Search and Filter Controls ── */}
+        <div
+          ref={headerRef}
+          style={{
+            left: "var(--sidebar-width, 0px)",
+          }}
           className={cn(
-            "sticky z-30 transition-all duration-300 ease-out motion-reduce:transition-none",
+            "fixed right-0 z-[100] transition-[left,top,padding] duration-300 ease-out motion-reduce:transition-none",
             isPinned
-              ? "top-16 md:top-3 mx-3 sm:mx-6 md:mx-8 lg:mx-auto max-w-7xl rounded-2xl bg-[#0B0E11]/90 backdrop-blur-xl border border-white/[0.12] shadow-[0_16px_40px_rgba(0,0,0,0.8),0_0_1px_rgba(255,255,255,0.1)] p-2.5 sm:p-3"
-              : "top-14 md:top-0 w-full mx-0 rounded-none bg-[#08090C]/95 backdrop-blur-md border-b border-white/[0.08] border-x-0 border-t-0 px-4 md:px-8 py-3.5 sm:py-4 shadow-none"
+              ? "top-16 md:top-3 px-3 sm:px-6 md:px-8 pointer-events-none"
+              : "top-14 md:top-0 px-0 pointer-events-auto"
           )}
         >
-          <div className={cn("mx-auto", isPinned ? "w-full space-y-2" : "max-w-7xl space-y-3")}>
+          <div
+            className={cn(
+              "transition-all duration-300 ease-out motion-reduce:transition-none pointer-events-auto",
+              isPinned
+                ? "mx-auto max-w-7xl rounded-2xl bg-[#0B0E11]/90 backdrop-blur-xl border border-white/[0.12] shadow-[0_16px_40px_rgba(0,0,0,0.8),0_0_1px_rgba(255,255,255,0.1)] p-2.5 sm:p-3"
+                : "w-full mx-0 rounded-none bg-[#08090C]/95 backdrop-blur-md border-b border-white/[0.08] border-x-0 border-t-0 px-4 md:px-8 py-3.5 sm:py-4 shadow-none"
+            )}
+          >
+            <div className={cn("mx-auto", isPinned ? "w-full space-y-2" : "max-w-7xl space-y-3")}>
             {/* Top Bar: Title + Unified Search Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 sm:gap-3">
@@ -754,27 +868,34 @@ export function CategoryBrowseView({
                 </span>
               </div>
             )}
+            </div>
           </div>
         </div>
 
         {/* ── Main View: Search Results vs Catalogue Grid ── */}
-        <div className="p-4 md:px-8 max-w-7xl mx-auto mt-2">
+        <div className="p-4 md:px-8 max-w-7xl mx-auto mt-2 page-enter">
           {isSearchActive ? (
-            /* ── Search Results View ── */
+            /* ── Search Results View (filtered by applied filters) ── */
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
                 <div className="space-y-1">
                   <h2 className="font-heading text-lg md:text-xl font-bold text-[#F5F7F6] flex items-center gap-2">
                     <Search className="w-4 h-4 text-emerald-400" />
-                    Search Results for "{activeSearchQuery}"
+                    Search Results for &ldquo;{activeSearchQuery}&rdquo;
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/[0.06] text-[#A1AAA6]">
-                      {searchResults.length} {searchResults.length === 1 ? "match" : "matches"}
+                      {filteredSearchResults.length}{hasAnyActiveFilter ? ` of ${searchResults.length}` : ""} {filteredSearchResults.length === 1 ? "match" : "matches"}
                     </span>
                   </h2>
                   {searchFallbackUsed && (
                     <p className="text-xs text-emerald-400 flex items-center gap-1">
                       <Sparkles className="w-3.5 h-3.5" />
-                      Intelligent alternative matches discovered via Gemini AI & resolved on TMDB
+                      Intelligent alternative matches discovered via Gemini AI &amp; resolved on TMDB
+                    </p>
+                  )}
+                  {hasAnyActiveFilter && (
+                    <p className="text-[11px] text-[#A1AAA6] flex items-center gap-1">
+                      <Filter className="w-3 h-3 text-emerald-400" />
+                      Filters applied to search results
                     </p>
                   )}
                 </div>
@@ -819,9 +940,45 @@ export function CategoryBrowseView({
                     }
                   />
                 </div>
+              ) : filteredSearchResults.length === 0 ? (
+                /* Raw TMDB results exist but none pass current filters */
+                <div className="py-16">
+                  <EmptyState
+                    title={`No results match your filters`}
+                    description={`Found ${searchResults.length} result${searchResults.length === 1 ? "" : "s"} for "${activeSearchQuery}" but none match your current filter criteria. Try adjusting your filters or reset them.`}
+                    action={
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={() => {
+                            setDraftGenres([]);
+                            setDraftEra("");
+                            setDraftSubType("all");
+                            setDraftSort("recommended");
+                            setAppliedGenres([]);
+                            setAppliedEra("");
+                            setAppliedSubType("all");
+                            setAppliedSort("recommended");
+                          }}
+                          variant="outline"
+                          className="border-white/[0.1] text-[#A1AAA6] hover:text-[#F5F7F6]"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                          Reset Filters
+                        </Button>
+                        <Button
+                          onClick={() => executeSearch(activeSearchQuery, true)}
+                          className="bg-emerald-500 text-[#08090C] hover:bg-emerald-400 font-bold"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                          Try AI Alternatives
+                        </Button>
+                      </div>
+                    }
+                  />
+                </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {searchResults.map((item, index) => (
+                  {filteredSearchResults.map((item, index) => (
                     <div
                       key={`search-${item.id}-${index}`}
                       className="ct-stagger-item ct-card-lift-wrapper"

@@ -77,6 +77,9 @@ async function fetchWithRetry(
 }
 
 export async function baserowGetAll<T>(tableId: string, queryParams: Record<string, string> = {}): Promise<T[]> {
+  if (!tableId || !tableId.trim() || !env.BASEROW_API_TOKEN) {
+    return [];
+  }
   let allResults: T[] = [];
   const url = new URL(`${env.BASEROW_API_URL}/api/database/rows/table/${tableId}/`);
   url.searchParams.append("user_field_names", "true");

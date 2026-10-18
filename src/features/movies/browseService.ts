@@ -7,6 +7,8 @@ import {
 } from "@/features/recommendations/recommendationService";
 import type { RecommendationItem } from "@/features/recommendations/recommendationSetRepository";
 import { isAnime } from "@/features/movies/animeClassifier";
+import { getCuratedFallbackTitles } from "./curatedCatalogue";
+import { matchesEra, itemHasGenre } from "./browseFiltering";
 
 export type BrowseCategory = "movies" | "series" | "anime";
 
@@ -121,37 +123,7 @@ function formatRecToBrowse(r: RecommendationItem): BrowseItem {
   };
 }
 
-/**
- * Filter an item by decade era
- */
-function matchesEra(year: number | undefined, era: string): boolean {
-  if (!era || era === "All") return true;
-  if (!year) return false;
-  if (era === "2020s") return year >= 2020;
-  if (era === "2010s") return year >= 2010 && year < 2020;
-  if (era === "2000s") return year >= 2000 && year < 2010;
-  if (era === "1990s") return year >= 1990 && year < 2000;
-  if (era === "1980s") return year >= 1980 && year < 1990;
-  if (era === "Classic") return year < 1980;
-  return true;
-}
 
-/**
- * Check if an item matches genre name accounting for sub-genres and TV/Anime synonyms
- */
-function itemHasGenre(itemGenres: string[], targetGenre: string): boolean {
-  const target = targetGenre.toLowerCase().trim();
-  for (const g of itemGenres) {
-    const itemG = g.toLowerCase().trim();
-    if (itemG === target) return true;
-    if (target === "action" && itemG === "action & adventure") return true;
-    if (target === "adventure" && itemG === "action & adventure") return true;
-    if ((target === "sci-fi" || target === "science fiction") && (itemG === "sci-fi & fantasy" || itemG === "science fiction" || itemG === "sci-fi")) return true;
-    if (target === "fantasy" && itemG === "sci-fi & fantasy") return true;
-    if (target === "war" && itemG === "war & politics") return true;
-  }
-  return false;
-}
 
 // In-memory extended pool cache to keep track of discovered items per user session
 const sessionCataloguePool = new Map<string, { items: BrowseItem[]; fetchedTmdbPages: number; exhausted: boolean }>();
@@ -477,8 +449,9 @@ export async function getBrowseCatalogueService(
     });
   };
 
-  // Convert initial category recs to BrowseItem format
-  const initialCategoryBrowse = categoryRecs.map(formatRecToBrowse);
+  // Convert initial category recs to BrowseItem format, or use curated fallback if empty
+  const rawFormatted = categoryRecs.map(formatRecToBrowse);
+  const initialCategoryBrowse = rawFormatted.length > 0 ? rawFormatted : getCuratedFallbackTitles(category);
 
   // 5. Check or initialize session pool for this query/filter combination
   const poolKey = buildPoolKey(username, category, options);
@@ -488,15 +461,14 @@ export async function getBrowseCatalogueService(
 
   if (!poolEntry || page === 1) {
     poolEntry = {
-      items: sort === "recommended" ? [...filteredInitial] : [],
+      items: [...filteredInitial],
       fetchedTmdbPages: 0,
       exhausted: false,
     };
     sessionCataloguePool.set(poolKey, poolEntry);
 
-    // If sorting by rating/year/title or if initial rec pool has fewer than batch size,
-    // fetch an initial batch directly from TMDB matching the active sort and filters
-    if (sort !== "recommended" || poolEntry.items.length < limit) {
+    // If initial pool has fewer than batch size, fetch an initial batch directly from TMDB
+    if (poolEntry.items.length < limit) {
       const existingIds = new Set<number>([
         ...Array.from(libraryIds),
         ...poolEntry.items.map((i) => i.id),
@@ -519,14 +491,16 @@ export async function getBrowseCatalogueService(
         }
       }
 
-      // Merge in personalized recommendations for non-recommended sort so user doesn't lose rated matches
-      if (sort !== "recommended") {
-        for (const item of filteredInitial) {
+      // If pool is still empty (e.g. offline / unconfigured TMDB), ensure curated fallback matches are included
+      if (poolEntry.items.length === 0) {
+        const fallbackMatches = applyUserFilters(getCuratedFallbackTitles(category));
+        for (const item of fallbackMatches) {
           if (!existingIds.has(item.id)) {
             poolEntry.items.push(item);
             existingIds.add(item.id);
           }
         }
+        poolEntry.exhausted = true;
       }
     }
   }

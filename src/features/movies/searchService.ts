@@ -8,6 +8,7 @@ import {
   type ResolvedCandidate,
 } from "@/features/recommendations/tmdbResolver";
 import type { BrowseItem, BrowseCategory } from "./browseService";
+import { getCuratedFallbackTitles } from "./curatedCatalogue";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
@@ -310,7 +311,38 @@ export async function executeUnifiedSearch(
     };
   }
 
-  // 2. Intelligent Gemini Fallback if no direct TMDB results
+  // 2. Curated Catalogue Search (fallback when TMDB API is offline or returns 0 matches)
+  const cats: BrowseCategory[] =
+    category && category !== "all" ? [category] : ["movies", "series", "anime"];
+  const curatedMatches: UnifiedSearchResultItem[] = [];
+  const lowerQ = q.toLowerCase();
+
+  for (const cat of cats) {
+    const titles = getCuratedFallbackTitles(cat);
+    for (const t of titles) {
+      const titleMatch = t.title.toLowerCase().includes(lowerQ);
+      const overviewMatch = (t.overview || "").toLowerCase().includes(lowerQ);
+      const genreMatch = t.genres.some((g) => g.toLowerCase().includes(lowerQ));
+
+      if (titleMatch || overviewMatch || genreMatch) {
+        curatedMatches.push({
+          ...t,
+          destinationCategory: cat,
+          fallbackMatch: false,
+        });
+      }
+    }
+  }
+
+  if (curatedMatches.length > 0) {
+    return {
+      results: curatedMatches,
+      fallbackUsed: false,
+      query: q,
+    };
+  }
+
+  // 3. Intelligent Gemini Fallback if no direct TMDB or curated results
   if (allowFallback) {
     const fallbackResults = await geminiSearchFallback(q, category);
     return {

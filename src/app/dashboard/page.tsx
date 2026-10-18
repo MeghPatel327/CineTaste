@@ -62,6 +62,29 @@ export default function DashboardPage() {
   const [searchStatusMessage, setSearchStatusMessage] = useState<string | null>(null);
   const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState<number>(0);
+  const isPinnedRef = useRef(isPinned);
+  isPinnedRef.current = isPinned;
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      if (!isPinnedRef.current) {
+        const rect = el.getBoundingClientRect();
+        if (rect.height > 0) {
+          setHeaderHeight(rect.height);
+        }
+      }
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Scroll listener for pinned controls with hysteresis and rAF throttling
   useEffect(() => {
@@ -182,69 +205,90 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="page-enter min-h-screen">
-        {/* ── Persistent Sticky Unified Search Header (Movies, Series, Anime) ── */}
+      <div className="min-h-screen">
+        {/* Layout Spacer to guarantee exact content offset and prevent layout jump */}
         <div
+          style={{ height: headerHeight ? `${headerHeight}px` : undefined }}
+          className={cn("w-full transition-[height] duration-150 ease-out", !headerHeight && "min-h-[72px]")}
+          aria-hidden="true"
+        />
+
+        {/* ── Persistent Viewport-Fixed Unified Search Header (Movies, Series, Anime) ── */}
+        <div
+          ref={headerRef}
+          style={{
+            left: "var(--sidebar-width, 0px)",
+          }}
           className={cn(
-            "sticky z-30 transition-all duration-300 ease-out motion-reduce:transition-none",
+            "fixed right-0 z-[100] transition-[left,top,padding] duration-300 ease-out motion-reduce:transition-none",
             isPinned
-              ? "top-16 md:top-3 mx-4 md:mx-auto max-w-3xl rounded-2xl bg-[#0D1013]/90 backdrop-blur-xl border border-white/[0.12] shadow-[0_16px_40px_rgba(0,0,0,0.8),0_0_1px_rgba(255,255,255,0.1)] px-3.5 py-2.5 sm:px-4 sm:py-3"
-              : "top-14 md:top-0 w-full mx-0 rounded-none bg-[#08090C]/90 md:bg-[#08090C]/80 backdrop-blur-md border-b border-white/[0.08] border-x-0 border-t-0 px-4 md:px-12 py-3.5 shadow-none"
+              ? "top-16 md:top-3 px-4 md:px-8 pointer-events-none"
+              : "top-14 md:top-0 px-0 pointer-events-auto"
           )}
         >
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                executeSearch(searchQueryInput);
-              }}
-              className="flex items-center gap-2 w-full max-w-2xl"
-            >
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search across Movies, Series & Anime (TMDB)..."
-                  value={searchQueryInput}
-                  onChange={(e) => setSearchQueryInput(e.target.value)}
-                  className="w-full bg-[#0D1013] border border-white/[0.1] hover:border-white/[0.18] focus:border-emerald-500/60 rounded-xl pl-10 pr-9 py-2 text-sm text-[#F5F7F6] focus:outline-none focus:ring-1 focus:ring-emerald-500/30 placeholder:text-[#A1AAA6]/50 shadow-inner transition-colors"
-                />
-                {searchQueryInput && (
-                  <button
-                    type="button"
-                    onClick={handleClearSearch}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A1AAA6] hover:text-[#F5F7F6]"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                size="sm"
-                className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-bold px-4 rounded-xl shrink-0 shadow-[0_2px_12px_rgba(16,185,129,0.3)]"
-              >
-                Apply
-              </Button>
-            </form>
-
-            {isSearchActive && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearSearch}
-                className="text-xs text-[#A1AAA6] hover:text-[#F5F7F6]"
-              >
-                <X className="w-3.5 h-3.5 mr-1" />
-                Close Search
-              </Button>
+          <div
+            className={cn(
+              "transition-all duration-300 ease-out motion-reduce:transition-none pointer-events-auto",
+              isPinned
+                ? "mx-auto max-w-3xl rounded-2xl bg-[#0D1013]/90 backdrop-blur-xl border border-white/[0.12] shadow-[0_16px_40px_rgba(0,0,0,0.8),0_0_1px_rgba(255,255,255,0.1)] px-3.5 py-2.5 sm:px-4 sm:py-3"
+                : "w-full mx-0 rounded-none bg-[#08090C]/90 md:bg-[#08090C]/80 backdrop-blur-md border-b border-white/[0.08] border-x-0 border-t-0 px-4 md:px-12 py-3.5 shadow-none"
             )}
+          >
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  executeSearch(searchQueryInput);
+                }}
+                className="flex items-center gap-2 w-full max-w-2xl"
+              >
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search across Movies, Series & Anime (TMDB)..."
+                    value={searchQueryInput}
+                    onChange={(e) => setSearchQueryInput(e.target.value)}
+                    className="w-full bg-[#0D1013] border border-white/[0.1] hover:border-white/[0.18] focus:border-emerald-500/60 rounded-xl pl-10 pr-9 py-2 text-sm text-[#F5F7F6] focus:outline-none focus:ring-1 focus:ring-emerald-500/30 placeholder:text-[#A1AAA6]/50 shadow-inner transition-colors"
+                  />
+                  {searchQueryInput && (
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#A1AAA6] hover:text-[#F5F7F6]"
+                      aria-label="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="bg-emerald-500 hover:bg-emerald-400 text-[#08090C] font-bold px-4 rounded-xl shrink-0 shadow-[0_2px_12px_rgba(16,185,129,0.3)]"
+                >
+                  Apply
+                </Button>
+              </form>
+
+              {isSearchActive && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearSearch}
+                  className="text-xs text-[#A1AAA6] hover:text-[#F5F7F6]"
+                >
+                  <X className="w-3.5 h-3.5 mr-1" />
+                  Close Search
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* ── Main View: Unified Search Results vs Dashboard Rails ── */}
+        <div className="page-enter">
         {isSearchActive ? (
           <div className="max-w-7xl mx-auto px-4 md:px-12 py-6 space-y-6">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
@@ -345,6 +389,7 @@ export default function DashboardPage() {
             onUpdated={() => fetchDashboard(true)}
           />
         )}
+        </div>
       </div>
     </AppShell>
   );
