@@ -4,6 +4,8 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AppStoreProvider } from "@/lib/appStore";
+import { ScreenContextProvider } from "@/lib/screenContext";
+import { CineTasteChatbot } from "@/components/CineTasteChatbot";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -30,8 +32,11 @@ export default function RootLayout({
       <body className={`${inter.variable} ${plusJakartaSans.variable} font-sans antialiased min-h-screen flex flex-col bg-background text-foreground selection:bg-emerald-500/20 selection:text-emerald-300`}>
         <ThemeProvider>
           <AppStoreProvider>
-            {children}
-            <Toaster richColors position="bottom-right" />
+            <ScreenContextProvider>
+              {children}
+              <CineTasteChatbot />
+              <Toaster richColors position="bottom-right" />
+            </ScreenContextProvider>
           </AppStoreProvider>
         </ThemeProvider>
       </body>

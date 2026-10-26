@@ -8,7 +8,7 @@ import {
 import type { RecommendationItem } from "@/features/recommendations/recommendationSetRepository";
 import { isAnime } from "@/features/movies/animeClassifier";
 import { getCuratedFallbackTitles } from "./curatedCatalogue";
-import { matchesEra, itemHasGenre } from "./browseFiltering";
+import { matchesEra, itemHasGenre, itemMatchesAllGenres, getTmdbGenreIds, TMDB_GENRES } from "./browseFiltering";
 
 export type BrowseCategory = "movies" | "series" | "anime";
 
@@ -76,14 +76,6 @@ export const AVAILABLE_ERAS = [
   "2020s", "2010s", "2000s", "1990s", "1980s", "Classic",
 ];
 
-const TMDB_GENRES: Record<number, string> = {
-  28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
-  99: "Documentary", 18: "Drama", 10751: "Family", 14: "Fantasy", 36: "History",
-  27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance", 878: "Science Fiction",
-  10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western",
-  10759: "Action & Adventure", 10762: "Kids", 10763: "News", 10764: "Reality",
-  10765: "Sci-Fi & Fantasy", 10766: "Soap", 10767: "Talk", 10768: "War & Politics",
-};
 
 const GENRE_NAME_TO_TMDB_ID: Record<string, number> = {
   "Action": 28, "Adventure": 12, "Animation": 16, "Comedy": 35, "Crime": 80,
@@ -154,23 +146,8 @@ async function discoverAdditionalTitles(
   let exhausted = false;
   const MAX_TMDB_PAGES_TO_SCAN = 12; // Sufficient scan depth to satisfy batch size
 
-  const MOVIE_GENRE_MAP: Record<string, number> = {
-    "Action": 28, "Adventure": 12, "Animation": 16, "Comedy": 35, "Crime": 80,
-    "Documentary": 99, "Drama": 18, "Family": 10751, "Fantasy": 14, "History": 36,
-    "Horror": 27, "Music": 10402, "Mystery": 9648, "Romance": 10749, "Science Fiction": 878,
-    "Sci-Fi": 878, "TV Movie": 10770, "Thriller": 53, "War": 10752, "Western": 37,
-  };
-
-  const TV_GENRE_MAP: Record<string, number> = {
-    "Action": 10759, "Action & Adventure": 10759, "Adventure": 10759, "Animation": 16,
-    "Comedy": 35, "Crime": 80, "Documentary": 99, "Drama": 18, "Family": 10751,
-    "Kids": 10762, "Mystery": 9648, "News": 10763, "Reality": 10764,
-    "Sci-Fi & Fantasy": 10765, "Sci-Fi": 10765, "Science Fiction": 10765, "Fantasy": 10765,
-    "Soap": 10766, "Talk": 10767, "War & Politics": 10768, "War": 10768, "Western": 37,
-  };
-
-  const movieGenreIds = selectedGenres.map((g) => MOVIE_GENRE_MAP[g]).filter(Boolean);
-  const tvGenreIds = selectedGenres.map((g) => TV_GENRE_MAP[g]).filter(Boolean);
+  const movieGenreIds = getTmdbGenreIds("movies", selectedGenres);
+  const tvGenreIds = getTmdbGenreIds("series", selectedGenres);
 
   const getEraParam = (era: string, type: "movie" | "tv") => {
     if (!era || era === "All") return "";
@@ -311,7 +288,7 @@ async function discoverAdditionalTitles(
 
         // Strict AND multi-genre matching: title must match ALL selected genres
         if (selectedGenres.length > 0) {
-          const hasAll = selectedGenres.every((sg) => itemHasGenre(genres, sg));
+          const hasAll = itemMatchesAllGenres(genres, selectedGenres);
           if (!hasAll) continue;
         }
 
@@ -435,9 +412,7 @@ export async function getBrowseCatalogueService(
 
       // STRICT MULTI-GENRE AND MATCHING: All selected genres must be present!
       if (selectedGenres.length > 0) {
-        const hasAllGenres = selectedGenres.every((sg) =>
-          itemHasGenre(r.genres, sg)
-        );
+        const hasAllGenres = itemMatchesAllGenres(r.genres, selectedGenres);
         if (!hasAllGenres) return false;
       }
 

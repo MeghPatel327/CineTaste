@@ -30,7 +30,7 @@ import type {
   BrowseItem,
   BrowseCatalogueResult,
 } from "@/features/movies/browseService";
-import { matchesEra, itemHasGenre } from "@/features/movies/browseFiltering";
+import { matchesEra, itemHasGenre, itemMatchesAllGenres } from "@/features/movies/browseFiltering";
 import {
   getCachedCategoryData,
   setCachedCategoryData,
@@ -39,6 +39,7 @@ import {
   BROWSE_BATCH_SIZE,
 } from "@/features/movies/browseClientCache";
 import type { UnifiedSearchResultItem } from "@/features/movies/searchService";
+import { useScreenContext } from "@/lib/screenContext";
 
 interface CategoryBrowseViewProps {
   category: BrowseCategory;
@@ -67,10 +68,10 @@ function applyFiltersToResults<T extends UnifiedSearchResultItem>(
     return true;
   });
 
-  // Genre AND matching
+  // Strict multi-genre matching: must match all selected genres
   if (filters.genres.length > 0) {
     filtered = filtered.filter((item) =>
-      filters.genres.every((g) => itemHasGenre(item.genres || [], g))
+      itemMatchesAllGenres(item.genres || [], filters.genres)
     );
   }
 
@@ -105,6 +106,7 @@ export function CategoryBrowseView({
   icon,
 }: CategoryBrowseViewProps) {
   const [, startTransition] = useTransition();
+  const { setScreenDetails } = useScreenContext();
 
   // ─────────────────────────────────────────────────────────────────────────
   // 1. Separate Draft vs Applied Filters (Explicit Apply Pattern)
@@ -133,6 +135,20 @@ export function CategoryBrowseView({
   const [isSearching, setIsSearching] = useState(false);
   const [searchStatusMessage, setSearchStatusMessage] = useState<string | null>(null);
   const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
+
+  // Sync with global screen context for AI Chatbot awareness
+  useEffect(() => {
+    setScreenDetails({
+      category,
+      searchQuery: activeSearchQuery,
+      appliedFilters: {
+        genres: appliedGenres,
+        era: appliedEra,
+        subType: appliedSubType,
+        sort: appliedSort,
+      },
+    });
+  }, [category, activeSearchQuery, appliedGenres, appliedEra, appliedSubType, appliedSort, setScreenDetails]);
 
   // Check if draft filters differ from applied
   const hasUnappliedFilterChanges =

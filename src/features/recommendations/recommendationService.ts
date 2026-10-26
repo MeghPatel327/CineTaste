@@ -23,6 +23,7 @@ import {
   type RecommendationExplanation,
 } from "./recommendationEngine";
 import { isAnime } from "@/features/movies/animeClassifier";
+import { itemMatchesAllGenres, getTmdbGenreIds, TMDB_GENRES as TMDB_GENRE_MAP } from "@/features/movies/browseFiltering";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // In-flight generation dedup: prevents concurrent calls for same user
@@ -39,13 +40,6 @@ const serverRecMemoryCache = new Map<string, HotRecCache>();
 
 // TMDB constants & genre mapping
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_GENRE_MAP: Record<number, string> = {
-  28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
-  99: "Documentary", 18: "Drama", 10751: "Family", 14: "Fantasy", 36: "History",
-  27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance", 878: "Science Fiction",
-  10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western",
-  10759: "Action & Adventure", 10762: "Kids", 10765: "Sci-Fi & Fantasy",
-};
 
 const GENRE_NAME_TO_TMDB_ID: Record<string, number> = {
   "Action": 28, "Adventure": 12, "Animation": 16, "Comedy": 35, "Crime": 80,
@@ -530,9 +524,7 @@ export async function expandRecommendationsForFilter(
 
         // Strict multi-genre matching: must match ALL specified genres
         if (filters.genres?.length) {
-          const matchesAll = filters.genres.every((sg) =>
-            r.genres.some((rg: string) => rg.toLowerCase() === sg.toLowerCase()),
-          );
+          const matchesAll = itemMatchesAllGenres(r.genres, filters.genres);
           if (!matchesAll) continue;
         }
 
@@ -550,10 +542,10 @@ export async function expandRecommendationsForFilter(
 
   // 2. Supplement from TMDB discover for these filters if still needed
   if (newCandidates.length < 15 && filters.genres?.length) {
-    const genreIds = filters.genres
-      .map((g) => GENRE_NAME_TO_TMDB_ID[g])
-      .filter(Boolean)
-      .join(",");
+    const movieGenreIds = getTmdbGenreIds("movies", filters.genres).join(",");
+    const tvGenreIds = getTmdbGenreIds("series", filters.genres).join(",");
+    const animeTvGenreIds = getTmdbGenreIds("anime", filters.genres, "tv").join(",");
+    const animeMovieGenreIds = getTmdbGenreIds("anime", filters.genres, "movie").join(",");
 
     let eraParam = "";
     if (filters.era === "2020s") eraParam = "&primary_release_date.gte=2020-01-01&first_air_date.gte=2020-01-01";
@@ -564,12 +556,12 @@ export async function expandRecommendationsForFilter(
 
     const endpoints: string[] = [];
     if (category === "movies") {
-      endpoints.push(`/discover/movie?with_genres=${genreIds}${eraParam}&sort_by=vote_average.desc&vote_count.gte=100&page=1`);
+      endpoints.push(`/discover/movie?with_genres=${movieGenreIds}${eraParam}&sort_by=vote_average.desc&vote_count.gte=100&page=1`);
     } else if (category === "series") {
-      endpoints.push(`/discover/tv?with_genres=${genreIds}${eraParam}&sort_by=vote_average.desc&vote_count.gte=80&page=1`);
+      endpoints.push(`/discover/tv?with_genres=${tvGenreIds}${eraParam}&sort_by=vote_average.desc&vote_count.gte=80&page=1`);
     } else if (category === "anime") {
-      endpoints.push(`/discover/tv?with_genres=16${genreIds ? `,${genreIds}` : ""}&with_original_language=ja${eraParam}&sort_by=vote_average.desc&vote_count.gte=50&page=1`);
-      endpoints.push(`/discover/movie?with_genres=16${genreIds ? `,${genreIds}` : ""}&with_original_language=ja${eraParam}&sort_by=vote_average.desc&vote_count.gte=50&page=1`);
+      endpoints.push(`/discover/tv?with_genres=16${animeTvGenreIds ? `,${animeTvGenreIds}` : ""}&with_original_language=ja${eraParam}&sort_by=vote_average.desc&vote_count.gte=50&page=1`);
+      endpoints.push(`/discover/movie?with_genres=16${animeMovieGenreIds ? `,${animeMovieGenreIds}` : ""}&with_original_language=ja${eraParam}&sort_by=vote_average.desc&vote_count.gte=50&page=1`);
     }
 
     for (const ep of endpoints) {
@@ -595,9 +587,7 @@ export async function expandRecommendationsForFilter(
 
         // Strict multi-genre matching: must match ALL specified genres
         if (filters.genres?.length) {
-          const matchesAll = filters.genres.every((sg) =>
-            genres.some((rg: string) => rg.toLowerCase() === sg.toLowerCase()),
-          );
+          const matchesAll = itemMatchesAllGenres(genres, filters.genres);
           if (!matchesAll) continue;
         }
 

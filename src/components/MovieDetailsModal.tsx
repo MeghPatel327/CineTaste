@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Star, Clock, Calendar, Globe, ExternalLink, Plus, Edit, Play, X, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/appStore";
+import { useScreenContext } from "@/lib/screenContext";
 
 // Shared TMDB detail cache (module-level, persists across navigations)
 const detailsCache = new Map<string, any>();
@@ -27,6 +28,7 @@ interface MovieDetailsModalProps {
 
 export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onUpdated, onRankChanged, onNavigate }: MovieDetailsModalProps) {
   const { getPirateSites } = useAppStore();
+  const { setCurrentMovie } = useScreenContext();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -73,8 +75,24 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       setRating(0);
       setPersonalReview("");
       setWatchLink("");
+      setCurrentMovie(null);
     }
-  }, [isOpen]);
+  }, [isOpen, setCurrentMovie]);
+
+  // Keep screen context in sync with the currently viewed movie/show details
+  useEffect(() => {
+    if (isOpen && data) {
+      setCurrentMovie({
+        title: data.title || "",
+        year: data.release_year,
+        genres: data.genres ? data.genres.split(", ").map((g: string) => g.trim()) : [],
+        overview: data.overview,
+        rating: data.libraryData?.rating || undefined,
+        personalReview: data.libraryData?.personal_review || undefined,
+        status: data.libraryData?.status || undefined,
+      });
+    }
+  }, [isOpen, data, setCurrentMovie]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
