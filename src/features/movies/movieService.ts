@@ -11,6 +11,7 @@ const addMovieSchema = z.object({
   type: z.enum(["movie", "series"]),
   status: z.enum(["completed", "pending", "dropped"]),
   rating: z.number().min(0).max(10),
+  personal_review: z.string().optional(),
   watch_order_rank: z.number().int().optional(), // No longer required
   watch_link: z.string().nullable().optional(),
   tmdb_id: z.number(),
@@ -25,6 +26,7 @@ const addMovieSchema = z.object({
 const updateMovieSchema = z.object({
   status: z.enum(["completed", "pending", "dropped"]).optional(),
   rating: z.coerce.number().min(0).max(10).optional(),
+  personal_review: z.string().optional(),
   watch_order_rank: z.coerce.number().int().optional(),
   watch_link: z.string().nullable().optional(),
 });
@@ -56,6 +58,7 @@ export async function addMovieService(username: string, body: any) {
 
   const finalMovie = await addMovie({
     ...result.data,
+    personal_review: result.data.personal_review ?? "",
     watch_order_rank: watchOrderRank,
     watch_link: result.data.watch_link || null,
     username,

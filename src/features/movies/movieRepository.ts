@@ -8,6 +8,7 @@ export interface MovieRow {
   type: "movie" | "series";
   status: "completed" | "pending" | "dropped";
   rating: number;
+  personal_review: string;
   watch_order_rank: number | null;
   watch_link: string | null;
   tmdb_id: number;

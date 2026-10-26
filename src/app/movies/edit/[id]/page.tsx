@@ -22,6 +22,7 @@ export default function EditMoviePage() {
   // Form State
   const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
   const [rating, setRating] = useState(0);
+  const [personalReview, setPersonalReview] = useState("");
   const [watchLink, setWatchLink] = useState("");
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function EditMoviePage() {
           setMovie(found);
           setStatus(found.status);
           setRating(found.rating || 0);
+          setPersonalReview(found.personal_review || "");
           setWatchLink(found.watch_link || "");
         } else {
           setError(true);
@@ -65,6 +67,7 @@ export default function EditMoviePage() {
       const payload = {
         status,
         rating: status === "completed" || status === "dropped" ? rating : 0,
+        personal_review: status === "completed" || status === "dropped" ? personalReview : "",
         watch_link: status === "pending" ? (watchLink || null) : null,
       };
 
@@ -141,6 +144,19 @@ export default function EditMoviePage() {
                     </div>
                   )}
                 </div>
+
+                {(status === "completed" || status === "dropped") && (
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Personal Review (Optional)</label>
+                    <textarea
+                      rows={4}
+                      placeholder="Your thoughts on this title..."
+                      value={personalReview}
+                      onChange={e => setPersonalReview(e.target.value)}
+                      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                    />
+                  </div>
+                )}
 
                 {status === "pending" && (
                   <div>

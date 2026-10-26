@@ -40,6 +40,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   const [movingRank, setMovingRank] = useState(false);
   const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
   const [rating, setRating] = useState(0);
+  const [personalReview, setPersonalReview] = useState("");
   const [watchLink, setWatchLink] = useState("");
   const [isFormExiting, setIsFormExiting] = useState(false);
 
@@ -70,6 +71,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       finishFormClose();
       setStatus("pending");
       setRating(0);
+      setPersonalReview("");
       setWatchLink("");
     }
   }, [isOpen]);
@@ -122,6 +124,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
     const lib = data.libraryData;
     setStatus(lib.status || "pending");
     setRating(lib.rating || 0);
+    setPersonalReview(lib.personal_review || "");
     setWatchLink(lib.watch_link || "");
     setIsEditing(true);
   };
@@ -134,6 +137,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
       const payload = {
         status,
         rating: status === "completed" || status === "dropped" ? rating : 0,
+        personal_review: status === "completed" || status === "dropped" ? personalReview : "",
         watch_link: status === "pending" ? (watchLink || null) : null,
       };
 
@@ -399,6 +403,18 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                         </div>
                       )}
                     </div>
+                    {(status === "completed" || status === "dropped") && (
+                      <div className="text-left">
+                        <label className="text-xs font-medium mb-1 block text-white/70">Personal Review (Optional)</label>
+                        <textarea
+                          rows={3}
+                          placeholder="Your thoughts on this title..."
+                          value={personalReview}
+                          onChange={e => setPersonalReview(e.target.value)}
+                          className="flex w-full rounded-md border border-white/20 bg-black/50 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                        />
+                      </div>
+                    )}
                     {status === "pending" && (
                       <div className="text-left">
                         <label className="text-xs font-medium mb-1 block text-white/70">Personal Watch Link (Optional)</label>
@@ -546,33 +562,39 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                         <span className="font-bold text-yellow-500 flex items-center gap-1"><Star className="w-4 h-4 fill-current" /> {data.libraryData.rating}/10</span>
                       </div>
                     )}
-                    {data.libraryData.status === 'pending' && (
-                      <div className="flex flex-col gap-1">
-                        <span className="text-muted-foreground text-xs uppercase tracking-wider">Watch Order</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold">#{data.libraryData.watch_order_rank}</span>
-                          <div className="flex flex-col gap-0.5">
-                            <button
-                              onClick={() => handleMoveRank("up")}
-                              disabled={movingRank || data.libraryData.watch_order_rank <= 1}
-                              title="Move up in queue"
-                              className="p-0.5 rounded hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-primary"
-                            >
-                              <ChevronUp className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleMoveRank("down")}
-                              disabled={movingRank}
-                              title="Move down in queue"
-                              className="p-0.5 rounded hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-primary"
-                            >
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                  </div>
+                  {data.libraryData.status === 'completed' && data.libraryData.personal_review && (
+                    <div className="flex flex-col">
+                      <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Your Review</span>
+                      <p className="text-sm leading-relaxed italic text-foreground/80">&ldquo;{data.libraryData.personal_review}&rdquo;</p>
+                    </div>
+                  )}
+                  {data.libraryData.status === 'pending' && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground text-xs uppercase tracking-wider">Watch Order</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">#{data.libraryData.watch_order_rank}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            onClick={() => handleMoveRank("up")}
+                            disabled={movingRank || data.libraryData.watch_order_rank <= 1}
+                            title="Move up in queue"
+                            className="p-0.5 rounded hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-primary"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveRank("down")}
+                            disabled={movingRank}
+                            title="Move down in queue"
+                            className="p-0.5 rounded hover:bg-primary/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-primary"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
 

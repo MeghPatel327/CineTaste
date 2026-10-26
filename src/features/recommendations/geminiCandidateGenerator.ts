@@ -33,7 +33,11 @@ function buildTasteSummary(ctx: UserTasteContext): string {
     parts.push(
       "LOVED movies (rated 8+):\n" +
         topRated
-          .map((m) => `- "${m.movie_name}" (${m.release_year}) — rated ${m.rating}/10`)
+          .map((m) => {
+            const review = m.personal_review?.trim();
+            return `- "${m.movie_name}" (${m.release_year}) — rated ${m.rating}/10` +
+              (review ? `\n  Review: "${review}"` : "");
+          })
           .join("\n"),
     );
   }
@@ -48,7 +52,11 @@ function buildTasteSummary(ctx: UserTasteContext): string {
     parts.push(
       "DISLIKED movies (rated 4 or below):\n" +
         lowRated
-          .map((m) => `- "${m.movie_name}" — rated ${m.rating}/10`)
+          .map((m) => {
+            const review = m.personal_review?.trim();
+            return `- "${m.movie_name}" — rated ${m.rating}/10` +
+              (review ? `\n  Review: "${review}"` : "");
+          })
           .join("\n"),
     );
   }
