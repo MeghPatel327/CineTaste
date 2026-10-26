@@ -46,3 +46,4 @@ structure_root.txt
 *.txt
 .agents
 .codegraph
+Baserow_prompt.md
