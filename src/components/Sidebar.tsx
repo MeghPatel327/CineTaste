@@ -7,7 +7,7 @@ import {
   Home,
   Film,
   Tv,
-  Sparkles,
+  Swords,
   ListTodo,
   Library,
   Shield,
@@ -31,7 +31,7 @@ const mainNavItems = [
   { href: "/dashboard", label: "Home", icon: Home },
   { href: "/movies", label: "Movies", icon: Film },
   { href: "/series", label: "Series", icon: Tv },
-  { href: "/anime", label: "Anime", icon: Sparkles },
+  { href: "/anime", label: "Anime", icon: Swords },
   { href: "/recommendations", label: "Queue", icon: ListTodo },
   { href: "/library", label: "Library", icon: Library },
 ];

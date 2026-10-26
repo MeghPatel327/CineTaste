@@ -1,7 +1,7 @@
 "use client";
 
 import { CategoryBrowseView } from "@/components/CategoryBrowseView";
-import { Sparkles } from "lucide-react";
+import { Swords } from "lucide-react";
 
 export default function AnimePage() {
   return (
@@ -9,7 +9,7 @@ export default function AnimePage() {
       category="anime"
       title="Anime"
       subtitle="Japanese animation masterpieces, epic series & theatrical cinema"
-      icon={<Sparkles className="w-8 h-8 text-emerald-400" />}
+      icon={<Swords className="w-8 h-8 text-emerald-400" />}
     />
   );
 }

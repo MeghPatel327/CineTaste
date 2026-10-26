@@ -325,10 +325,11 @@ export function CineTasteChatbot() {
           id="cinetaste-chat-panel"
           className={cn(
             "fixed z-40 flex flex-col overflow-hidden shadow-2xl transition-all duration-200",
-            // Desktop dimensions
-            "md:bottom-24 md:right-6 md:w-[420px] md:h-[590px] md:max-h-[85vh] md:rounded-2xl",
-            // Mobile dimensions: responsive bottom sheet / full frame
-            "inset-x-3 bottom-3 top-20 rounded-2xl",
+            // Directly above floating button with right edges aligned
+            "bottom-24 right-6 left-auto top-auto",
+            // Responsive width and height ensuring panel stays fully inside viewport
+            "w-[calc(100vw-3rem)] sm:w-[420px] max-w-[420px]",
+            "h-[580px] max-h-[calc(100dvh-7.5rem)] rounded-2xl",
             "bg-[#0d121d]/95 backdrop-blur-2xl border border-white/10"
           )}
         >
