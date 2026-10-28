@@ -1,3 +1,4 @@
+
 # CineTaste
 
 **A personal movie, TV series & anime companion powered by intelligent taste learning and Gemini AI.**
