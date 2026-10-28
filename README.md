@@ -1,6 +1,6 @@
 # CineTaste
 
-**A personal movie, TV series & anime companion powered by intelligent taste learning and Gemini AI.**
+**A personal  movie, TV series & anime companion powered by intelligent taste learning and Gemini AI.**
 
 CineTaste is a smart watchlist manager and hybrid recommendation platform. It tracks your movies, series, and anime, learns what you love from your ratings and personal reviews, and delivers personalized recommendations through a cinema-inspired interface.
 
