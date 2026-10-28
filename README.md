@@ -1,51 +1,64 @@
 # CineTaste
 
-**A personal movie & series companion that learns your taste.**
+**A personal movie, TV series & anime companion powered by intelligent taste learning and Gemini AI.**
 
-CineTaste is a smart watchlist manager and recommendation engine. It tracks your movies and series, learns what you love from your ratings, and recommends what to watch next — all through a polished, cinema-inspired interface.
+CineTaste is a smart watchlist manager and hybrid recommendation platform. It tracks your movies, series, and anime, learns what you love from your ratings and personal reviews, and delivers personalized recommendations through a cinema-inspired interface.
 
 ---
 
 ## Features
 
-### Smart Recommendations
-- **Multi-factor scoring** — weighted across genre, keywords, director, cast, film industry, runtime preference, and release decade
-- **Personalized candidate pool** — fetches similar and recommended titles for all your positively-rated content from TMDB, plus trending, popular, and now-playing feeds
-- **Diversity filtering** — prevents the same director or decade from dominating your feed
-- **Cold start** — shows trending and popular titles until you have enough ratings
-- **Session-stable** — recommendations only regenerate when you rate, add, edit, or delete a title
+### CineTaste AI Chatbot
+- **Context-Aware Assistant** — knows your entire library, ratings, personal reviews, and current watch queue
+- **Screen Context Awareness** — senses which page you are on (Movies, Series, Anime, Discover, Queue) and adapts conversation accordingly
+- **Live Search & Trivia** — answers questions, discusses plotlines, and fetches streaming availability and trivia
+- **Floating UI** — toggleable, non-intrusive chat window with markdown rendering, suggestion chips, and responsive layout
 
-### Library Management
-- **Status tracking** — Pending, Completed, Dropped
-- **Watch order** — drag-and-drop reordering for your pending list
-- **Ratings** — 1–10 scale with optional notes
-- **Watch links** — save streaming URLs or local file paths per title
-- **Rich metadata** — genres, runtime, release year, poster, all pulled from TMDB
+### Smart Hybrid Recommendations
+- **Dual-Engine Architecture**:
+  - **Deterministic Multi-Factor Scoring** — weighted across genre (45%), keywords (20%), director (10%), film industry (8%), cast (5%), runtime (4%), release decade (4%), and TMDB rating (4%)
+  - **Gemini AI Candidate Generation** — analyzes deep taste profiles to discover non-obvious cinematic gems and thematic matches
+- **Taste Profile Hashing** — generates cryptographic hashes of your library state; rebuilds recommendations automatically when taste profile shifts or freshness expires
+- **Diversity Filtering** — caps titles per director and release decade to prevent feed monotony
+- **Cold Start Fallback** — dynamically serves top-rated, trending, and curated titles until sufficient ratings are recorded
 
-### Discovery
-- **TMDB integration** — search millions of movies and series
-- **Curated sections** — personalized Top Picks, genre-specific rows, trending, hidden gems
-- **Infinite scroll** — batched loading with scroll-position preservation across navigation
-- **Smart filtering** — never shows titles already in your library
+### Media Hubs & Strict Category Isolation
+- **Dedicated Hubs** — distinct routes for **Movies** (`/movies`), **TV Series** (`/series`), and **Anime** (`/anime`)
+- **Strict Category Isolation** — series never bleed into movies, anime movies/series stay properly classified
+- **Anime Classifier** — automated heuristics detecting Japanese animation by original language, production country, keywords, and genre tags
+- **Multi-Genre Filter Pipeline** — filter by multiple genres simultaneously with real-time tag counts
 
-### Dashboard
-- **Stats overview** — total titles, completed, pending, dropped
-- **Next to watch** — first item from your pending watch order
-- **Genre breakdown** — pie chart of your top 7 genres
-- **Animated counters** — numbers count up on first load
+### Library & Queue Management
+- **Status Tracking** — Completed, Pending, and Dropped
+- **Smart Watch Queue** — prioritized watch queue with draggable reordering and one-click item migration
+- **Ratings & Personal Reviews** — 1–10 rating scale paired with long-form personal review notes
+- **Direct Watch Links** — store custom streaming URLs or local file paths per title
+- **TMDB Enrichment** — auto-fetches genres, runtimes, cast, crew, release dates, and high-res posters
 
-### Admin Panel
-- **User management** — view all accounts, promote/demote roles, block accounts
-- **Password reset** — admins can reset any user's password directly
-- **Pirate site templates** — manage configurable external search link templates
+### Discovery & Curated Catalogues
+- **Unified Search** — fast search across movies, series, and anime with TMDB autocomplete
+- **Sticky Filter Panel** — smooth scroll-transitioning search and genre filters with floating and docked visual modes
+- **Curated Catalogues & Fallbacks** — pre-curated sets ensuring rich discovery feeds even during API rate limits or network issues
+- **Client-Side SWR Caching** — sub-second navigation between categories without re-fetching
 
-### UI / UX
-- **Dynamic ambient shadows** — each card glows with the dominant color extracted from its poster
-- **Shimmer skeletons** — loading states on all pages, no blank screens
-- **Persistent app shell** — sidebar never unmounts, navigation feels instant
-- **Route prefetching** — all routes preloaded after login
-- **Scroll preservation** — returns to exact scroll position after navigating away and back
-- **Dark neutral theme** — `#111` background, Spotify/Steam-inspired palette
+### Dashboard & Analytics
+- **Viewing Statistics** — total tracked items, completed count, pending queue, and drop rate
+- **Next to Watch Card** — instant access to the top item in your watch queue
+- **Genre Breakdown** — interactive pie chart showing your top 7 genres
+- **Animated Metrics** — smooth count-up animations on load
+
+### Admin Panel & System Health
+- **Gemini Health Diagnostics** — live card testing Gemini API connectivity, response latency, and quota
+- **User Administration** — view all registered accounts, toggle admin privileges, or block accounts
+- **Password Reset** — administrative password override
+- **Pirate Site Templates** — manage external search URL templates with customizable search queries
+
+### UI / UX Design
+- **Ambient Poster Glow** — cards extract poster palette colors using CORS-safe canvas sampling for ambient shadows
+- **Persistent App Shell** — persistent sidebar and audio/chat layers that never remount across page transitions
+- **Route Prefetching** — preloads common routes on initial mount for near-instant navigation
+- **Scroll Position Restoration** — remembers exact scroll offsets when navigating back from details
+- **Theme** — cinema dark palette (`#0B0B0F`, `#111116`) styled with Tailwind CSS v4
 
 ---
 
@@ -53,158 +66,169 @@ CineTaste is a smart watchlist manager and recommendation engine. It tracks your
 
 | Layer | Technology |
 |---|---|
-| Framework | [Next.js 16](https://nextjs.org) — App Router, React Server Components |
-| UI | [React 19](https://react.dev) |
-| Styling | [Tailwind CSS v4](https://tailwindcss.com) — all config via `@theme` in CSS |
-| Database | [Baserow](https://baserow.io) — no-code tables, accessed via REST API |
-| Auth | `jose` (JWT, HTTP-only cookies) + `bcryptjs` (password hashing) |
-| Movie Data | [TMDB API](https://www.themoviedb.org/documentation/api) |
-| Charts | [Recharts](https://recharts.org) |
-| Toasts | [Sonner](https://sonner.emilkowal.ski) |
-| Icons | [Lucide React](https://lucide.dev) |
-| Validation | [Zod](https://zod.dev) |
-| Language | TypeScript |
+| **Framework** | [Next.js 16](https://nextjs.org) (App Router, Server Components) |
+| **UI Library** | [React 19](https://react.dev) |
+| **Styling** | [Tailwind CSS v4](https://tailwindcss.com) (Modern CSS theme tokens) |
+| **Database** | [Baserow](https://baserow.io) (REST API-driven relational tables) |
+| **AI / LLM** | [Google Gemini](https://ai.google.dev/) (Taste candidate synthesis, AI Chatbot) |
+| **Movie Metadata** | [TMDB API v3](https://developer.themoviedb.org/reference/intro/getting-started) |
+| **Charts** | [Recharts](https://recharts.org) |
+| **Toasts** | [Sonner](https://sonner.emilkowal.ski) |
+| **Icons** | [Lucide React](https://lucide.dev) |
+| **Auth & Security** | `jose` (JWT HTTP-only cookies) + `bcryptjs` (password hashing) |
+| **Validation** | [Zod](https://zod.dev) |
+| **Language** | TypeScript |
 
 ---
 
 ## Prerequisites
 
-- **Node.js** 18 or higher
-- **npm** (comes with Node)
-- **Baserow account** — free tier works at [baserow.io](https://baserow.io)
-- **TMDB API key** — free at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
+- **Node.js** 18.x or 20.x+
+- **npm** or **pnpm**
+- **Baserow Account** — free cloud tier or self-hosted ([baserow.io](https://baserow.io))
+- **TMDB API Key** — free developer key ([themoviedb.org/settings/api](https://www.themoviedb.org/settings/api))
+- **Gemini API Key** — Google AI Studio key ([aistudio.google.com](https://aistudio.google.com/))
 
 ---
 
-## Setup
+## Setup & Installation
 
-### 1. Clone the repo
+### 1. Clone & Install Dependencies
 
 ```bash
-git clone https://github.com/yourusername/CineTaste.git
+git clone https://github.com/MeghPatel327/CineTaste.git
 cd CineTaste
 npm install
 ```
 
-### 2. Set up Baserow
+### 2. Configure Environment Variables
 
-1. Create a free account at [baserow.io](https://baserow.io) and create a new database.
-2. Create three tables with the schemas below.
-3. Go to **Settings → API Tokens**, create a token with `read`, `create`, `update`, `delete` access on all three tables.
-4. Note your **database ID** (in the URL: `https://baserow.io/database/12345/...`) and each **table ID** (in the URL when you open a table).
-
-**`users` table**
-
-| Field | Type | Notes |
-|---|---|---|
-| `username` | Text | Primary login identifier |
-| `password_hash` | Text | bcrypt hash — never stored in plaintext |
-| `role` | Text | `"user"` or `"admin"` |
-| `blocked` | Boolean | Blocks login when `true` |
-| `created_at` | Date | Set on registration |
-| `last_login` | Date | Updated on each login |
-
-**`movies` table**
-
-| Field | Type | Notes |
-|---|---|---|
-| `username` | Text | Matches `users.username` |
-| `tmdb_id` | Number | TMDB movie or series ID |
-| `movie_name` | Text | Title |
-| `type` | Text | `"movie"` or `"series"` |
-| `genres` | Text | JSON array, e.g. `["Action","Drama"]` |
-| `language` | Text | Original language code, e.g. `"en"` |
-| `release_year` | Number | 4-digit year |
-| `runtime` | Number | Minutes |
-| `poster_url` | Text | TMDB image URL |
-| `status` | Text | `"pending"`, `"completed"`, or `"dropped"` |
-| `rating` | Number | 0–10 |
-| `notes` | Text | Optional personal notes |
-| `watch_link` | Text | Optional streaming URL or file path |
-| `watch_order_rank` | Number | Position in your pending watch queue |
-| `added_at` | Date | Timestamp |
-
-**`pirate_sites` table**
-
-| Field | Type | Notes |
-|---|---|---|
-| `name` | Text | Display name, e.g. `"YTS"` |
-| `search_url` | Text | Template with `{query}` placeholder |
-| `enabled` | Boolean | Only enabled sites appear in modals |
-
-### 3. Get a TMDB API key
-
-1. Create a free account at [themoviedb.org](https://www.themoviedb.org)
-2. Go to **Settings → API** and request an API key (v3 auth)
-
-### 4. Create `.env`
-
-Create a `.env` file in the project root:
+Create a `.env` file in the root directory:
 
 ```env
-# App
+# Application
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Baserow
+# Auth
+AUTH_SECRET=your_random_32_character_secret_here
+
+# Baserow Core
 BASEROW_API_URL=https://api.baserow.io
 BASEROW_DATABASE_ID=your_database_id
-BASEROW_API_TOKEN=your_api_token
+BASEROW_API_TOKEN=your_baserow_api_token
+
+# Baserow Table IDs (Populated manually or via setup script)
 BASEROW_USERS_TABLE_ID=your_users_table_id
 BASEROW_MOVIES_TABLE_ID=your_movies_table_id
 BASEROW_PIRATES_TABLE_ID=your_pirate_sites_table_id
+BASEROW_RECOMMENDATION_PROFILE_TABLE_ID=your_rec_profile_table_id
+BASEROW_RECOMMENDATION_SETS_TABLE_ID=your_rec_sets_table_id
 
-# TMDB
+# TMDB API
 TMDB_API_KEY=your_tmdb_api_key
 
-# Auth — generate a random 32+ character secret
-AUTH_SECRET=your_random_secret_here
+# Gemini AI
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_API_BASE_URL=https://gemini-web2api-clone.vercel.app/v1
+GEMINI_MODEL=gemini-3.7-flash
+
+# Recommendation Tuning
+RECOMMENDATION_FRESHNESS_HOURS=72
 ```
 
-Generate a secure `AUTH_SECRET`:
+> **Tip:** Generate a secure `AUTH_SECRET` in PowerShell or Bash:
+> ```bash
+> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+> ```
+
+### 3. Initialize Baserow Database
+
+You can automatically provision all five required tables and update your `.env` file by providing `BASEROW_API_TOKEN` and `BASEROW_DATABASE_ID`, then running:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+npm run setup-db
 ```
 
-### 5. Run
+#### Table Schema Reference
+
+<details>
+<summary>Click to view manual Baserow table schemas</summary>
+
+1. **`users`**
+   - `username` (Text)
+   - `password_hash` (Text)
+   - `role` (Select: `user`, `admin`)
+   - `blocked` (Boolean)
+   - `created_at` (Date, ISO)
+   - `last_login` (Date, ISO)
+
+2. **`movies`**
+   - `username` (Text)
+   - `movie_name` (Text)
+   - `type` (Text: `"movie"` | `"series"`)
+   - `status` (Text: `"pending"` | `"completed"` | `"dropped"`)
+   - `rating` (Number, 1 decimal)
+   - `personal_review` (Long Text)
+   - `watch_order_rank` (Number, integer)
+   - `watch_link` (URL)
+   - `tmdb_id` (Number, integer)
+   - `genres` (Long Text, JSON array)
+   - `release_year` (Number, integer)
+   - `runtime` (Number, integer)
+   - `language` (Text)
+   - `poster_url` (URL)
+   - `overview` (Long Text)
+
+3. **`pirate_sites`**
+   - `name` (Text)
+   - `search_url` (URL with `{query}` token)
+   - `enabled` (Boolean)
+
+4. **`recommendation_profile`**
+   - `username` (Text)
+   - `favorite_genres` (Long Text)
+   - `disliked_genres` (Long Text)
+   - `favorite_actors` (Long Text)
+   - `favorite_directors` (Long Text)
+   - `favorite_production_companies` (Long Text)
+   - `favorite_industries` (Long Text)
+   - `favorite_eras` (Long Text)
+   - `language_preferences` (Long Text)
+   - `library_hash` (Text)
+   - `generated_at` (Text)
+   - `engine_version` (Text)
+
+5. **`recommendation_sets`**
+   - `username` (Text)
+   - `recommendations` (Long Text, JSON)
+   - `status` (Text)
+   - `taste_hash` (Text)
+   - `created_at` (Text)
+   - `expires_at` (Text)
+   - `generation_model` (Text)
+   - `item_count` (Number, integer)
+
+</details>
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-### 6. Create your account
-
-Navigate to `/register`. The **first registered user is automatically made admin**.
+Visit [http://localhost:3000](http://localhost:3000). The first registered account automatically receives the **admin** role.
 
 ---
 
-## Scripts
+## Available Scripts
 
-```bash
-npm run dev        # Development server (localhost:3000)
-npm run build      # Production build
-npm run start      # Production server
-npm run lint       # ESLint
-npm run setup-db   # Optional: automated Baserow table setup script
-```
-
----
-
-## Environment Variables
-
-| Variable | Required | Description |
+| Script | Command | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_APP_URL` | No | App base URL (default: `http://localhost:3000`) |
-| `BASEROW_API_URL` | Yes | Baserow instance URL |
-| `BASEROW_DATABASE_ID` | Yes | Your Baserow database ID |
-| `BASEROW_API_TOKEN` | Yes | API token with table permissions |
-| `BASEROW_USERS_TABLE_ID` | Yes | Users table ID |
-| `BASEROW_MOVIES_TABLE_ID` | Yes | Movies table ID |
-| `BASEROW_PIRATES_TABLE_ID` | Yes | Pirate sites table ID |
-| `TMDB_API_KEY` | Yes | TMDB API key (v3) |
-| `AUTH_SECRET` | Yes | JWT signing secret (min 32 chars) |
+| `dev` | `npm run dev` | Starts local Next.js development server at port 3000 |
+| `build` | `npm run build` | Compiles production bundle |
+| `start` | `npm run start` | Starts production server |
+| `lint` | `npm run lint` | Runs ESLint check across source code |
+| `setup-db` | `npm run setup-db` | Automatically creates tables and fields in Baserow |
 
 ---
 
@@ -212,205 +236,133 @@ npm run setup-db   # Optional: automated Baserow table setup script
 
 ```
 src/
-├── app/                        # Next.js App Router
-│   ├── page.tsx                # Root redirect (→ login or dashboard)
-│   ├── layout.tsx              # Root layout (providers)
-│   ├── globals.css             # Tailwind v4 theme, keyframes, utilities
-│   ├── login/                  # Login page
-│   ├── register/               # Registration page
-│   ├── dashboard/              # Stats, next-to-watch, genre chart
-│   ├── movies/                 # Library (filter, sort, watch order)
-│   │   ├── add/                # Add movie form
-│   │   └── edit/[id]/          # Edit movie form
-│   ├── discover/               # TMDB search + recommendation feed
-│   ├── recommendations/        # Full recommendations page
-│   ├── profile/                # Password change, account settings
-│   ├── admin/                  # Admin panel
-│   └── api/                    # API routes
-│       ├── auth/               # login, register, logout, session, change-password
-│       ├── movies/             # CRUD library, TMDB proxy
-│       ├── recommendations/    # Recommendation engine endpoint
-│       ├── discover/           # Curated discover feed
-│       ├── dashboard/          # Stats aggregation
-│       ├── profile/            # Profile data
-│       ├── pirate-sites/       # Public pirate site list
-│       ├── tmdb/               # TMDB search and detail proxies
-│       └── admin/              # User management, password reset
-├── components/
-│   ├── AppShell.tsx            # Persistent layout wrapper with Sidebar
-│   ├── Sidebar.tsx             # Navigation (prefetches all routes on mount)
-│   ├── MovieCard.tsx           # Discover/search card with ambient shadow
-│   ├── HorizontalRow.tsx       # Horizontal scroll row with preloading
-│   ├── MovieDetailsModal.tsx   # Full detail modal (cast, crew, trailer, similar)
-│   ├── RatingModal.tsx         # Rating and notes input
-│   ├── BrandLogo.tsx           # Logo component
-│   ├── ThemeProvider.tsx       # Dark/light theme context
-│   └── ui/                     # Button, Input, Modal, Skeleton, EmptyState, etc.
-├── features/
-│   ├── auth/                   # userRepository, authService
-│   ├── movies/                 # movieRepository, movieService
-│   ├── recommendations/        # recommendationEngine (multi-factor scoring)
-│   ├── dashboard/              # dashboardService (stats + genre aggregation)
-│   └── admin/                  # adminRepository, adminService
-├── lib/
-│   ├── appStore.tsx            # Global React context (session, library, cache)
-│   ├── env.ts                  # Environment variable access
-│   ├── session.ts              # JWT encode/decode via jose
-│   ├── baserow.ts              # Baserow REST client helpers
-│   ├── apiResponse.ts          # Standardized API response shapes
-│   ├── ApiError.ts             # Typed error class
-│   └── utils.ts                # cn(), getFilmIndustry()
-├── hooks/
-│   └── useCountUp.ts           # Animated counter for dashboard stats
-└── middleware.ts               # Route protection (auth + role enforcement)
+├── app/                              # Next.js App Router
+│   ├── page.tsx                      # Root landing / redirect
+│   ├── layout.tsx                    # Root layout with theme & screen providers
+│   ├── globals.css                   # Tailwind v4 theme, keyframes, scrollbars
+│   ├── login/                        # Authentication: Login
+│   ├── register/                     # Authentication: Register (auto-admin for #1)
+│   ├── dashboard/                    # Overview metrics, charts, next to watch
+│   ├── movies/                       # Dedicated Movies hub
+│   │   ├── add/                      # Add to library form
+│   │   └── edit/[id]/                # Edit library item form
+│   ├── series/                       # Dedicated TV Series hub
+│   ├── anime/                        # Dedicated Anime hub
+│   ├── library/                      # Unified library & watch queue manager
+│   ├── discover/                     # TMDB search, curated rows, recommendations
+│   ├── recommendations/              # In-depth recommendation feed
+│   ├── profile/                      # User settings & password change
+│   ├── about/                        # About CineTaste, developer info & stats
+│   ├── admin/                        # Admin panel & Gemini health monitoring
+│   └── api/                          # Next.js Serverless API routes
+│       ├── admin/                    # Users, password reset, Gemini health check
+│       ├── auth/                     # Session, login, register, password change
+│       ├── browse/                   # Category-specific browse feed proxy
+│       ├── chat/                     # CineTaste AI chatbot endpoint (Gemini)
+│       ├── dashboard/                # Aggregated user statistics
+│       ├── discover/                 # Curated discover feed
+│       ├── movies/                   # Library CRUD & TMDB sync
+│       ├── pirate-sites/             # Streaming link templates
+│       ├── queue/                    # Watch queue order & migration
+│       ├── recommendations/          # Hybrid recommendations & profile rebuild
+│       ├── search/                   # Unified multi-category search
+│       └── tmdb/                     # TMDB proxy endpoints (search, details)
+├── components/                       # Shared React components
+│   ├── AppShell.tsx                  # Persistent sidebar & app wrapper
+│   ├── Sidebar.tsx                   # Main navigation with route prefetching
+│   ├── CineTasteChatbot.tsx          # Screen-aware AI assistant dialog
+│   ├── CategoryBrowseView.tsx        # Common browse UI for movies, series, anime
+│   ├── MovieCard.tsx                 # Media card with ambient color glow
+│   ├── MovieDetailsModal.tsx         # Deep details modal (cast, trailers, similar)
+│   ├── RatingModal.tsx               # Rating (1-10) and personal review modal
+│   ├── HorizontalRow.tsx             # Preloading horizontal slider
+│   ├── BrandLogo.tsx                 # Vector logo component
+│   ├── ThemeProvider.tsx             # Light / Dark theme context
+│   └── ui/                           # Button, Input, Modal, Skeleton, EmptyState
+├── features/                         # Domain-driven feature modules
+│   ├── admin/                        # Admin services & Gemini health diagnostics
+│   ├── auth/                         # Authentication & user repository
+│   ├── chat/                         # Chatbot orchestration & prompt engineering
+│   ├── dashboard/                    # Analytics calculation services
+│   ├── movies/                       # Repositories, anime classifier, browse cache
+│   └── recommendations/              # Multi-factor heuristics + Gemini candidate engine
+├── hooks/                            # Custom React hooks (useCountUp)
+├── lib/                              # Core utilities & libraries
+│   ├── env.ts                        # Type-safe environment access
+│   ├── gemini.ts                     # Gemini AI API client wrapper
+│   ├── screenContext.tsx             # Active screen context provider for AI chat
+│   ├── baserow.ts                    # Baserow HTTP client helpers
+│   ├── session.ts                    # JWT creation & verification with jose
+│   ├── logger.ts                     # Structured server logger
+│   └── utils.ts                      # cn(), getFilmIndustry(), formatting
+└── middleware.ts                     # Route protection & role verification
 ```
 
 ---
 
-## Recommendation Algorithm
+## Recommendation Engine Architecture
 
-### Input
-All titles you have marked **Completed** with a rating > 0.
-
-### Taste profile
-Built from every rated title. Each signal is weighted by how much you liked the title:
-
-| Rating | Weight |
-|---|---|
-| 10 | +2.0 |
-| 9 | +1.5 |
-| 8 | +1.0 |
-| 7 | +0.5 |
-| 6 | 0.0 |
-| 5 | −0.25 |
-| 4 | −0.5 |
-| 3 | −1.0 |
-| 2 | −1.5 |
-| 1 | −2.0 |
-
-Signals collected per title:
-- **Genres** — from your local library metadata
-- **Keywords** — from TMDB's keyword list for that title
-- **Director** — from TMDB credits (job: "Director")
-- **Top 5 cast** — from TMDB credits
-- **Film industry** — derived from original language / production country (Hollywood, Bollywood, Korean, etc.)
-- **Runtime** — builds a preferred average runtime from positively-rated titles
-- **Release decade** — e.g. "1990s", "2010s"
-
-### Candidate pool
-For every positively-rated title, fetches from TMDB:
-- `/movie/{id}/similar` and `/movie/{id}/recommendations`
-- `/tv/{id}/similar` and `/tv/{id}/recommendations`
-
-Plus global feeds: trending (day/week), popular movies, top-rated movies, popular TV, top-rated TV, now playing, on the air, airing today.
-
-All candidates are deduplicated. Anything already in your library (any status) is excluded.
-
-### Scoring weights
-
-| Signal | Weight |
-|---|---|
-| Genre match | 45% |
-| Keyword match | 20% |
-| Director match | 10% |
-| Film industry match | 8% |
-| Cast match | 5% |
-| Runtime preference | 4% |
-| Decade preference | 4% |
-| TMDB vote average | 4% |
-
-### Post-processing
-1. Composite scores are normalized to a 0–99 range
-2. Candidates scoring below 10 are dropped
-3. Diversity filter: max 3 titles per director, max 6 titles per decade
-4. Results sorted descending by final score
-
-### Cache invalidation
-The taste profile is cached per user and invalidated when you:
-- Add a title to your library
-- Rate or edit a completed title
-- Delete a title
-- Manually refresh the discover page
-
-### Cold start
-With no ratings, the engine falls back to TMDB trending and popular lists ranked by vote average.
+```
+User Library (Ratings >= 7, Personal Reviews)
+                 │
+                 ├──► 1. Taste Profile Builder (genres, keywords, directors, eras)
+                 │
+        ┌────────┴──────────────────────────┐
+        ▼                                   ▼
+2. TMDB Similar / Top Picks         3. Gemini AI Candidate Generator
+(Deterministic candidates)          (Deep thematic & tone matching)
+        │                                   │
+        └────────┬──────────────────────────┘
+                 ▼
+       4. Candidate Deduplication & Library Exclusion
+                 ▼
+       5. Multi-Factor Scoring (0–99 points)
+          - Genre overlap (45%)
+          - Keyword match (20%)
+          - Director match (10%)
+          - Industry match (8%)
+          - Cast affinity (5%)
+          - Runtime & Decade (8%)
+          - TMDB Quality score (4%)
+                 ▼
+       6. Diversity Filter (max 3/director, 6/decade)
+                 ▼
+       7. Baserow Cache & Taste Hash Storage (TTL: 72 hrs)
+```
 
 ---
 
-## Security
+## Security & Reliability
 
-- **Passwords** — bcrypt hashed (cost 10), never stored in plaintext, never returned by any API
-- **Sessions** — signed JWT stored in an HTTP-only cookie (`cinetaste_session`), 7-day expiry
-- **Route protection** — middleware enforces authentication on all protected routes (`/dashboard`, `/movies`, `/discover`, `/profile`, `/admin`)
-- **Admin enforcement** — role check on every `/api/admin/*` route server-side
-- **Input validation** — Zod schemas on all API endpoints
-- **CORS-safe color extraction** — canvas color extraction uses a cache-busted URL (`?_c=1`) on a separate `Image` object to avoid cross-origin canvas poisoning
-
----
-
-## Performance
-
-- **Persistent app shell** — Sidebar renders once per session, never remounts on navigation
-- **Route prefetching** — all routes preloaded by Sidebar on mount via `router.prefetch()`
-- **Global store** — session, full library, and pirate sites cached in React Context; no redundant fetches on navigation
-- **Module-level cache** — dashboard stats and discover data survive route changes within a session
-- **TMDB detail cache** — `Map<string, any>` keyed by `${type}_${id}`, prevents duplicate TMDB calls
-- **GPU-only animations** — all animations use only `transform`, `opacity`, and `filter` — no layout-triggering properties
-- **Scroll restoration** — `sessionStorage` + `requestAnimationFrame` for pixel-accurate position restore
-- **Shimmer skeletons** — `background-position` animation (composited layer), zero layout shift
-
----
-
-## Troubleshooting
-
-**Login shows "Unauthorized" immediately**
-- Check that `AUTH_SECRET` is set and at least 32 characters
-- Verify the `cinetaste_session` cookie is present in browser DevTools → Application → Cookies
-
-**Recommendations are empty**
-- Rate at least 3–5 titles as Completed with scores of 7 or higher to build a taste profile
-- Check the Network tab for the `/api/recommendations` response
-
-**TMDB images not loading**
-- Verify `TMDB_API_KEY` is valid and active in your TMDB account settings
-- TMDB's image CDN (`image.tmdb.org`) may be region-restricted — try a VPN
-
-**Baserow "Unauthorized" errors**
-- Your API token may have expired — generate a new one in Baserow **Settings → API Tokens**
-- Double-check your table IDs by opening each table and reading the ID from the URL
-
-**Ambient shadows are all the same color**
-- The browser blocked canvas cross-origin access — this is expected in some configurations and falls back to a neutral shadow silently
-- Check the browser console for `SecurityError: Failed to execute 'getImageData'`
-
-**Admin panel shows no users**
-- Confirm you are logged in with a user whose `role` field is `"admin"` in the users table
-- Check the `/api/admin/users` response in the Network tab
+- **Bcrypt Password Hashing** — salt rounds = 10, hashes never exposed in API responses
+- **Signed HTTP-Only JWTs** — tamper-proof session cookies (`cinetaste_session`) with 7-day expiration
+- **Strict Role Enforcement** — verified in Next.js middleware and validated server-side on all admin endpoints
+- **Zod Schema Validation** — all incoming requests validated before database mutations
+- **Cross-Origin Image Safety** — canvas palette extraction uses isolated, cache-busted `Image` instances to prevent canvas contamination
 
 ---
 
 ## Browser Support
 
-Chrome / Edge 90+, Firefox 88+, Safari 14+, iOS Safari 14+, Chrome Android 90+
+- Chrome / Edge 90+
+- Firefox 88+
+- Safari 14+ / iOS Safari 14+
+- Chrome Android 90+
 
-Canvas-based ambient shadow color extraction requires `getImageData()` support. On browsers that block cross-origin canvas reads, the feature degrades gracefully to a neutral shadow.
+*Graceful degradation: browsers disabling canvas image data extraction cleanly fall back to dark neutral ambient glows.*
 
 ---
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 
 ## Acknowledgments
 
-- [TMDB](https://www.themoviedb.org) — movie and series metadata
-- [Baserow](https://baserow.io) — no-code database backend
-- [Lucide](https://lucide.dev) — icon library
-- [Recharts](https://recharts.org) — genre pie chart
-- [Sonner](https://sonner.emilkowal.ski) — toast notifications
-
----
-
-Built with Next.js 16, React 19, Tailwind CSS v4, and TypeScript.
+- [The Movie Database (TMDB)](https://www.themoviedb.org) — metadata, credits, and imagery
+- [Google Gemini](https://ai.google.dev/) — candidate generation and conversational intelligence
+- [Baserow](https://baserow.io) — open source relational database infrastructure
+- [Lucide Icons](https://lucide.dev) — UI iconography
+- [Recharts](https://recharts.org) — interactive data visualizations
