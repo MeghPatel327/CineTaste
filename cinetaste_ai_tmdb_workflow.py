@@ -46,8 +46,8 @@ for _env_file in (".env.local", ".env"):
 
 TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
 
-GEMINI_BASE_URL = "http://localhost:8081/v1"
-GEMINI_API_KEY = os.getenv("GEMINI_WEB2API_KEY", "dummy")
+GEMINI_BASE_URL = "https://gemini-web2api-clone.vercel.app/v1"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "anything")
 GEMINI_MODEL = "gemini-3.7-flash"
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
