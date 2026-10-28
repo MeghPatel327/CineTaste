@@ -29,12 +29,22 @@ from urllib3.util.retry import Retry
 
 # -------------------- CONFIGURATION --------------------
 
-# Test key supplied by you. Replace it later, and preferably load from an
-# environment variable before deploying:
-TMDB_API_KEY = os.getenv(
-    "TMDB_API_KEY",
-    "bda6b75240dae44ed7f48c8725d50c20"
-)
+# Load .env / .env.local if present locally
+for _env_file in (".env.local", ".env"):
+    if os.path.exists(_env_file):
+        try:
+            with open(_env_file, "r", encoding="utf-8") as _f:
+                for _line in _f:
+                    _line = _line.strip()
+                    if _line and not _line.startswith("#") and "=" in _line:
+                        _k, _v = _line.split("=", 1)
+                        _k, _v = _k.strip(), _v.strip().strip("'\"")
+                        if _k and _k not in os.environ:
+                            os.environ[_k] = _v
+        except Exception:
+            pass
+
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
 
 GEMINI_BASE_URL = "http://localhost:8081/v1"
 GEMINI_API_KEY = os.getenv("GEMINI_WEB2API_KEY", "dummy")
@@ -477,6 +487,9 @@ Return only valid JSON:
 
 def run_cinetaste_workflow(taste_profile: str) -> list[dict]:
     """Run the complete Gemini -> TMDB -> Gemini workflow."""
+    if not TMDB_API_KEY:
+        raise ValueError("TMDB_API_KEY is not set. Set TMDB_API_KEY in your environment or .env file.")
+
     print("\n[1/4] Asking Gemini for recommendations...")
     recommendations = recommend_titles(taste_profile)
 
