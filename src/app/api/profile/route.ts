@@ -4,6 +4,10 @@ import { successResponse, errorResponse, handleApiError } from "@/lib/apiRespons
 import { getSession } from "@/lib/session";
 import { getUserById } from "@/features/auth/userRepository";
 import { getDashboardStatsService } from "@/features/dashboard/dashboardService";
+import { getUserMovies } from "@/features/movies/movieRepository";
+import { getRecommendationProfile } from "@/features/recommendations/recommendationProfileRepository";
+import { generateTasteDna } from "@/features/profile/tasteDnaService";
+import { getFilmIndustry } from "@/lib/utils";
 
 export const GET = withLogger(async (req: NextRequest) => {
   try {
@@ -17,17 +21,21 @@ export const GET = withLogger(async (req: NextRequest) => {
       return errorResponse("User not found", 404, "USER_NOT_FOUND");
     }
 
-    const dashboardData = await getDashboardStatsService(session.username);
+    const [dashboardData, movies, profileRecord] = await Promise.all([
+      getDashboardStatsService(session.username),
+      getUserMovies(session.username),
+      getRecommendationProfile(session.username),
+    ]);
 
-    const favoriteGenre = dashboardData.favoriteGenres.length > 0 
-      ? dashboardData.favoriteGenres[0].name 
+    const tasteDna = generateTasteDna(movies, profileRecord);
+
+    const favoriteGenre = tasteDna.favoriteGenres.length > 0 
+      ? tasteDna.favoriteGenres[0].name 
+      : dashboardData.favoriteGenres.length > 0
+      ? dashboardData.favoriteGenres[0].name
       : "None";
 
-    const { getUserMovies } = await import("@/features/movies/movieRepository");
-    const { getFilmIndustry } = await import("@/lib/utils");
-    const movies = await getUserMovies(session.username);
     const industryCounts: Record<string, number> = {};
-    
     movies.filter(m => m.rating > 0).forEach(m => {
       if (m.language) {
         const ind = getFilmIndustry(m.language);
@@ -49,8 +57,15 @@ export const GET = withLogger(async (req: NextRequest) => {
       avgRating: dashboardData.stats.avgRating,
       favoriteGenre,
       favoriteIndustry,
-      favoriteGenres: dashboardData.favoriteGenres,
+      favoriteGenres: tasteDna.favoriteGenres.length > 0 ? tasteDna.favoriteGenres : dashboardData.favoriteGenres,
       insights: dashboardData.insights,
+      tasteDna: {
+        summaryParagraph: tasteDna.summaryParagraph,
+        strongLikes: tasteDna.strongLikes,
+        strongDislikes: tasteDna.strongDislikes,
+        storytellingStyles: tasteDna.storytellingStyles,
+        preferredEras: tasteDna.preferredEras,
+      },
     });
   } catch (error: any) {
     return handleApiError(error);

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { useScreenContext } from "@/lib/screenContext";
 import { useAppStore } from "@/lib/appStore";
 import {
@@ -136,9 +137,18 @@ function FormattedSpan({ text }: { text: string }) {
 }
 
 export function CineTasteChatbot() {
+  const pathname = usePathname() || "/";
   const { screenContext } = useScreenContext();
-  const { state: appStoreState } = useAppStore();
-  const username = appStoreState.user?.username || "";
+  const { state: appStoreState, getUser } = useAppStore();
+  const user = appStoreState.user;
+  const username = user?.username || "";
+
+  // Check auth state if not yet fetched
+  useEffect(() => {
+    if (!appStoreState.userFetched) {
+      getUser();
+    }
+  }, [appStoreState.userFetched, getUser]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -148,6 +158,12 @@ export function CineTasteChatbot() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Completely hide on login, register, and unauthenticated pages
+  const isAuthPage = pathname === "/login" || pathname === "/register";
+  if (isAuthPage) return null;
+  if (appStoreState.userFetched && !user) return null;
+  if (!user) return null;
 
   // Storage key segmented by username
   const storageKey = useMemo(() => {
@@ -275,6 +291,10 @@ export function CineTasteChatbot() {
     if (screenContext.currentMovie) {
       return `Viewing: "${screenContext.currentMovie.title}"`;
     }
+    const pn = screenContext.pathname || pathname || "/";
+    if (pn === "/" || pn === "/dashboard") {
+      return "Home";
+    }
     if (screenContext.category) {
       const cat = screenContext.category.charAt(0).toUpperCase() + screenContext.category.slice(1);
       const filters = screenContext.appliedFilters?.genres?.length
@@ -282,16 +302,19 @@ export function CineTasteChatbot() {
         : "";
       return `${cat} Catalogue${filters}`;
     }
-    if (screenContext.pathname.includes("/library")) return "My Library";
-    if (screenContext.pathname.includes("/up-next")) return "Up Next Queue";
-    if (screenContext.pathname.includes("/recommendations")) return "Personal Recommendations";
+    if (pn.startsWith("/library")) return "My Library";
+    if (pn.startsWith("/recommendations")) return "Up Next Queue";
+    if (pn.startsWith("/discover")) return "Discover";
+    if (pn.startsWith("/profile")) return "Account & Taste DNA";
+    if (pn.startsWith("/about")) return "About CineTaste";
+    if (pn.startsWith("/admin")) return "Admin Dashboard";
     return "CineTaste Hub";
-  }, [screenContext]);
+  }, [screenContext, pathname]);
 
   return (
     <>
       {/* ── Round Floating Chatbot Trigger Button ── */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-6 right-6 z-[9998]">
         <button
           id="cinetaste-chat-toggle-btn"
           onClick={() => setIsOpen((prev) => !prev)}
@@ -324,7 +347,7 @@ export function CineTasteChatbot() {
         <div
           id="cinetaste-chat-panel"
           className={cn(
-            "fixed z-40 flex flex-col overflow-hidden shadow-2xl transition-all duration-200",
+            "fixed z-[9999] flex flex-col overflow-hidden shadow-2xl transition-all duration-200",
             // Directly above floating button with right edges aligned
             "bottom-24 right-6 left-auto top-auto",
             // Responsive width and height ensuring panel stays fully inside viewport
@@ -403,24 +426,31 @@ export function CineTasteChatbot() {
                 {/* Quick Prompts */}
                 <div className="flex flex-col gap-2 w-full max-w-[320px]">
                   <button
-                    onClick={() => handleSendMessage("What should I watch next from my watchlist based on my ratings?")}
+                    onClick={() => handleSendMessage("Show all movies in my library.")}
                     className="text-left px-3 py-2 rounded-xl text-xs bg-white/[0.03] hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/20 text-foreground/90 transition-all flex items-center justify-between group"
                   >
-                    <span>What to watch from my watchlist?</span>
+                    <span>Show all movies in my library</span>
                     <Film className="w-3.5 h-3.5 text-muted-foreground group-hover:text-emerald-400 transition-colors" />
                   </button>
                   <button
-                    onClick={() => handleSendMessage("Recommend something based on my personal reviews and taste.")}
+                    onClick={() => handleSendMessage("What should I watch next according to my watch order?")}
                     className="text-left px-3 py-2 rounded-xl text-xs bg-white/[0.03] hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/20 text-foreground/90 transition-all flex items-center justify-between group"
                   >
-                    <span>Recommend based on my reviews</span>
+                    <span>What to watch next (watch order)?</span>
                     <Sparkles className="w-3.5 h-3.5 text-muted-foreground group-hover:text-emerald-400 transition-colors" />
                   </button>
                   <button
-                    onClick={() => handleSendMessage("Tell me about what is currently shown on my screen.")}
+                    onClick={() => handleSendMessage("Which movies have I rated 10/10?")}
                     className="text-left px-3 py-2 rounded-xl text-xs bg-white/[0.03] hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/20 text-foreground/90 transition-all flex items-center justify-between group"
                   >
-                    <span>What's on this screen?</span>
+                    <span>Which movies did I rate 10/10?</span>
+                    <Sparkles className="w-3.5 h-3.5 text-muted-foreground group-hover:text-emerald-400 transition-colors" />
+                  </button>
+                  <button
+                    onClick={() => handleSendMessage("What is my highest-rated genre?")}
+                    className="text-left px-3 py-2 rounded-xl text-xs bg-white/[0.03] hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/20 text-foreground/90 transition-all flex items-center justify-between group"
+                  >
+                    <span>What is my highest-rated genre?</span>
                     <Compass className="w-3.5 h-3.5 text-muted-foreground group-hover:text-emerald-400 transition-colors" />
                   </button>
                 </div>

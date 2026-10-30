@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/appStore";
 import { startBackgroundCataloguePrefetch } from "@/features/movies/browseClientCache";
 import type { UnifiedSearchResultItem } from "@/features/movies/searchService";
+import { useScreenContext } from "@/lib/screenContext";
 
 let dashboardCacheRef: { data: any; fetchedAt: number } | null = null;
 const DASHBOARD_TTL = 60_000;
@@ -46,6 +47,7 @@ const HERO_ROTATION_MS = 7_000; // 7 seconds per slide
 
 export default function DashboardPage() {
   const { state: appState, getDashboard } = useAppStore();
+  const { setScreenDetails } = useScreenContext();
   const [data, setData] = useState<any>(
     appState.dashboardData?.data ?? dashboardCacheRef?.data ?? null
   );
@@ -66,6 +68,24 @@ export default function DashboardPage() {
   const [headerHeight, setHeaderHeight] = useState<number>(0);
   const isPinnedRef = useRef(isPinned);
   isPinnedRef.current = isPinned;
+
+  // Sync displayed titles with chatbot live screen context
+  useEffect(() => {
+    const titles: string[] = [];
+    if (data?.heroSlides) {
+      data.heroSlides.forEach((s: any) => { if (s?.title) titles.push(s.title); });
+    }
+    if (data?.recommendations) {
+      data.recommendations.forEach((r: any) => { if (r?.title) titles.push(r.title); });
+    }
+    if (data?.next5) {
+      data.next5.forEach((m: any) => { if (m?.movie_name) titles.push(m.movie_name); });
+    }
+    setScreenDetails({
+      searchQuery: activeSearchQuery,
+      displayedTitles: titles.slice(0, 15),
+    });
+  }, [data, activeSearchQuery, setScreenDetails]);
 
   useEffect(() => {
     const el = headerRef.current;

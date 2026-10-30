@@ -21,6 +21,7 @@ export interface BrowseItem {
   release_year?: number;
   vote_average?: number;
   score?: number;
+  popularity?: number;
   genres: string[];
   overview?: string;
   reasons?: string[];
@@ -33,7 +34,7 @@ export interface BrowseCatalogueOptions {
   genres?: string[];
   era?: string;
   subType?: string; // For anime: "all" | "movie" | "tv"
-  sort?: "recommended" | "rating" | "year" | "year-asc" | "title" | "title-desc";
+  sort?: "recommended" | "popularity" | "rating" | "year" | "year-asc" | "title" | "title-desc";
   query?: string;
   autoExpand?: boolean;
 }
@@ -108,6 +109,7 @@ function formatRecToBrowse(r: RecommendationItem): BrowseItem {
     release_year: r.release_year > 0 ? r.release_year : undefined,
     vote_average: r.vote_average > 0 ? r.vote_average : undefined,
     score: r.score,
+    popularity: (r as any).popularity || (r.vote_average ? r.vote_average * 10 : r.score || 50),
     genres: r.genres,
     overview: r.overview || "",
     reasons: r.reasons,
@@ -162,6 +164,9 @@ async function discoverAdditionalTitles(
   };
 
   const getSortParam = (s: string, type: "movie" | "tv") => {
+    if (s === "popularity") {
+      return "&sort_by=popularity.desc";
+    }
     if (s === "rating") {
       return type === "movie"
         ? "&sort_by=vote_average.desc&vote_count.gte=80"
@@ -306,6 +311,7 @@ async function discoverAdditionalTitles(
           release_year: releaseYear,
           vote_average: voteAvg,
           score,
+          popularity: r.popularity ? parseFloat(Number(r.popularity).toFixed(1)) : undefined,
           genres,
           overview: r.overview || "",
           reasons: [
@@ -547,6 +553,9 @@ export async function getBrowseCatalogueService(
   // 7. Sort pool items
   const sortedItems = [...poolEntry.items];
   sortedItems.sort((a, b) => {
+    if (sort === "popularity") {
+      return (b.popularity || b.score || 0) - (a.popularity || a.score || 0);
+    }
     if (sort === "rating") {
       return (b.vote_average || 0) - (a.vote_average || 0);
     }

@@ -88,6 +88,7 @@ function applyFiltersToResults<T extends UnifiedSearchResultItem>(
   // Sort
   const sorted = [...filtered];
   sorted.sort((a, b) => {
+    if (filters.sort === "popularity") return (b.popularity || b.score || 0) - (a.popularity || a.score || 0);
     if (filters.sort === "rating") return (b.vote_average || 0) - (a.vote_average || 0);
     if (filters.sort === "year") return (b.release_year || 0) - (a.release_year || 0);
     if (filters.sort === "year-asc") return (a.release_year || 0) - (b.release_year || 0);
@@ -115,14 +116,14 @@ export function CategoryBrowseView({
   const [draftEra, setDraftEra] = useState<string>("");
   const [draftSubType, setDraftSubType] = useState<string>("all");
   const [draftSort, setDraftSort] = useState<
-    "recommended" | "rating" | "year" | "year-asc" | "title" | "title-desc"
+    "recommended" | "popularity" | "rating" | "year" | "year-asc" | "title" | "title-desc"
   >("recommended");
 
   const [appliedGenres, setAppliedGenres] = useState<string[]>([]);
   const [appliedEra, setAppliedEra] = useState<string>("");
   const [appliedSubType, setAppliedSubType] = useState<string>("all");
   const [appliedSort, setAppliedSort] = useState<
-    "recommended" | "rating" | "year" | "year-asc" | "title" | "title-desc"
+    "recommended" | "popularity" | "rating" | "year" | "year-asc" | "title" | "title-desc"
   >("recommended");
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -136,19 +137,7 @@ export function CategoryBrowseView({
   const [searchStatusMessage, setSearchStatusMessage] = useState<string | null>(null);
   const [searchFallbackUsed, setSearchFallbackUsed] = useState(false);
 
-  // Sync with global screen context for AI Chatbot awareness
-  useEffect(() => {
-    setScreenDetails({
-      category,
-      searchQuery: activeSearchQuery,
-      appliedFilters: {
-        genres: appliedGenres,
-        era: appliedEra,
-        subType: appliedSubType,
-        sort: appliedSort,
-      },
-    });
-  }, [category, activeSearchQuery, appliedGenres, appliedEra, appliedSubType, appliedSort, setScreenDetails]);
+
 
   // Check if draft filters differ from applied
   const hasUnappliedFilterChanges =
@@ -211,8 +200,58 @@ export function CategoryBrowseView({
       if (appliedSubType === "tv") filtered = filtered.filter((i) => i.media_type === "tv");
       else if (appliedSubType === "movie") filtered = filtered.filter((i) => i.media_type === "movie");
     }
-    return filtered;
-  }, [items, category, appliedSubType]);
+    // Live enforcement of applied genres and era
+    if (appliedGenres.length > 0) {
+      filtered = filtered.filter((item) => itemMatchesAllGenres(item.genres || [], appliedGenres));
+    }
+    if (appliedEra) {
+      filtered = filtered.filter((item) => matchesEra(item.release_year, appliedEra));
+    }
+
+    // Genuine live reordering by applied sort
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      if (appliedSort === "popularity") return (b.popularity || b.score || 0) - (a.popularity || a.score || 0);
+      if (appliedSort === "rating") return (b.vote_average || 0) - (a.vote_average || 0);
+      if (appliedSort === "year") return (b.release_year || 0) - (a.release_year || 0);
+      if (appliedSort === "year-asc") return (a.release_year || 0) - (b.release_year || 0);
+      if (appliedSort === "title") return a.title.localeCompare(b.title);
+      if (appliedSort === "title-desc") return b.title.localeCompare(a.title);
+      return (b.score || 0) - (a.score || 0);
+    });
+
+    return sorted;
+  }, [items, category, appliedSubType, appliedGenres, appliedEra, appliedSort]);
+
+  // Sync with global screen context for AI Chatbot awareness with live displayed titles
+  useEffect(() => {
+    const titles = (isSearchActive ? filteredSearchResults : categoryFilteredItems)
+      .slice(0, 15)
+      .map((i) => i.title);
+
+    setScreenDetails({
+      category,
+      searchQuery: activeSearchQuery,
+      appliedFilters: {
+        genres: appliedGenres,
+        era: appliedEra,
+        subType: appliedSubType,
+        sort: appliedSort,
+      },
+      displayedTitles: titles,
+    });
+  }, [
+    category,
+    activeSearchQuery,
+    appliedGenres,
+    appliedEra,
+    appliedSubType,
+    appliedSort,
+    isSearchActive,
+    filteredSearchResults,
+    categoryFilteredItems,
+    setScreenDetails,
+  ]);
 
   // Pinned Viewport-Fixed state for search and filter controls
   const [isPinned, setIsPinned] = useState(false);
@@ -261,6 +300,19 @@ export function CategoryBrowseView({
 
   const scrollKey = `ct_scroll_${category}`;
 
+  const appliedFiltersRef = useRef({
+    sort: appliedSort,
+    subType: appliedSubType,
+    genres: appliedGenres,
+    era: appliedEra,
+  });
+  appliedFiltersRef.current = {
+    sort: appliedSort,
+    subType: appliedSubType,
+    genres: appliedGenres,
+    era: appliedEra,
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // 4. Fetch Catalogue Function with Robust SWR and Error Recovery
   // ─────────────────────────────────────────────────────────────────────────
@@ -280,10 +332,10 @@ export function CategoryBrowseView({
       loadingRef.current = true;
       const currentReqId = ++reqIdRef.current;
 
-      const activeSort = overrideFilters?.sort ?? appliedSort;
-      const activeSubType = overrideFilters?.subType ?? appliedSubType;
-      const activeGenres = overrideFilters?.genres ?? appliedGenres;
-      const activeEra = overrideFilters?.era ?? appliedEra;
+      const activeSort = overrideFilters?.sort ?? appliedFiltersRef.current.sort;
+      const activeSubType = overrideFilters?.subType ?? appliedFiltersRef.current.subType;
+      const activeGenres = overrideFilters?.genres ?? appliedFiltersRef.current.genres;
+      const activeEra = overrideFilters?.era ?? appliedFiltersRef.current.era;
 
       if (!isAppend && !isBackgroundRevalidation) {
         setInitialLoading(true);
@@ -399,9 +451,24 @@ export function CategoryBrowseView({
   // 5. Initial Mount & Background SWR
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
+    // Reset draft and applied filters on category route change
+    setDraftGenres([]);
+    setDraftEra("");
+    setDraftSubType("all");
+    setDraftSort("recommended");
+    setAppliedGenres([]);
+    setAppliedEra("");
+    setAppliedSubType("all");
+    setAppliedSort("recommended");
+
     const cached = getCachedCategoryData(category, undefined, true);
     if (!cached) {
-      fetchCatalogue(1, false, false);
+      fetchCatalogue(1, false, false, {
+        genres: [],
+        era: "",
+        subType: "all",
+        sort: "recommended",
+      });
     } else {
       // Instantly restore from cache
       setItems(cached.items);
@@ -419,11 +486,16 @@ export function CategoryBrowseView({
 
       // If stale, revalidate in background without blocking interaction
       if (cached.isStale) {
-        fetchCatalogue(1, false, true);
+        fetchCatalogue(1, false, true, {
+          genres: [],
+          era: "",
+          subType: "all",
+          sort: "recommended",
+        });
       }
     }
     isInitialMount.current = false;
-  }, [category, fetchCatalogue, scrollKey]);
+  }, [category, scrollKey]);
 
   // Non-blocking Background Prefetching for other categories
   useEffect(() => {
@@ -461,7 +533,7 @@ export function CategoryBrowseView({
   const loadNextPage = useCallback(() => {
     if (isSearchActive || loadingRef.current || !hasMoreRef.current) return;
     const nextPage = pageRef.current + 1;
-    fetchCatalogue(nextPage, true);
+    fetchCatalogue(nextPage, true, false, appliedFiltersRef.current);
   }, [isSearchActive, fetchCatalogue]);
 
   useEffect(() => {
@@ -739,6 +811,7 @@ export function CategoryBrowseView({
                       className="bg-transparent text-[#F5F7F6] focus:outline-none font-medium cursor-pointer"
                     >
                       <option value="recommended" className="bg-[#121619]">Taste Match</option>
+                      <option value="popularity" className="bg-[#121619]">Most Popular</option>
                       <option value="rating" className="bg-[#121619]">Highest Rated</option>
                       <option value="year" className="bg-[#121619]">Newest First</option>
                       <option value="year-asc" className="bg-[#121619]">Oldest First</option>

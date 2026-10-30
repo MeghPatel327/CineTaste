@@ -28,6 +28,7 @@ export const GET = withLogger(async (req: NextRequest) => {
   const subType = searchParams.get("subType") || "all";
   const sort = (searchParams.get("sort") || "recommended") as
     | "recommended"
+    | "popularity"
     | "rating"
     | "year"
     | "year-asc"

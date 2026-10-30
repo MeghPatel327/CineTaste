@@ -105,8 +105,10 @@ export function Sidebar({ isAdmin }: SidebarProps) {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
+      dispatch({ type: "SET_USER", payload: null });
       router.push("/login");
     } catch {
+      dispatch({ type: "SET_USER", payload: null });
       router.push("/login");
     }
   };

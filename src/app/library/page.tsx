@@ -14,6 +14,7 @@ import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { MovieDetailsModal } from "@/components/MovieDetailsModal";
 import { useAppStore } from "@/lib/appStore";
+import { useScreenContext } from "@/lib/screenContext";
 
 // Persist filter/scroll state across navigations
 const SESSION_KEY = "ct-library-state";
@@ -43,6 +44,7 @@ const staggerStyle = (index: number, step = 50) => ({
 
 export default function MovieLibraryPage() {
   const { state, getLibrary, dispatch } = useAppStore();
+  const { setScreenDetails } = useScreenContext();
 
   const saved = loadSession();
   const [movies, setMovies] = useState<MovieRow[]>([]);
@@ -180,6 +182,18 @@ export default function MovieLibraryPage() {
     if (sortBy === "watch_order") return (a.watch_order_rank || Infinity) - (b.watch_order_rank || Infinity);
     return 0;
   });
+
+  // Keep chatbot screen context aware of library view and displayed titles
+  useEffect(() => {
+    setScreenDetails({
+      searchQuery: search,
+      appliedFilters: {
+        sort: sortBy,
+        subType: typeFilter !== "all" ? typeFilter : undefined,
+      },
+      displayedTitles: filteredMovies.slice(0, 15).map((m) => m.movie_name),
+    });
+  }, [search, sortBy, typeFilter, filteredMovies, setScreenDetails]);
 
   return (
     <AppShell>

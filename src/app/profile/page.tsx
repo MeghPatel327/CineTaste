@@ -19,14 +19,19 @@ import {
   Sparkles,
   Dna,
   Award,
+  ThumbsUp,
+  ThumbsDown,
+  Compass,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAppStore } from "@/lib/appStore";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const router = useRouter();
+  const { dispatch } = useAppStore();
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -93,8 +98,10 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
+      dispatch({ type: "SET_USER", payload: null });
       router.push("/login");
     } catch {
+      dispatch({ type: "SET_USER", payload: null });
       router.push("/login");
     }
   };
@@ -189,6 +196,89 @@ export default function ProfilePage() {
                       {profile.favoriteIndustry}
                     </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Taste DNA Narrative & Summary */}
+              <div className="glass-panel p-6 rounded-2xl space-y-5 border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] to-transparent">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-heading text-lg font-bold flex items-center gap-2 text-[#F5F7F6]">
+                    <Sparkles className="w-5 h-5 text-emerald-400" />
+                    Taste DNA: Preference Profile
+                  </h3>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-medium">
+                    Synchronized
+                  </span>
+                </div>
+
+                {profile?.tasteDna?.summaryParagraph ? (
+                  <p className="text-sm text-[#D0D7D4] leading-relaxed italic border-l-2 border-emerald-500/50 pl-3 py-1">
+                    &ldquo;{profile.tasteDna.summaryParagraph}&rdquo;
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#A1AAA6]">
+                    Rate titles and add personal reviews in your library to unlock your custom Taste DNA summary.
+                  </p>
+                )}
+
+                {/* Structured Preference Tags: Likes, Dislikes, Storytelling Styles */}
+                <div className="space-y-3 pt-2 border-t border-white/[0.06] text-xs">
+                  {profile?.tasteDna?.strongLikes?.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        <span>Strong Affinities &amp; Preferred Genres</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {profile.tasteDna.strongLikes.map((like: string, i: number) => (
+                          <span
+                            key={i}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-medium"
+                          >
+                            {like}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {profile?.tasteDna?.storytellingStyles?.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                        <Compass className="w-3.5 h-3.5" />
+                        <span>Storytelling Styles &amp; Content Patterns</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {profile.tasteDna.storytellingStyles.map((style: string, i: number) => (
+                          <span
+                            key={i}
+                            className="px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium"
+                          >
+                            {style}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {profile?.tasteDna?.strongDislikes?.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-rose-400 font-semibold">
+                        <ThumbsDown className="w-3.5 h-3.5" />
+                        <span>Dislikes &amp; Filtered Tropes</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {profile.tasteDna.strongDislikes.map((dislike: string, i: number) => (
+                          <span
+                            key={i}
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[11px] font-medium"
+                          >
+                            {dislike}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useMemo, useCallback } from "react";
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 export interface CurrentMovieContext {
@@ -26,6 +26,7 @@ export interface ScreenContextData {
   searchQuery?: string;
   appliedFilters?: ScreenFiltersContext;
   currentMovie?: CurrentMovieContext | null;
+  displayedTitles?: string[];
 }
 
 interface ScreenContextValue {
@@ -39,6 +40,23 @@ const ScreenContext = createContext<ScreenContextValue | null>(null);
 export function ScreenContextProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const [details, setDetails] = useState<Partial<Omit<ScreenContextData, "pathname">>>({});
+  const lastPathnameRef = useRef(pathname);
+
+  // Derive route category strictly from pathname
+  const routeCategory: "movies" | "series" | "anime" | null = useMemo(() => {
+    if (pathname.startsWith("/movies")) return "movies";
+    if (pathname.startsWith("/series")) return "series";
+    if (pathname.startsWith("/anime")) return "anime";
+    return null;
+  }, [pathname]);
+
+  // Immediately clear page-specific context when navigating between different routes
+  useEffect(() => {
+    if (lastPathnameRef.current !== pathname) {
+      lastPathnameRef.current = pathname;
+      setDetails({});
+    }
+  }, [pathname]);
 
   const setScreenDetails = useCallback((newDetails: Partial<Omit<ScreenContextData, "pathname">>) => {
     setDetails((prev) => ({
@@ -56,11 +74,12 @@ export function ScreenContextProvider({ children }: { children: React.ReactNode 
 
   const screenContext = useMemo<ScreenContextData>(() => ({
     pathname,
-    category: details.category || (pathname.includes("/movies") ? "movies" : pathname.includes("/series") ? "series" : pathname.includes("/anime") ? "anime" : null),
+    category: routeCategory,
     searchQuery: details.searchQuery || "",
     appliedFilters: details.appliedFilters,
     currentMovie: details.currentMovie || null,
-  }), [pathname, details]);
+    displayedTitles: details.displayedTitles || [],
+  }), [pathname, routeCategory, details]);
 
   return (
     <ScreenContext.Provider value={{ screenContext, setScreenDetails, setCurrentMovie }}>
