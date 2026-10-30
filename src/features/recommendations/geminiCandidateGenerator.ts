@@ -67,28 +67,30 @@ function buildTasteSummary(ctx: UserTasteContext): string {
       const favGenres: Record<string, number> = JSON.parse(
         ctx.profile.favorite_genres || "{}",
       );
-      const sorted = Object.entries(favGenres)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 6);
-      if (sorted.length) {
-        parts.push(
-          "Favorite genres: " + sorted.map(([g]) => g).join(", "),
-        );
-      }
-    } catch {
-      /* skip */
-    }
-
-    try {
       const dislikedGenres: Record<string, number> = JSON.parse(
         ctx.profile.disliked_genres || "{}",
       );
-      const sorted = Object.entries(dislikedGenres)
+
+      // Mutual exclusivity guarantee: remove any overlap between favorites and avoid list
+      Object.keys(favGenres).forEach((g) => {
+        delete dislikedGenres[g];
+      });
+
+      const sortedFav = Object.entries(favGenres)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6);
+      if (sortedFav.length) {
+        parts.push(
+          "Favorite genres: " + sortedFav.map(([g]) => g).join(", "),
+        );
+      }
+
+      const sortedDisliked = Object.entries(dislikedGenres)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 4);
-      if (sorted.length) {
+      if (sortedDisliked.length) {
         parts.push(
-          "Genres to avoid: " + sorted.map(([g]) => g).join(", "),
+          "Genres to avoid: " + sortedDisliked.map(([g]) => g).join(", "),
         );
       }
     } catch {

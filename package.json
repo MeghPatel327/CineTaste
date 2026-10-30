@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --test tests/tasteDna.test.mjs",
     "setup-db": "node scripts/setup-baserow.mjs"
   },
   "dependencies": {

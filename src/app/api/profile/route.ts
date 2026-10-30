@@ -1,11 +1,13 @@
 import { withLogger } from "@/lib/apiWrapper";
 import { NextRequest } from "next/server";
+import { after } from "next/server";
 import { successResponse, errorResponse, handleApiError } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
 import { getUserById } from "@/features/auth/userRepository";
 import { getDashboardStatsService } from "@/features/dashboard/dashboardService";
 import { getUserMovies } from "@/features/movies/movieRepository";
 import { getRecommendationProfile } from "@/features/recommendations/recommendationProfileRepository";
+import { generateProfileAsync } from "@/features/recommendations/profileGenerator";
 import { generateTasteDna } from "@/features/profile/tasteDnaService";
 import { getFilmIndustry } from "@/lib/utils";
 
@@ -27,13 +29,20 @@ export const GET = withLogger(async (req: NextRequest) => {
       getRecommendationProfile(session.username),
     ]);
 
+    // Automatically regenerate and upgrade any stale or legacy profiles in Baserow
+    if (!profileRecord || profileRecord.engine_version !== "4.0") {
+      after(() => {
+        generateProfileAsync(session.username).catch(() => { });
+      });
+    }
+
     const tasteDna = generateTasteDna(movies, profileRecord);
 
-    const favoriteGenre = tasteDna.favoriteGenres.length > 0 
-      ? tasteDna.favoriteGenres[0].name 
+    const favoriteGenre = tasteDna.favoriteGenres.length > 0
+      ? tasteDna.favoriteGenres[0].name
       : dashboardData.favoriteGenres.length > 0
-      ? dashboardData.favoriteGenres[0].name
-      : "None";
+        ? dashboardData.favoriteGenres[0].name
+        : "None";
 
     const industryCounts: Record<string, number> = {};
     movies.filter(m => m.rating > 0).forEach(m => {
@@ -42,7 +51,7 @@ export const GET = withLogger(async (req: NextRequest) => {
         industryCounts[ind] = (industryCounts[ind] || 0) + 1;
       }
     });
-    
+
     const favoriteIndustry = Object.entries(industryCounts)
       .sort((a, b) => b[1] - a[1])[0]?.[0] || "None";
 

@@ -83,6 +83,14 @@ function parsePreferences(row: RecommendationProfileRow): UserPreferences {
   try { p.favoriteIndustries  = JSON.parse(row.favorite_industries || "{}");  } catch { /* keep empty */ }
   try { p.favoriteEras        = JSON.parse(row.favorite_eras || "{}");        } catch { /* keep empty */ }
   try { p.languagePreferences = JSON.parse(row.language_preferences || "{}"); } catch { /* keep empty */ }
+
+  // Defensive invariant: ensure favorite and disliked genres are mutually exclusive
+  for (const g of Object.keys(p.favoriteGenres)) {
+    if (g in p.dislikedGenres) {
+      delete p.dislikedGenres[g];
+    }
+  }
+
   return p;
 }
 

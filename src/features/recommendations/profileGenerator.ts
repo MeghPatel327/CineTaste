@@ -5,12 +5,13 @@ import { env } from "@/lib/env";
 import { getFilmIndustry } from "@/lib/utils";
 import crypto from "crypto";
 import { logger } from "@/lib/logger";
+import { analyzeUserTaste } from "@/features/profile/tasteDnaService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 const TMDB = "https://api.themoviedb.org/3";
-const ENGINE_VERSION = "3.1";
+const ENGINE_VERSION = "4.0";
 
 const RATING_WEIGHTS: Record<number, number> = {
   10: 2.0, 9: 1.5, 8: 1.0, 7: 0.5, 6: 0.0,
@@ -75,9 +76,12 @@ export async function generateProfileAsync(username: string): Promise<void> {
 
     const profileMovies = movies.filter(m => (m.status === "completed" && m.rating > 0) || m.status === "dropped");
 
-    // Accumulate weighted preference maps
-    const favoriteGenres: Record<string, number> = {};
-    const dislikedGenres: Record<string, number> = {};
+    // Unified preference analysis for genres (shared with Taste DNA)
+    const tasteAnalysis = analyzeUserTaste(movies);
+    const favoriteGenres: Record<string, number> = { ...tasteAnalysis.favoriteGenresMap };
+    const dislikedGenres: Record<string, number> = { ...tasteAnalysis.dislikedGenresMap };
+
+    // Accumulate other preference dimensions
     const favoriteActors: Record<string, number> = {};
     const favoriteDirectors: Record<string, number> = {};
     const favoriteProductionCompanies: Record<string, number> = {};
@@ -91,19 +95,6 @@ export async function generateProfileAsync(username: string): Promise<void> {
       await Promise.all(batch.map(async (m) => {
         const w = m.status === "dropped" ? -2.0 : (RATING_WEIGHTS[m.rating] ?? 0);
         const type: "movie" | "tv" = m.type === "series" ? "tv" : "movie";
-
-        // ── Genres ──
-        let genres: string[] = [];
-        try { genres = JSON.parse(m.genres); }
-        catch { genres = m.genres ? m.genres.split(",").map(s => s.trim()) : []; }
-
-        genres.forEach(g => {
-          if (w > 0) {
-            addWeighted(favoriteGenres, g, w);
-          } else if (w < 0) {
-            addWeighted(dislikedGenres, g, Math.abs(w));
-          }
-        });
 
         // ── Era / Decade ──
         if (m.release_year > 0) {
