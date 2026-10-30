@@ -620,15 +620,6 @@ function DashboardView({ data, loading, onSelectMovie }: DashboardViewProps) {
                   <Info className="w-4 h-4" />
                   View Details
                 </Button>
-
-                <Link href="/movies">
-                  <Button
-                    variant="outline"
-                    className="border-white/[0.12] bg-[#121619]/60 backdrop-blur-md text-[#F5F7F6] hover:bg-white/[0.08] hover:border-emerald-500/40 px-5 py-2.5 rounded-xl font-medium"
-                  >
-                    Browse Catalogue
-                  </Button>
-                </Link>
               </div>
             </div>
           </div>
