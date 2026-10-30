@@ -37,6 +37,23 @@ interface ScreenContextValue {
 
 const ScreenContext = createContext<ScreenContextValue | null>(null);
 
+function areDetailsEqual(
+  a: Partial<Omit<ScreenContextData, "pathname">>,
+  b: Partial<Omit<ScreenContextData, "pathname">>
+): boolean {
+  if (a.category !== b.category) return false;
+  if ((a.searchQuery || "") !== (b.searchQuery || "")) return false;
+  if (JSON.stringify(a.appliedFilters || null) !== JSON.stringify(b.appliedFilters || null)) return false;
+  if (JSON.stringify(a.currentMovie || null) !== JSON.stringify(b.currentMovie || null)) return false;
+  const aTitles = a.displayedTitles || [];
+  const bTitles = b.displayedTitles || [];
+  if (aTitles.length !== bTitles.length) return false;
+  for (let i = 0; i < aTitles.length; i++) {
+    if (aTitles[i] !== bTitles[i]) return false;
+  }
+  return true;
+}
+
 export function ScreenContextProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const [details, setDetails] = useState<Partial<Omit<ScreenContextData, "pathname">>>({});
@@ -59,17 +76,25 @@ export function ScreenContextProvider({ children }: { children: React.ReactNode 
   }, [pathname]);
 
   const setScreenDetails = useCallback((newDetails: Partial<Omit<ScreenContextData, "pathname">>) => {
-    setDetails((prev) => ({
-      ...prev,
-      ...newDetails,
-    }));
+    setDetails((prev) => {
+      const merged = { ...prev, ...newDetails };
+      if (areDetailsEqual(prev, merged)) {
+        return prev;
+      }
+      return merged;
+    });
   }, []);
 
   const setCurrentMovie = useCallback((movie: CurrentMovieContext | null) => {
-    setDetails((prev) => ({
-      ...prev,
-      currentMovie: movie,
-    }));
+    setDetails((prev) => {
+      if (JSON.stringify(prev.currentMovie || null) === JSON.stringify(movie || null)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        currentMovie: movie,
+      };
+    });
   }, []);
 
   const screenContext = useMemo<ScreenContextData>(() => ({

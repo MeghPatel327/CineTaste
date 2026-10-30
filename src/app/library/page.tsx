@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { MovieRow } from "@/features/movies/movieRepository";
@@ -170,18 +170,24 @@ export default function MovieLibraryPage() {
     dispatch({ type: "UPDATE_LIBRARY_ITEM", payload: { id: swappedId, updates: { watch_order_rank: swappedNewRank } } });
   }, [dispatch]);
 
-  const filteredMovies = movies.filter(m => {
-    if (search && !m.movie_name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (statusFilter !== "all" && m.status !== statusFilter) return false;
-    if (typeFilter !== "all" && m.type !== typeFilter) return false;
-    return true;
-  }).sort((a, b) => {
-    if (sortBy === "added_desc") return b.id - a.id;
-    if (sortBy === "rating_desc") return b.rating - a.rating;
-    if (sortBy === "name_asc") return a.movie_name.localeCompare(b.movie_name);
-    if (sortBy === "watch_order") return (a.watch_order_rank || Infinity) - (b.watch_order_rank || Infinity);
-    return 0;
-  });
+  const filteredMovies = useMemo(() => {
+    return movies.filter(m => {
+      if (search && !m.movie_name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (statusFilter !== "all" && m.status !== statusFilter) return false;
+      if (typeFilter !== "all" && m.type !== typeFilter) return false;
+      return true;
+    }).sort((a, b) => {
+      if (sortBy === "added_desc") return b.id - a.id;
+      if (sortBy === "rating_desc") return b.rating - a.rating;
+      if (sortBy === "name_asc") return a.movie_name.localeCompare(b.movie_name);
+      if (sortBy === "watch_order") return (a.watch_order_rank || Infinity) - (b.watch_order_rank || Infinity);
+      return 0;
+    });
+  }, [movies, search, statusFilter, typeFilter, sortBy]);
+
+  const displayedTitles = useMemo(() => {
+    return filteredMovies.slice(0, 15).map((m) => m.movie_name);
+  }, [filteredMovies]);
 
   // Keep chatbot screen context aware of library view and displayed titles
   useEffect(() => {
@@ -191,9 +197,9 @@ export default function MovieLibraryPage() {
         sort: sortBy,
         subType: typeFilter !== "all" ? typeFilter : undefined,
       },
-      displayedTitles: filteredMovies.slice(0, 15).map((m) => m.movie_name),
+      displayedTitles,
     });
-  }, [search, sortBy, typeFilter, filteredMovies, setScreenDetails]);
+  }, [search, sortBy, typeFilter, displayedTitles, setScreenDetails]);
 
   return (
     <AppShell>
@@ -244,6 +250,8 @@ export default function MovieLibraryPage() {
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending (Queue)</option>
+                <option value="watching">Watching</option>
+                <option value="on_hold">On Hold</option>
                 <option value="completed">Completed</option>
                 <option value="dropped">Dropped</option>
               </select>
@@ -356,12 +364,18 @@ function LibraryCard({ movie, onClick }: { movie: MovieRow; onClick: () => void 
     ? ({ "--ct-ambient-rgb": ambientRgb } as React.CSSProperties)
     : undefined;
 
-  const statusClass =
-    movie.status === "completed"
-      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-      : movie.status === "pending"
-      ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-      : "bg-rose-500/15 text-rose-400 border-rose-500/30";
+  const statusConfig: Record<string, { label: string; className: string }> = {
+    completed: { label: "Completed", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+    watching: { label: "Watching", className: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" },
+    on_hold: { label: "On Hold", className: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
+    pending: { label: "Pending", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+    dropped: { label: "Dropped", className: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
+  };
+
+  const statusInfo = statusConfig[movie.status] || {
+    label: movie.status === "on_hold" ? "On Hold" : movie.status,
+    className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
+  };
 
   return (
     <div
@@ -401,8 +415,8 @@ function LibraryCard({ movie, onClick }: { movie: MovieRow; onClick: () => void 
           ) : null}
         </div>
         <div className="flex justify-between items-center text-xs pt-1 border-t border-white/[0.06]">
-          <span className={`capitalize text-[11px] font-semibold px-2 py-0.5 rounded-full border ${statusClass}`}>
-            {movie.status}
+          <span className={`capitalize text-[11px] font-semibold px-2 py-0.5 rounded-full border ${statusInfo.className}`}>
+            {statusInfo.label}
           </span>
           {movie.rating > 0 ? (
             <span className="flex items-center gap-1 text-amber-400 font-semibold text-xs">

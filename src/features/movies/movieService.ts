@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 const addMovieSchema = z.object({
   movie_name: z.string().min(1),
   type: z.enum(["movie", "series"]),
-  status: z.enum(["completed", "pending", "dropped"]),
+  status: z.enum(["completed", "pending", "dropped", "watching", "on_hold"]),
   rating: z.number().min(0).max(10),
   personal_review: z.string().optional(),
   watch_order_rank: z.number().int().optional(), // No longer required
@@ -24,7 +24,7 @@ const addMovieSchema = z.object({
 });
 
 const updateMovieSchema = z.object({
-  status: z.enum(["completed", "pending", "dropped"]).optional(),
+  status: z.enum(["completed", "pending", "dropped", "watching", "on_hold"]).optional(),
   rating: z.coerce.number().min(0).max(10).optional(),
   personal_review: z.string().optional(),
   watch_order_rank: z.coerce.number().int().optional(),

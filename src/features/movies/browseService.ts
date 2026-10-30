@@ -363,6 +363,19 @@ export async function getBrowseCatalogueService(
   ]);
 
   const libraryIds = new Set(userLibrary.map((m) => m.tmdb_id));
+  const libraryNames = new Set(userLibrary.map((m) => m.movie_name.toLowerCase().trim()));
+  const libraryNormalized = new Set(
+    userLibrary.map((m) => m.movie_name.toLowerCase().replace(/[^a-z0-9]/g, ""))
+  );
+
+  const isLibraryItem = (id: number, title: string) => {
+    if (libraryIds.has(id)) return true;
+    const lower = title.toLowerCase().trim();
+    if (libraryNames.has(lower)) return true;
+    const norm = lower.replace(/[^a-z0-9]/g, "");
+    if (norm && libraryNormalized.has(norm)) return true;
+    return false;
+  };
 
   // 2. Strict mutual exclusivity partitioning
   const filterForCategory = (items: RecommendationItem[]) => {
@@ -432,8 +445,9 @@ export async function getBrowseCatalogueService(
   };
 
   // Convert initial category recs to BrowseItem format, or use curated fallback if empty
-  const rawFormatted = categoryRecs.map(formatRecToBrowse);
-  const initialCategoryBrowse = rawFormatted.length > 0 ? rawFormatted : getCuratedFallbackTitles(category);
+  const rawFormatted = categoryRecs.map(formatRecToBrowse).filter((i) => !isLibraryItem(i.id, i.title));
+  const curatedFallback = getCuratedFallbackTitles(category).filter((i) => !isLibraryItem(i.id, i.title));
+  const initialCategoryBrowse = rawFormatted.length > 0 ? rawFormatted : curatedFallback;
 
   // 5. Check or initialize session pool for this query/filter combination
   const poolKey = buildPoolKey(username, category, options);
@@ -467,7 +481,7 @@ export async function getBrowseCatalogueService(
       poolEntry.exhausted = discovery.exhausted;
 
       for (const item of discovery.newItems) {
-        if (!existingIds.has(item.id)) {
+        if (!existingIds.has(item.id) && !isLibraryItem(item.id, item.title)) {
           poolEntry.items.push(item);
           existingIds.add(item.id);
         }
@@ -475,9 +489,9 @@ export async function getBrowseCatalogueService(
 
       // If pool is still empty (e.g. offline / unconfigured TMDB), ensure curated fallback matches are included
       if (poolEntry.items.length === 0) {
-        const fallbackMatches = applyUserFilters(getCuratedFallbackTitles(category));
+        const fallbackMatches = applyUserFilters(getCuratedFallbackTitles(category)).filter((i) => !isLibraryItem(i.id, i.title));
         for (const item of fallbackMatches) {
-          if (!existingIds.has(item.id)) {
+          if (!existingIds.has(item.id) && !isLibraryItem(item.id, item.title)) {
             poolEntry.items.push(item);
             existingIds.add(item.id);
           }
@@ -514,7 +528,7 @@ export async function getBrowseCatalogueService(
 
         const currentIds = new Set(poolEntry.items.map((i) => i.id));
         for (const item of freshFiltered) {
-          if (!currentIds.has(item.id)) {
+          if (!currentIds.has(item.id) && !isLibraryItem(item.id, item.title)) {
             poolEntry.items.push(item);
             currentIds.add(item.id);
             existingIds.add(item.id);
@@ -542,7 +556,7 @@ export async function getBrowseCatalogueService(
 
       const currentIds = new Set(poolEntry.items.map((i) => i.id));
       for (const item of discovery.newItems) {
-        if (!currentIds.has(item.id)) {
+        if (!currentIds.has(item.id) && !isLibraryItem(item.id, item.title)) {
           poolEntry.items.push(item);
           currentIds.add(item.id);
         }
@@ -550,8 +564,8 @@ export async function getBrowseCatalogueService(
     }
   }
 
-  // 7. Sort pool items
-  const sortedItems = [...poolEntry.items];
+  // 7. Sort pool items (excluding any library items)
+  const sortedItems = poolEntry.items.filter((item) => !isLibraryItem(item.id, item.title));
   sortedItems.sort((a, b) => {
     if (sort === "popularity") {
       return (b.popularity || b.score || 0) - (a.popularity || a.score || 0);
@@ -576,7 +590,7 @@ export async function getBrowseCatalogueService(
   });
 
   // Spotlight banner candidate (highest match item in category)
-  const allCategoryBrowse = initialCategoryBrowse.slice();
+  const allCategoryBrowse = initialCategoryBrowse.filter((i) => !isLibraryItem(i.id, i.title));
   allCategoryBrowse.sort((a, b) => (b.score || 0) - (a.score || 0));
   const featuredSpotlight = allCategoryBrowse[0] || sortedItems[0] || null;
 

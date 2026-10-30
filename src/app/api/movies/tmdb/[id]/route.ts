@@ -23,15 +23,27 @@ export const GET = withLogger(async (req: NextRequest, context: { params: Promis
 
     const userMovies = await getUserMoviesService(session.username);
     const libraryMovie = userMovies.find(m => Number(m.tmdb_id) === tmdbId);
+    const libraryIds = new Set(userMovies.map(m => Number(m.tmdb_id)));
+    const libraryTitles = new Set(userMovies.map(m => m.movie_name.toLowerCase().trim()));
+    const libraryNorm = new Set(userMovies.map(m => m.movie_name.toLowerCase().replace(/[^a-z0-9]/g, "")));
 
     const trailer = tmdbData.videos?.results?.find((v: any) => v.type === "Trailer" && v.site === "YouTube");
     
-    const similarMovies = tmdbData.similar?.results?.slice(0, 10).map((s: any) => ({
-      tmdb_id: s.id,
-      title: s.title || s.name,
-      poster_url: getTMDBPosterUrl(s.poster_path),
-      release_year: s.release_date ? parseInt(s.release_date.split("-")[0], 10) : s.first_air_date ? parseInt(s.first_air_date.split("-")[0], 10) : 0,
-    })) || [];
+    const similarMovies = tmdbData.similar?.results
+      ?.filter((s: any) => {
+        if (!s?.id || libraryIds.has(Number(s.id))) return false;
+        const title = (s.title || s.name || "").toLowerCase().trim();
+        if (libraryTitles.has(title)) return false;
+        const norm = title.replace(/[^a-z0-9]/g, "");
+        if (norm && libraryNorm.has(norm)) return false;
+        return true;
+      })
+      ?.slice(0, 10).map((s: any) => ({
+        tmdb_id: s.id,
+        title: s.title || s.name,
+        poster_url: getTMDBPosterUrl(s.poster_path),
+        release_year: s.release_date ? parseInt(s.release_date.split("-")[0], 10) : s.first_air_date ? parseInt(s.first_air_date.split("-")[0], 10) : 0,
+      })) || [];
 
     const mappedData = {
       tmdb_id: tmdbData.id,

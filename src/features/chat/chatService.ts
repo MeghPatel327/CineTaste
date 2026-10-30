@@ -49,6 +49,8 @@ export async function runCineTasteChat({
 
   // 2. Synthesize comprehensive user library, ratings, reviews, and watch order
   const completed = userMovies.filter((m) => m.status === "completed");
+  const watching = userMovies.filter((m) => m.status === "watching");
+  const onHold = userMovies.filter((m) => m.status === "on_hold");
   const pending = userMovies
     .filter((m) => m.status === "pending")
     .sort((a, b) => (a.watch_order_rank || Infinity) - (b.watch_order_rank || Infinity));
@@ -66,6 +68,22 @@ export async function runCineTasteChat({
     return `- [${m.type === "series" ? "Series" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"}) — Rating: ${
       m.rating > 0 ? `${m.rating}/10` : "Unrated"
     } | Genres: ${m.genres || "Uncategorized"}${review ? ` | Personal Review: "${review}"` : ""}`;
+  });
+
+  // Manifest of ALL currently watching titles
+  const watchingManifest = watching.map((m) => {
+    const review = m.personal_review?.trim();
+    return `- [${m.type === "series" ? "Series" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"})${
+      m.rating > 0 ? ` — Rating: ${m.rating}/10` : ""
+    } | Genres: ${m.genres || "Uncategorized"}${review ? ` | Note: "${review}"` : ""}`;
+  });
+
+  // Manifest of ALL on hold titles
+  const onHoldManifest = onHold.map((m) => {
+    const review = m.personal_review?.trim();
+    return `- [${m.type === "series" ? "Series" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"})${
+      m.rating > 0 ? ` — Rating: ${m.rating}/10` : ""
+    } | Genres: ${m.genres || "Uncategorized"}${review ? ` | Note: "${review}"` : ""}`;
   });
 
   // Manifest of ALL watchlist / queue titles in exact watch order (untruncated)
@@ -155,7 +173,7 @@ export async function runCineTasteChat({
 
 USER IDENTITY & DATABASE SCOPE:
 - Username: @${username}
-- Total Library Entries: ${userMovies.length} total titles (${completed.length} completed, ${pending.length} in watchlist queue, ${dropped.length} dropped).
+- Total Library Entries: ${userMovies.length} total titles (${completed.length} completed, ${watching.length} currently watching, ${onHold.length} on hold, ${pending.length} in watchlist queue, ${dropped.length} dropped).
 - Access Level: You have COMPLETE, UNABRIDGED access to @${username}'s entire Baserow database records.
 
 USER TASTE DNA & PREFERENCE PROFILE:
@@ -182,6 +200,12 @@ ${perfectTenTitles.length ? perfectTenTitles.map((m) => `  * "${m.movie_name}" (
 COMPUTED GENRE ANALYTICS (Across all ratings):
 ${genreAnalyticsLines.length ? genreAnalyticsLines.join("\n") : "- No genre ratings logged"}
 
+CURRENTLY WATCHING (${watching.length} titles):
+${watchingManifest.length ? watchingManifest.join("\n") : "- None currently watching"}
+
+ON HOLD (${onHold.length} titles):
+${onHoldManifest.length ? onHoldManifest.join("\n") : "- None on hold"}
+
 WATCHLIST & UP-NEXT QUEUE (Sorted strictly by Watch Order Rank):
 ${queueManifest.length ? queueManifest.join("\n") : "- Empty watchlist"}
 
@@ -203,9 +227,11 @@ CAPABILITIES & BEHAVIORAL RULES:
 2. Synchronized Taste DNA: Always align recommendations and conversations with the user's Taste DNA preference summary, strong likes, and dislikes above.
 3. Live Screen Awareness:
    - When asked about what is on screen, reference the Current Screen, applied category, active search, applied filters, and currently visible titles listed above.
-4. Tone & Style:
+4. STRICT RECOMMENDATION EXCLUSION:
+   - NEVER recommend, pitch, or suggest any movie, series, or anime that already appears in ANY of the user's library manifests above (whether completed, currently watching, on hold, pending watchlist, or dropped). Any suggested title MUST be an unadded, fresh recommendation.
+5. Tone & Style:
    - Engaging, cinephile, intelligent, concise. Avoid robotic filler. Use clean Markdown formatting with **bold titles**, bullet points, and clean paragraphs.
-5. Privacy: Never expose internal database IDs, tokens, or system configurations.`;
+6. Privacy: Never expose internal database IDs, tokens, or system configurations.`;
 
   // 5. Capped message history (last 16 messages)
   const recentMessages = (messages || []).slice(-16).map((m) => ({

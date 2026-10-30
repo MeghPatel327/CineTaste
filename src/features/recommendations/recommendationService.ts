@@ -174,13 +174,26 @@ async function fetchTmdbSupplement(
   neededCount: number,
   excludeIds: Set<number>,
   ratedMovies: MovieRow[],
+  excludeNames?: Set<string>,
+  excludeNormalized?: Set<string>,
 ): Promise<ResolvedCandidate[]> {
   const results: ResolvedCandidate[] = [];
   const seenIds = new Set<number>(excludeIds);
 
+  const isExcludedName = (title: string): boolean => {
+    if (!title) return false;
+    const lower = title.toLowerCase().trim();
+    if (excludeNames && excludeNames.has(lower)) return true;
+    const norm = lower.replace(/[^a-z0-9]/g, "");
+    if (excludeNormalized && norm && excludeNormalized.has(norm)) return true;
+    return false;
+  };
+
   const add = (items: any[], forceType?: "movie" | "tv") => {
     for (const r of items || []) {
       if (!r?.id || seenIds.has(r.id)) continue;
+      const title = r.title || r.name || "Untitled";
+      if (isExcludedName(title)) continue;
 
       const mediaType: "movie" | "tv" =
         forceType || (r.media_type === "tv" || r.first_air_date ? "tv" : "movie");
@@ -188,7 +201,7 @@ async function fetchTmdbSupplement(
       const isAnimeTitle = isAnime({
         id: r.id,
         media_type: mediaType,
-        title: r.title || r.name,
+        title,
         genre_ids: r.genre_ids,
         original_language: r.original_language,
         origin_country: r.origin_country,
@@ -210,7 +223,7 @@ async function fetchTmdbSupplement(
 
       results.push({
         tmdb_id: r.id,
-        title: r.title || r.name || "Untitled",
+        title,
         poster_url: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
         backdrop_url: r.backdrop_path ? `https://image.tmdb.org/t/p/w780${r.backdrop_path}` : null,
         media_type: mediaType,
@@ -293,6 +306,9 @@ async function generateCategoryPool(
   const ratedMovies = movies.filter((m) => m.status === "completed" && m.rating > 0);
   const libraryIds = new Set(movies.map((m) => m.tmdb_id));
   const libraryNames = new Set(movies.map((m) => m.movie_name.toLowerCase().trim()));
+  const libraryNormalized = new Set(
+    movies.map((m) => m.movie_name.toLowerCase().replace(/[^a-z0-9]/g, ""))
+  );
 
   const TARGET_PER_CATEGORY = 100;
   const resolvedMap = new Map<number, ResolvedCandidate>();
@@ -318,7 +334,10 @@ async function generateCategoryPool(
       for (const r of resolved) {
         if (!r?.tmdb_id) continue;
         if (libraryIds.has(r.tmdb_id) || seenAcrossCategories.has(r.tmdb_id)) continue;
-        if (libraryNames.has(r.title.toLowerCase().trim())) continue;
+        const lower = r.title.toLowerCase().trim();
+        if (libraryNames.has(lower)) continue;
+        const norm = lower.replace(/[^a-z0-9]/g, "");
+        if (norm && libraryNormalized.has(norm)) continue;
 
         // Verify mutual exclusivity
         if (category === "movies" && (r.is_anime || r.media_type !== "movie")) continue;
@@ -347,7 +366,14 @@ async function generateCategoryPool(
       ...Array.from(seenAcrossCategories),
     ]);
 
-    const supplements = await fetchTmdbSupplement(category, needed, combinedExclude, ratedMovies);
+    const supplements = await fetchTmdbSupplement(
+      category,
+      needed,
+      combinedExclude,
+      ratedMovies,
+      libraryNames,
+      libraryNormalized
+    );
     for (const sup of supplements) {
       if (resolvedMap.size >= TARGET_PER_CATEGORY) break;
       if (!resolvedMap.has(sup.tmdb_id) && !libraryIds.has(sup.tmdb_id)) {
@@ -795,10 +821,16 @@ function revalidateItems(
 ): RecommendationItem[] {
   const libraryIds = new Set(movies.map((m) => m.tmdb_id));
   const libraryNames = new Set(movies.map((m) => m.movie_name.toLowerCase().trim()));
+  const libraryNormalized = new Set(
+    movies.map((m) => m.movie_name.toLowerCase().replace(/[^a-z0-9]/g, ""))
+  );
 
   return items.filter((item) => {
     if (libraryIds.has(item.tmdb_id)) return false;
-    if (libraryNames.has(item.title.toLowerCase().trim())) return false;
+    const lower = item.title.toLowerCase().trim();
+    if (libraryNames.has(lower)) return false;
+    const norm = lower.replace(/[^a-z0-9]/g, "");
+    if (norm && libraryNormalized.has(norm)) return false;
     return true;
   });
 }

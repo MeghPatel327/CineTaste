@@ -20,7 +20,7 @@ export default function EditMoviePage() {
   const [movie, setMovie] = useState<any>(null);
 
   // Form State
-  const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
+  const [status, setStatus] = useState<"completed" | "pending" | "dropped" | "watching" | "on_hold">("pending");
   const [rating, setRating] = useState(0);
   const [personalReview, setPersonalReview] = useState("");
   const [watchLink, setWatchLink] = useState("");
@@ -94,7 +94,7 @@ export default function EditMoviePage() {
   return (
     <AppShell>
       <div className="p-4 md:p-8 max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Edit Movie</h1>
+        <h1 className="text-3xl font-bold mb-6">Edit</h1>
         
         {loading ? (
           <LoadingState message="Loading..." />
@@ -133,11 +133,13 @@ export default function EditMoviePage() {
                       onChange={e => setStatus(e.target.value as any)}
                     >
                       <option value="pending">Pending</option>
+                      <option value="watching">Watching</option>
+                      <option value="on_hold">On Hold</option>
                       <option value="completed">Completed</option>
                       <option value="dropped">Dropped</option>
                     </select>
                   </div>
-                  {(status === "completed" || status === "dropped") && (
+                  {(status === "completed" || status === "dropped" || status === "watching" || status === "on_hold") && (
                     <div>
                       <label className="text-sm font-medium mb-1 block">Rating (0-10)</label>
                       <Input type="number" min="0" max="10" value={rating} onChange={e => setRating(parseFloat(e.target.value) || 0)} />
@@ -145,7 +147,7 @@ export default function EditMoviePage() {
                   )}
                 </div>
 
-                {(status === "completed" || status === "dropped") && (
+                {(status === "completed" || status === "dropped" || status === "watching" || status === "on_hold") && (
                   <div>
                     <label className="text-sm font-medium mb-1 block">Personal Review (Optional)</label>
                     <textarea
@@ -158,7 +160,7 @@ export default function EditMoviePage() {
                   </div>
                 )}
 
-                {status === "pending" && (
+                {(status === "pending" || status === "watching" || status === "on_hold") && (
                   <div>
                     <label className="text-sm font-medium mb-1 block">Personal Watch Link (Optional)</label>
                     <Input type="url" placeholder="https://..." value={watchLink} onChange={e => setWatchLink(e.target.value)} />
@@ -168,7 +170,7 @@ export default function EditMoviePage() {
                 <div className="flex gap-4 pt-4">
                   <Button type="button" variant="outline" onClick={() => router.back()} className="flex-1">Cancel</Button>
                   <Button type="submit" className="flex-1" disabled={saving}>
-                    {saving ? "Saving..." : "Update Movie"}
+                    {saving ? "Saving..." : "Update"}
                   </Button>
                 </div>
               </form>

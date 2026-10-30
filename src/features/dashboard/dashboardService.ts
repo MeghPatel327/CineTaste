@@ -17,6 +17,9 @@ export async function getDashboardStatsService(username: string) {
   // ── Basic Stats (always computed from live data for accuracy) ──
   const total = movies.length;
   const watched = movies.filter(m => m.status === "completed").length;
+  const watching = movies.filter(m => m.status === "watching").length;
+  const onHold = movies.filter(m => m.status === "on_hold").length;
+  const dropped = movies.filter(m => m.status === "dropped").length;
   const pending = movies.filter(m => m.status === "pending").length;
   const completionPercentage = total > 0 ? Math.round((watched / total) * 100) : 0;
 
@@ -144,6 +147,9 @@ export async function getDashboardStatsService(username: string) {
     stats: {
       total,
       watched,
+      watching,
+      onHold,
+      dropped,
       pending,
       completionPercentage,
       avgRating,

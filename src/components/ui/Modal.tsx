@@ -26,7 +26,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = "max-w-2xl"
   // `visible` drives the CSS animation class (open vs closing)
   const [visible, setVisible] = useState(false);
 
-  // Open
+  // Open / Close
   useEffect(() => {
     if (isOpen) {
       setMounted(true);
@@ -36,7 +36,11 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = "max-w-2xl"
       });
     } else {
       setVisible(false);
-      // Wait for the exit animation to finish before unmounting
+      // Guaranteed safety timeout: unmount modal even if animationEnd event is swallowed
+      const timer = setTimeout(() => {
+        setMounted(false);
+      }, 250);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 

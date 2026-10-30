@@ -139,8 +139,8 @@ export async function handleStatusChange(
 ): Promise<void> {
   if (oldStatus === newStatus) return;
 
-  // Pending → Completed or Pending → Dropped
-  if (oldStatus === "pending" && (newStatus === "completed" || newStatus === "dropped")) {
+  // Pending → Non-pending (leaves queue)
+  if (oldStatus === "pending" && newStatus !== "pending") {
     const movies = await getUserMovies(username);
     const movie = movies.find((m) => m.id === movieId);
     const removedRank = movie?.watch_order_rank ?? 0;
@@ -162,13 +162,11 @@ export async function handleStatusChange(
     return;
   }
 
-  // Completed/Dropped → Pending: append to end of queue
-  if ((oldStatus === "completed" || oldStatus === "dropped") && newStatus === "pending") {
+  // Non-pending → Pending: append to end of queue
+  if (oldStatus !== "pending" && newStatus === "pending") {
     const nextRank = await getNextWatchOrderRank(username);
     await updateMovie(movieId, { watch_order_rank: nextRank });
   }
-
-  // Completed → Dropped or Dropped → Completed: no queue change
 }
 
 /**
@@ -182,7 +180,7 @@ export async function migrateQueueData(username: string): Promise<{ fixed: numbe
   
   // First pass: set non-pending movies to NULL
   for (const movie of movies) {
-    if ((movie.status === "completed" || movie.status === "dropped") && movie.watch_order_rank) {
+    if (movie.status !== "pending" && movie.watch_order_rank) {
       await updateMovie(movie.id, { watch_order_rank: null as any });
       fixed++;
     }

@@ -40,7 +40,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [movingRank, setMovingRank] = useState(false);
-  const [status, setStatus] = useState<"completed" | "pending" | "dropped">("pending");
+  const [status, setStatus] = useState<"completed" | "pending" | "dropped" | "watching" | "on_hold">("pending");
   const [rating, setRating] = useState(0);
   const [personalReview, setPersonalReview] = useState("");
   const [watchLink, setWatchLink] = useState("");
@@ -103,8 +103,9 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
         movie_name: data.title || "",
         type: data.type,
         status,
-        rating: status === "completed" || status === "dropped" ? rating : 0,
-        watch_link: status === "pending" ? (watchLink || null) : null,
+        rating: status === "completed" || status === "dropped" || status === "watching" || status === "on_hold" ? rating : 0,
+        personal_review: status === "completed" || status === "dropped" || status === "watching" || status === "on_hold" ? personalReview : "",
+        watch_link: watchLink || null,
         tmdb_id: data.tmdb_id,
         genres: JSON.stringify(data.genres ? data.genres.split(", ").map((g: string) => g.trim()) : []),
         release_year: data.release_year,
@@ -154,9 +155,9 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
     try {
       const payload = {
         status,
-        rating: status === "completed" || status === "dropped" ? rating : 0,
-        personal_review: status === "completed" || status === "dropped" ? personalReview : "",
-        watch_link: status === "pending" ? (watchLink || null) : null,
+        rating: status === "completed" || status === "dropped" || status === "watching" || status === "on_hold" ? rating : 0,
+        personal_review: status === "completed" || status === "dropped" || status === "watching" || status === "on_hold" ? personalReview : "",
+        watch_link: watchLink || null,
       };
 
       const res = await fetch(`/api/movies/${data.libraryData.id}`, {
@@ -410,18 +411,20 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                           onChange={e => setStatus(e.target.value as any)}
                         >
                           <option value="pending">Pending</option>
+                          <option value="watching">Watching</option>
+                          <option value="on_hold">On Hold</option>
                           <option value="completed">Completed</option>
                           <option value="dropped">Dropped</option>
                         </select>
                       </div>
-                      {(status === "completed" || status === "dropped") && (
+                      {(status === "completed" || status === "dropped" || status === "watching" || status === "on_hold") && (
                         <div>
                           <label className="text-xs font-medium mb-1 block text-white/70">Rating (0-10)</label>
                           <Input type="number" min="0" max="10" value={rating} onChange={e => setRating(parseFloat(e.target.value) || 0)} className="h-9 bg-black/50 border-white/20 text-white" />
                         </div>
                       )}
                     </div>
-                    {(status === "completed" || status === "dropped") && (
+                    {(status === "completed" || status === "dropped" || status === "watching" || status === "on_hold") && (
                       <div className="text-left">
                         <label className="text-xs font-medium mb-1 block text-white/70">Personal Review (Optional)</label>
                         <textarea
@@ -433,7 +436,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                         />
                       </div>
                     )}
-                    {status === "pending" && (
+                    {(status === "pending" || status === "watching" || status === "on_hold") && (
                       <div className="text-left">
                         <label className="text-xs font-medium mb-1 block text-white/70">Personal Watch Link (Optional)</label>
                         <Input type="url" placeholder="https://..." value={watchLink} onChange={e => setWatchLink(e.target.value)} className="h-9 bg-black/50 border-white/20 text-white" />
@@ -442,7 +445,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                     <div className="pt-2">
                       <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={saving}>
                         {saving ? <BrandLogo variant="compact" className="w-4 h-4 mr-2" imageClassName="animate-[spin_2.5s_linear_infinite]" /> : isEditing ? <Edit className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                        {isEditing ? "Update Movie" : "Save to Library"}
+                        {isEditing ? "Update Library" : "Save to Library"}
                       </Button>
                     </div>
                   </form>
@@ -452,7 +455,7 @@ export function MovieDetailsModal({ isOpen, onClose, tmdbId, type = "movie", onU
                     <div className="flex flex-wrap justify-center md:justify-start gap-3">
                       {data.inLibrary ? (
                         <>
-                          <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit Movie</Button>
+                          <Button className="modal-btn-stagger bg-primary hover:bg-primary/90 text-primary-foreground" onClick={startEditing}><Edit className="w-4 h-4 mr-2"/> Edit</Button>
                           <Button variant="destructive" className="modal-btn-stagger" onClick={handleRemove} disabled={removing}>
                             <Trash2 className="w-4 h-4 mr-2" />
                             {removing ? "Removing" : "Remove"}

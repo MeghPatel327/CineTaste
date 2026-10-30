@@ -166,12 +166,32 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex justify-between items-center text-[#A1AAA6]">
                     <span className="flex items-center gap-2">
-                      <Film className="w-4 h-4 text-emerald-400" /> Movies Completed
+                      <Film className="w-4 h-4 text-emerald-400" /> Completed
                     </span>
                     <span className="font-medium text-[#F5F7F6]">
                       {profile.moviesWatched}
                     </span>
                   </div>
+                  {profile.watchingCount > 0 && (
+                    <div className="flex justify-between items-center text-[#A1AAA6]">
+                      <span className="flex items-center gap-2">
+                        <Film className="w-4 h-4 text-cyan-400" /> Currently Watching
+                      </span>
+                      <span className="font-medium text-[#F5F7F6]">
+                        {profile.watchingCount}
+                      </span>
+                    </div>
+                  )}
+                  {profile.onHoldCount > 0 && (
+                    <div className="flex justify-between items-center text-[#A1AAA6]">
+                      <span className="flex items-center gap-2">
+                        <Film className="w-4 h-4 text-purple-400" /> On Hold
+                      </span>
+                      <span className="font-medium text-[#F5F7F6]">
+                        {profile.onHoldCount}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-[#A1AAA6]">
                     <span className="flex items-center gap-2">
                       <Star className="w-4 h-4 text-amber-400" /> Average Rating
