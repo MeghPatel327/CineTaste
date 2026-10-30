@@ -159,12 +159,6 @@ export function CineTasteChatbot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Completely hide on login, register, and unauthenticated pages
-  const isAuthPage = pathname === "/login" || pathname === "/register";
-  if (isAuthPage) return null;
-  if (appStoreState.userFetched && !user) return null;
-  if (!user) return null;
-
   // Storage key segmented by username
   const storageKey = useMemo(() => {
     return username ? `cinetaste_chat_history_${username}` : "cinetaste_chat_history_guest";
@@ -310,6 +304,12 @@ export function CineTasteChatbot() {
     if (pn.startsWith("/admin")) return "Admin Dashboard";
     return "CineTaste Hub";
   }, [screenContext, pathname]);
+
+  // Completely hide on login, register, and unauthenticated pages
+  const isAuthPage = pathname === "/login" || pathname === "/register";
+  if (isAuthPage || !user) {
+    return null;
+  }
 
   return (
     <>
