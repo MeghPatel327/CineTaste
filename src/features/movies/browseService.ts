@@ -358,7 +358,7 @@ export async function getBrowseCatalogueService(
 
   // 1. Fetch user's personalized recommendation set & user library
   const [rawRecs, userLibrary] = await Promise.all([
-    getRecommendations(username),
+    getRecommendations(username, { skipGeneration: true }),
     getUserMovies(username),
   ]);
 

@@ -651,6 +651,8 @@ export interface GetRecommendationsOptions {
   offset?: number;
   limit?: number;
   forceRefresh?: boolean;
+  /** Return [] instead of triggering generation when no cache/persisted set exists */
+  skipGeneration?: boolean;
 }
 
 /**
@@ -703,6 +705,22 @@ export async function getRecommendations(
   }
 
   // 3. Deduplicate concurrent generation requests
+  if (options?.skipGeneration) {
+    // Trigger generation in background for next request, return empty now
+    const bgKey = `${username}:${tasteHash}`;
+    if (!inflightGenerations.has(bgKey)) {
+      let previousTitles: string[] = [];
+      if (env.BASEROW_RECOMMENDATION_SETS_TABLE_ID) {
+        const prevSet = await getActiveRecommendationSet(username);
+        if (prevSet) previousTitles = parseRecommendations(prevSet).map((r) => r.title);
+      }
+      const bgPromise = runGenerationPipeline(username, movies, profile, tasteHash, previousTitles)
+        .finally(() => { inflightGenerations.delete(bgKey); });
+      inflightGenerations.set(bgKey, bgPromise);
+    }
+    return [];
+  }
+
   const inflightKey = `${username}:${tasteHash}`;
   if (inflightGenerations.has(inflightKey)) {
     const result = await inflightGenerations.get(inflightKey)!;

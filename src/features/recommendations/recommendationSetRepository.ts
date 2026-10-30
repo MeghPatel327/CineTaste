@@ -1,5 +1,6 @@
 import { baserowCreate, baserowGetAll, baserowUpdate } from "@/lib/baserow";
 import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Row interface — matches the Baserow table schema
@@ -66,7 +67,12 @@ export async function getActiveRecommendationSet(
 export async function createRecommendationSet(
   data: Omit<RecommendationSetRow, "id">,
 ): Promise<RecommendationSetRow> {
-  return baserowCreate<RecommendationSetRow>(TABLE_ID(), data);
+  const tid = TABLE_ID();
+  if (!tid) {
+    logger.warn({ module: "recommendationSetRepository", action: "CREATE_SKIPPED", message: "BASEROW_RECOMMENDATION_SETS_TABLE_ID not configured, skipping persist" });
+    return { id: 0, ...data };
+  }
+  return baserowCreate<RecommendationSetRow>(tid, data);
 }
 
 /**
@@ -76,7 +82,12 @@ export async function updateRecommendationSet(
   id: number,
   data: Partial<Omit<RecommendationSetRow, "id">>,
 ): Promise<RecommendationSetRow> {
-  return baserowUpdate<RecommendationSetRow>(TABLE_ID(), id, data);
+  const tid = TABLE_ID();
+  if (!tid) {
+    logger.warn({ module: "recommendationSetRepository", action: "UPDATE_SKIPPED", message: "BASEROW_RECOMMENDATION_SETS_TABLE_ID not configured, skipping update" });
+    return { id, username: "", recommendations: "", status: "active", taste_hash: "", created_at: "", expires_at: "", generation_model: "", item_count: 0, ...data } as RecommendationSetRow;
+  }
+  return baserowUpdate<RecommendationSetRow>(tid, id, data);
 }
 
 /**
