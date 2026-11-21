@@ -25,7 +25,7 @@ export interface GameItem {
   release_year?: number;
   first_release_date?: number; // unix timestamp in seconds
   release_date?: string;
-  rating?: number; // 0-10 scale
+  rating?: number; // 0-10 scale (user rating or normalized RAWG/metacritic)
   rawg_rating?: number; // 0-5 scale from RAWG (multiply by 2 for 0-10)
   igdb_rating?: number; // backwards compatibility
   rating_count?: number;
@@ -34,6 +34,7 @@ export interface GameItem {
   platforms: string[];
   game_modes: string[];
   themes: string[];
+  isAdult?: boolean; // True if game contains 18+/adult content
   developer?: string | null;
   developers?: string[];
   publisher?: string | null;
@@ -66,6 +67,8 @@ export interface GameFilterOptions {
   platforms?: string[];
   gameModes?: string[];
   era?: string; // "2020s" | "2010s" | "2000s" | "1990s" | "Classic"
+  rating?: number; // Minimum rating filter
+  includeAdult?: boolean; // Include 18+/adult games when true
   status?: GameStatus | "all";
   sort?: "recommended" | "rating" | "popularity" | "year" | "year-asc" | "title" | "title-desc" | string;
   query?: string;
@@ -105,4 +108,5 @@ export interface GameDashboardStats {
   nextUpBacklog: GameItem[];
   recentActivity: GameItem[];
   recentlyUpdated: GameItem[];
+  trending?: GameItem[]; // Shown when library is empty
 }

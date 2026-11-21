@@ -99,7 +99,24 @@ export function formatRawgGame(raw: any): GameItem {
     .filter(Boolean);
 
   // RAWG rating is 0-5; convert to 0-10
-  const rating = raw.rating ? parseFloat((raw.rating * 2).toFixed(1)) : undefined;
+  // Use metacritic when available (0-100 scale), otherwise use RAWG rating * 2
+  let rating: number | undefined;
+  if (raw.metacritic !== undefined && raw.metacritic !== null) {
+    rating = Math.min(10, Math.round(raw.metacritic / 10));
+  } else if (raw.rating !== undefined && raw.rating !== null) {
+    rating = parseFloat((raw.rating * 2).toFixed(1));
+  }
+  
+  // Detect adult/hentai/18+ content
+  const adultTags = ["adult", "sexual", "violence", "nudity", "explicit"];
+  const rawgTags = (raw.tags || []).map((t: any) => t.name?.toLowerCase() || "").filter(Boolean);
+  const isAdult = rawgTags.some((tag: string) => 
+    adultTags.includes(tag) || 
+    tag.includes("18+") || 
+    tag.includes("hentai") || 
+    tag.includes("erot") ||
+    tag.includes("adult")
+  );
 
   const developers: string[] = (raw.developers || []).map((d: any) => d.name).filter(Boolean);
   const publishers: string[] = (raw.publishers || []).map((p: any) => p.name).filter(Boolean);
@@ -119,6 +136,7 @@ export function formatRawgGame(raw: any): GameItem {
     platforms,
     game_modes: [], // RAWG doesn't expose game modes in API
     themes: (raw.tags || []).slice(0, 5).map((t: any) => t.name).filter(Boolean),
+    isAdult,
     developer: developers[0] || null,
     developers,
     publisher: publishers[0] || null,
@@ -282,6 +300,16 @@ export async function browseRawgGames(
 
       let items: GameItem[] = (data.results || []).map(formatRawgGame);
 
+      // Post-filter for adult content if not included
+      if (!options.includeAdult) {
+        items = items.filter((item) => !item.isAdult);
+      }
+
+      // Post-filter by minimum rating
+      if (options.rating !== undefined && options.rating !== null && options.rating > 0) {
+        items = items.filter((item) => (item.rating || 0) >= options.rating!);
+      }
+
       // Post-filter game_modes (not supported in RAWG API query params)
       if (options.gameModes && options.gameModes.length > 0) {
         // RAWG doesn't expose modes — skip filter, include all
@@ -353,6 +381,16 @@ export async function browseRawgGames(
     if (options.sort === "title-desc") return b.title.localeCompare(a.title);
     return (b.score || 0) - (a.score || 0);
   });
+
+  // Filter out adult content by default
+  if (!options.includeAdult) {
+    filtered = filtered.filter((g) => !(g as any).isAdult);
+  }
+
+  // Filter by minimum rating
+  if (options.rating !== undefined && options.rating !== null && options.rating > 0) {
+    filtered = filtered.filter((g) => (g.rating || 0) >= options.rating!);
+  }
 
   const offset = (page - 1) * limit;
   const paged = filtered.slice(offset, offset + limit);

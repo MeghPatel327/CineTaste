@@ -133,7 +133,7 @@ export async function getGameBrowseService(
     };
   });
 
-  const featuredSpotlight = enrichedItems.length > 0 ? enrichedItems[0] : null;
+  const featuredSpotlight = selectSpotlight(enrichedItems);
 
   return {
     items: enrichedItems,
@@ -148,6 +148,17 @@ export async function getGameBrowseService(
     availableGameModes: AVAILABLE_GAME_MODES,
     featuredSpotlight,
   };
+}
+
+/**
+ * Select a non-adult spotlight game with valid artwork
+ */
+function selectSpotlight(items: GameItem[]): GameItem | null {
+  // Prefer games with valid cover_url and backdrop_url
+  const validSpotlight = items.find(
+    (g) => !g.isAdult && g.cover_url && g.backdrop_url
+  );
+  return validSpotlight || items.find((g) => !g.isAdult) || null;
 }
 
 /**
@@ -262,7 +273,21 @@ export async function getGameDashboardStatsService(username: string): Promise<Ga
     nextUpBacklog: nextUp,
     recentActivity,
     recentlyUpdated: recentActivity,
+    // If library is empty, show trending games as fallback
+    trending: total === 0 ? await getTrendingGames() : [],
   };
+}
+
+/**
+ * Get trending games for display when user's library is empty
+ */
+async function getTrendingGames(): Promise<GameItem[]> {
+  try {
+    const trending = await browseRawgGames({ limit: 10, sort: "rating" });
+    return trending.items.filter((g) => !g.isAdult);
+  } catch {
+    return [];
+  }
 }
 
 /**
