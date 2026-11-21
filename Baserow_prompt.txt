@@ -6,17 +6,18 @@
 
 ## Overview
 
-CineTaste uses 6 Baserow tables (7 if using the optional dedicated Games table):
+CineTaste uses 8 Baserow tables for complete media tracking. Games have their own dedicated tables to ensure clean separation from movies/series/anime data:
 
 | Table | Env Var | Purpose |
 |---|---|---|
 | users | BASEROW_USERS_TABLE_ID | Authentication & user accounts |
-| movies | BASEROW_MOVIES_TABLE_ID | Movie, Series, Anime library items |
+| movies | BASEROW_MOVIES_TABLE_ID | Movie, Series, Anim e library items |
 | pirate_sites | BASEROW_PIRATES_TABLE_ID | Streaming/download links for movies/series/anime |
 | recommendation_profile | BASEROW_RECOMMENDATION_PROFILE_TABLE_ID | AI taste profiles per user |
 | recommendation_sets | BASEROW_RECOMMENDATION_SETS_TABLE_ID | Cached AI-generated recommendations |
-| games | BASEROW_GAMES_TABLE_ID | Dedicated game library (separate from movies) |
-| game_pirate_sites | BASEROW_GAME_PIRATES_TABLE_ID | Streaming/download links for games |
+| **Games — User Library Data** | **BASEROW_GAMES_TABLE_ID** | **Dedicated game library entries (separate from movies table)** |
+| **Games — Pirated Games Site** | **BASEROW_GAME_PIRATES_TABLE_ID** | **Game streaming/download links (separate from movie pirate_sites)** |
+| queue | BASEROW_QUEUE_TABLE_ID | Watch order / Up Next queue (optional, auto-generated if missing) |
 
 ---
 

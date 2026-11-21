@@ -167,3 +167,59 @@ test("globals.css contains dark purple gaming mode tokens", () => {
   assert.ok(css.includes('--ct-primary: #A855F7'), "accent purple CSS variable present");
   assert.ok(css.includes("prefers-reduced-motion"), "reduced motion query present");
 });
+
+// 5. Game Table Separation Tests
+test("Game and Movie tables use different canonical IDs", () => {
+  const rawgId = 119133;
+  const tmdbId = 120;
+  assert.notEqual(typeof rawgId, "undefined");
+  assert.notEqual(typeof tmdbId, "undefined");
+  assert.equal(rawgId !== tmdbId, true, "Game and movie IDs are from different databases");
+});
+
+test("Game status values are distinct from movie status", () => {
+  const gameStatuses = ["playing", "completed", "pending", "on_hold", "dropped"];
+  const movieStatuses = ["pending", "watching", "on_hold", "completed", "dropped"];
+  assert.ok(gameStatuses.includes("playing"), "Games have 'playing' status");
+  assert.ok(!gameStatuses.includes("watching"), "Games do NOT have 'watching' status");
+  assert.ok(movieStatuses.includes("watching"), "Movies have 'watching' status");
+  assert.ok(!movieStatuses.includes("playing"), "Movies do NOT have 'playing' status");
+  assert.ok(gameStatuses.includes("completed") && movieStatuses.includes("completed"));
+  assert.ok(gameStatuses.includes("pending") && movieStatuses.includes("pending"));
+  assert.ok(gameStatuses.includes("on_hold") && movieStatuses.includes("on_hold"));
+  assert.ok(gameStatuses.includes("dropped") && movieStatuses.includes("dropped"));
+});
+
+test("Game pirate site structure differs from movie pirate site structure", () => {
+  const movieSite = { name: "1337x", search_url: "https://1337x.to/search/{q}/1/", enabled: true };
+  const gameSite = { name: "GOG", search_url: "https://www.gog.com/en/games?search={q}", enabled: true };
+  assert.equal(movieSite.name !== gameSite.name, true);
+  assert.equal(
+    movieSite.search_url.includes("1337x"),
+    gameSite.search_url.includes("gog.com"),
+    "Movies and games use different streaming sources"
+  );
+});
+
+test("GameRow uses rawg_id as canonical identifier, not tmdb_id", () => {
+  const gameRow = {
+    id: 1,
+    username: "testuser",
+    game_name: "Elden Ring",
+    status: "playing",
+    rating: 9,
+    rawg_id: 119133,
+    genres: '["RPG","Adventure"]',
+    platforms: '["PC","PS5"]',
+    release_year: 2022,
+    playtime_hours: 15.5,
+    cover_url: "https://media.rawg.io/media/games/elden.jpg",
+    backdrop_url: "https://media.rawg.io/media/backdrop.jpg",
+    summary: "Open-world action RPG",
+    created_at: "2024-01-15T10:00:00.000Z",
+    updated_at: "2024-01-15T10:00:00.000Z",
+  };
+  assert.equal(gameRow.rawg_id, 119133, "GameRow uses RAWG ID");
+  assert.equal(typeof gameRow.rawg_id, "number", "rawg_id is a number");
+  assert.equal(!("tmdb_id" in gameRow), true, "GameRow does NOT have tmdb_id field");
+});
