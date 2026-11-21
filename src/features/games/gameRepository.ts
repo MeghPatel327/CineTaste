@@ -12,7 +12,7 @@ import { env } from "@/lib/env";
  *   rating          (number, 0-10)
  *   personal_review (long text)
  *   watch_order_rank (number, nullable)
- *   igdb_id         (number)  — canonical IGDB game ID
+ *   rawg_id         (number)  — canonical RAWG game ID
  *   genres          (long text, JSON array string)
  *   platforms       (long text, JSON array string)
  *   release_year    (number)
@@ -31,7 +31,7 @@ export interface GameRow {
   rating: number;
   personal_review: string;
   watch_order_rank: number | null;
-  igdb_id: number;
+  rawg_id: number;
   genres: string; // JSON array string e.g. '["RPG","Adventure"]'
   platforms: string; // JSON array string e.g. '["PC","PS5"]'
   release_year: number;

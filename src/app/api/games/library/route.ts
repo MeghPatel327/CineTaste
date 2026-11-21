@@ -13,7 +13,7 @@ export const GET = withLogger(async (req: NextRequest) => {
   try {
     const rawGames = await getUserGames(session.username);
     const games: GameItem[] = rawGames.map((g) => ({
-      id: g.igdb_id,
+      id: g.rawg_id,
       title: g.game_name,
       cover_url: g.cover_url || null,
       backdrop_url: g.backdrop_url || null,

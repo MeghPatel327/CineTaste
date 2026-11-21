@@ -153,7 +153,7 @@ export function GameDetailsModal({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            igdb_id: data.id,
+            rawg_id: data.id,
             title: data.title,
             status,
             rating,
@@ -341,7 +341,7 @@ export function GameDetailsModal({
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-purple-300 hover:text-white bg-white/[0.05] hover:bg-purple-500/20 border border-purple-500/20 transition-colors"
                   >
-                    <span>IGDB</span>
+                    <span>RAWG</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 )}

@@ -140,14 +140,14 @@ Cached recommendation results per user per category.
 | rating | Number | 0–10 |
 | personal_review | Long Text | User's notes/review |
 | watch_order_rank | Number | Backlog queue position, [optional] |
-| igdb_id | Number | Canonical IGDB game ID |
+| rawg_id | Number | Canonical RAWG game ID |
 | genres | Long Text | JSON array string e.g. '["RPG","Adventure"]' |
 | platforms | Long Text | JSON array string e.g. '["PC","PS5"]' |
 | release_year | Number | e.g. 2022 |
 | playtime_hours | Number | Hours played |
-| cover_url | URL | IGDB cover art URL |
-| backdrop_url | URL | IGDB screenshot/artwork URL, [optional] |
-| summary | Long Text | IGDB game synopsis |
+| cover_url | URL | RAWG cover art URL |
+| backdrop_url | URL | RAWG screenshot/artwork URL, [optional] |
+| summary | Long Text | RAWG game synopsis |
 | created_at | Text | ISO-8601 string |
 | updated_at | Text | ISO-8601 string |
 
@@ -159,7 +159,7 @@ Cached recommendation results per user per category.
 - `dropped` = Abandoned
 
 **Key difference from movies table:**
-- Uses `igdb_id` (not `tmdb_id`) as the canonical content identifier
+- Uses `rawg_id` (not `tmdb_id`) as the canonical content identifier
 - Uses `platforms` (JSON array) instead of `language`
 - Uses `playtime_hours` (not `runtime`)
 - Status `"playing"` is stored directly (movies use `"watching"` for the same concept)
@@ -201,11 +201,10 @@ BASEROW_GAME_PIRATES_TABLE_ID=<table-id>
 # TMDB (for movies/series/anime)
 TMDB_API_KEY=<your-tmdb-api-key>
 
-# IGDB / Twitch Developer (for games)
-# Register at https://dev.twitch.tv/console — create an app, get client_id and client_secret
+# RAWG (for games)
+# Get a free API key at https://rawg.io/apidocs
 # Leave blank to use curated game fallback data
-IGDB_CLIENT_ID=
-IGDB_CLIENT_SECRET=
+RAWG_API_KEY=
 
 # Gemini AI
 GEMINI_API_KEY=anything
@@ -238,3 +237,4 @@ Both admin endpoints require `role = "admin"` on the user account.
 2. The `genres` and `platforms` fields hold JSON arrays as plain text — always store them as valid JSON strings.
 3. If `BASEROW_GAMES_TABLE_ID` is not set the app throws a configuration error (no silent fallback to movies table).
 4. If `BASEROW_GAME_PIRATES_TABLE_ID` is not set the game detail card shows no download/streaming links (graceful degradation).
+

@@ -3,29 +3,27 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-// 1. Test image URL normalization
-function normalizeIgdbImageUrl(url, size = "t_cover_big") {
+// 1. Test image URL normalization for RAWG
+function normalizeRawgImageUrl(url) {
   if (!url) return null;
-  let normalized = url.trim();
-  if (normalized.startsWith("//")) {
-    normalized = `https:${normalized}`;
-  }
-  normalized = normalized.replace(/\/t_[a-z0-9_]+\//, `/${size}/`);
-  return normalized;
+  const s = url.trim();
+  if (!s) return null;
+  return s.replace(/\/media\/crop\/\d+\/\d+\//, "/media/");
 }
 
-test("normalizeIgdbImageUrl handles protocol-relative URLs and sets size", () => {
-  const raw = "//images.igdb.com/igdb/image/upload/t_thumb/co1r7f.jpg";
-  const result = normalizeIgdbImageUrl(raw, "t_cover_big");
-  assert.equal(result, "https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7f.jpg");
+test("normalizeRawgImageUrl strips crop parameters from media URLs", () => {
+  const cropUrl = "https://media.rawg.io/media/crop/600/400/games/4be/4be6a6ad0364751a96229c56bf69be59.jpg";
+  const result = normalizeRawgImageUrl(cropUrl);
+  assert.equal(result, "https://media.rawg.io/media/games/4be/4be6a6ad0364751a96229c56bf69be59.jpg");
 
-  const hdResult = normalizeIgdbImageUrl(raw, "t_1080p");
-  assert.equal(hdResult, "https://images.igdb.com/igdb/image/upload/t_1080p/co1r7f.jpg");
+  const fullUrl = "https://media.rawg.io/media/games/4be/4be6a6ad0364751a96229c56bf69be59.jpg";
+  assert.equal(normalizeRawgImageUrl(fullUrl), fullUrl);
 });
 
-test("normalizeIgdbImageUrl handles null and empty inputs safely", () => {
-  assert.equal(normalizeIgdbImageUrl(null), null);
-  assert.equal(normalizeIgdbImageUrl(""), null);
+test("normalizeRawgImageUrl handles null, empty, and whitespace inputs safely", () => {
+  assert.equal(normalizeRawgImageUrl(null), null);
+  assert.equal(normalizeRawgImageUrl(""), null);
+  assert.equal(normalizeRawgImageUrl("   "), null);
 });
 
 // 2. Games now have a dedicated Baserow table with a native status column.

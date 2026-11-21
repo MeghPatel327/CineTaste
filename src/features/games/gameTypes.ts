@@ -18,7 +18,7 @@ export interface GameLibraryData {
 }
 
 export interface GameItem {
-  id: number; // Canonical IGDB id
+  id: number; // Canonical RAWG game ID
   title: string;
   cover_url: string | null;
   backdrop_url: string | null;
@@ -26,7 +26,8 @@ export interface GameItem {
   first_release_date?: number; // unix timestamp in seconds
   release_date?: string;
   rating?: number; // 0-10 scale
-  igdb_rating?: number; // 0-100 scale from IGDB
+  rawg_rating?: number; // 0-5 scale from RAWG (multiply by 2 for 0-10)
+  igdb_rating?: number; // backwards compatibility
   rating_count?: number;
   score?: number; // Match affinity score (65-98)
   genres: string[];

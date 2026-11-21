@@ -327,7 +327,7 @@ export default function GameLibraryPage() {
           />
         )}
 
-        {/* Live IGDB Search & Add Game Modal */}
+        {/* Live RAWG Search & Add Game Modal */}
         {isAddModalOpen && (
           <Modal
             isOpen={isAddModalOpen}
@@ -361,7 +361,7 @@ export default function GameLibraryPage() {
               <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
                 {addSearchLoading ? (
                   <div className="p-8 text-center text-xs text-purple-300 animate-pulse">
-                    Searching IGDB metadata database...
+                    Searching RAWG metadata database...
                   </div>
                 ) : addSearchResults.length > 0 ? (
                   addSearchResults.map((item) => (
@@ -406,7 +406,7 @@ export default function GameLibraryPage() {
                   </div>
                 ) : (
                   <div className="p-8 text-center text-xs text-purple-300/50">
-                    Search for any game to view its IGDB details and add it to your library.
+                    Search for any game to view its RAWG details and add it to your library.
                   </div>
                 )}
               </div>

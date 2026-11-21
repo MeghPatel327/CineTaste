@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { withLogger } from "@/lib/apiWrapper";
 import { successResponse, handleApiError, errorResponse } from "@/lib/apiResponse";
 import { getSession } from "@/lib/session";
-import { searchIgdbGames } from "@/lib/igdb";
+import { searchRawgGames } from "@/lib/rawg";
 
 export const GET = withLogger(async (req: NextRequest) => {
   const session = await getSession();
@@ -12,10 +12,9 @@ export const GET = withLogger(async (req: NextRequest) => {
   const limit = parseInt(req.nextUrl.searchParams.get("limit") || "15", 10);
 
   try {
-    const results = await searchIgdbGames(query, limit);
+    const results = await searchRawgGames(query, limit);
     return successResponse(results);
   } catch (error: any) {
     return handleApiError(error);
   }
 }, "games-search");
-

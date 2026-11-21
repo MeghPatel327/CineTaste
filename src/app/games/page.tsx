@@ -176,7 +176,7 @@ export default function GamesBrowsePage() {
                 <span>Games Discovery Hub</span>
               </h2>
               <p className="text-xs md:text-sm text-purple-300/70 mt-1">
-                Explore acclaimed titles with IGDB metadata, platforms, and personal tracking.
+                Explore acclaimed titles with RAWG metadata, platforms, and personal tracking.
               </p>
             </div>
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getUserGames, addGame, updateGame, deleteGame } from "./gameRepository";
-import { browseIgdbGames, getIgdbGameDetails, searchIgdbGames } from "@/lib/igdb";
+import { browseRawgGames, getRawgGameDetails, searchRawgGames } from "@/lib/rawg";
 import type {
   GameItem,
   GameDetails,
@@ -44,7 +44,7 @@ const addGameSchema = z
   .object({
     game_name: z.string().optional(),
     title: z.string().optional(),
-    igdb_id: z.number(),
+    rawg_id: z.number(),
     status: z.enum(["playing", "completed", "pending", "on_hold", "dropped"]),
     rating: z.number().min(0).max(10).optional().default(0),
     personal_review: z.string().optional().default(""),
@@ -79,7 +79,7 @@ function rowToGameItem(g: GameRow): GameItem {
     try { return JSON.parse(g.genres); } catch { return g.genres ? g.genres.split(",") : []; }
   };
   return {
-    id: g.igdb_id,
+    id: g.rawg_id,
     title: g.game_name,
     cover_url: g.cover_url || null,
     backdrop_url: g.backdrop_url || null,
@@ -115,12 +115,12 @@ export async function getGameBrowseService(
 ): Promise<GameBrowseResult> {
   const [userGames, browseData] = await Promise.all([
     getUserGames(username).catch(() => []),
-    browseIgdbGames(options),
+    browseRawgGames(options),
   ]);
 
   const libraryMap = new Map<number, { status: GameStatus; rating: number }>();
   userGames.forEach((g) => {
-    libraryMap.set(g.igdb_id, { status: g.status, rating: g.rating });
+    libraryMap.set(g.rawg_id, { status: g.status, rating: g.rating });
   });
 
   const enrichedItems: GameItem[] = browseData.items.map((item) => {
@@ -151,20 +151,20 @@ export async function getGameBrowseService(
 }
 
 /**
- * Get detailed game info by IGDB ID
+ * Get detailed game info by RAWG ID
  */
 export async function getGameDetailsService(
   username: string,
   gameId: number
 ): Promise<GameDetails | null> {
   const [details, userGames] = await Promise.all([
-    getIgdbGameDetails(gameId),
+    getRawgGameDetails(gameId),
     getUserGames(username).catch(() => []),
   ]);
 
   if (!details) return null;
 
-  const libraryItem = userGames.find((g) => g.igdb_id === gameId);
+  const libraryItem = userGames.find((g) => g.rawg_id === gameId);
 
   return {
     ...details,
@@ -276,7 +276,7 @@ export async function addGameToLibraryService(username: string, body: any) {
 
   const existing = await getUserGames(username);
   const duplicate = existing.some(
-    (g) => g.igdb_id === result.data.igdb_id || g.game_name.toLowerCase() === result.data.game_name.toLowerCase()
+    (g) => g.rawg_id === result.data.rawg_id || g.game_name.toLowerCase() === result.data.game_name.toLowerCase()
   );
 
   if (duplicate) {
@@ -290,7 +290,7 @@ export async function addGameToLibraryService(username: string, body: any) {
     rating: result.data.rating || 0,
     personal_review: result.data.personal_review || "",
     watch_order_rank: result.data.status === "pending" ? existing.length + 1 : null,
-    igdb_id: result.data.igdb_id,
+    rawg_id: result.data.rawg_id,
     genres: result.data.genres,
     platforms: result.data.platforms,
     release_year: result.data.release_year || 0,
@@ -331,6 +331,6 @@ export async function removeGameFromLibraryService(username: string, id: number)
 }
 
 /**
- * Search IGDB games (re-export for API route use)
+ * Search RAWG games (re-export for API route use)
  */
-export { searchIgdbGames };
+export { searchRawgGames };

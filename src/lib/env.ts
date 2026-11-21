@@ -13,9 +13,8 @@ export const env = {
   BASEROW_GAMES_TABLE_ID: process.env.BASEROW_GAMES_TABLE_ID || '',
   BASEROW_GAME_PIRATES_TABLE_ID: process.env.BASEROW_GAME_PIRATES_TABLE_ID || '',
 
-  // IGDB (Twitch Developer)
-  IGDB_CLIENT_ID: process.env.IGDB_CLIENT_ID || '',
-  IGDB_CLIENT_SECRET: process.env.IGDB_CLIENT_SECRET || '',
+  // RAWG (rawg.io) — Game metadata
+  RAWG_API_KEY: process.env.RAWG_API_KEY || '',
 
   // Gemini AI
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
