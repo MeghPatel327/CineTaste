@@ -15,3 +15,4 @@ export const GET = withLogger(async (req: NextRequest) => {
     return handleApiError(error);
   }
 }, "games-dashboard");
+

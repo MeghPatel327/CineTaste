@@ -9,6 +9,7 @@ import type {
   GameDashboardStats,
   GameStatus,
 } from "./gameTypes";
+import type { GameRow } from "./gameRepository";
 import { ApiError } from "@/lib/ApiError";
 import { logger } from "@/lib/logger";
 
@@ -69,6 +70,42 @@ const updateGameSchema = z.object({
   playtime_hours: z.coerce.number().min(0).optional(),
 });
 
+/** Map a GameRow from Baserow to a GameItem for the frontend. */
+function rowToGameItem(g: GameRow): GameItem {
+  const parsePlatforms = (): string[] => {
+    try { return JSON.parse(g.platforms); } catch { return g.platforms ? g.platforms.split(",") : []; }
+  };
+  const parseGenres = (): string[] => {
+    try { return JSON.parse(g.genres); } catch { return g.genres ? g.genres.split(",") : []; }
+  };
+  return {
+    id: g.igdb_id,
+    title: g.game_name,
+    cover_url: g.cover_url || null,
+    backdrop_url: g.backdrop_url || null,
+    release_year: g.release_year,
+    rating: g.rating,
+    genres: parseGenres(),
+    platforms: parsePlatforms(),
+    game_modes: [],
+    themes: [],
+    summary: g.summary,
+    inLibrary: true,
+    libraryStatus: g.status,
+    status: g.status,
+    userRating: g.rating,
+    userReview: g.personal_review,
+    playtime_hours: g.playtime_hours,
+    libraryData: {
+      id: g.id,
+      status: g.status,
+      rating: g.rating,
+      playtime_hours: g.playtime_hours,
+      personal_review: g.personal_review,
+    },
+  };
+}
+
 /**
  * Browse games catalog with user library integration
  */
@@ -83,10 +120,7 @@ export async function getGameBrowseService(
 
   const libraryMap = new Map<number, { status: GameStatus; rating: number }>();
   userGames.forEach((g) => {
-    libraryMap.set(g.tmdb_id, {
-      status: (g.status === "watching" ? "playing" : g.status) as GameStatus,
-      rating: g.rating,
-    });
+    libraryMap.set(g.igdb_id, { status: g.status, rating: g.rating });
   });
 
   const enrichedItems: GameItem[] = browseData.items.map((item) => {
@@ -99,7 +133,6 @@ export async function getGameBrowseService(
     };
   });
 
-  // Spotlight is the top rated item or first item
   const featuredSpotlight = enrichedItems.length > 0 ? enrichedItems[0] : null;
 
   return {
@@ -131,24 +164,21 @@ export async function getGameDetailsService(
 
   if (!details) return null;
 
-  const libraryItem = userGames.find((g) => g.tmdb_id === gameId);
-  const mappedStatus = libraryItem
-    ? ((libraryItem.status === "watching" ? "playing" : libraryItem.status) as GameStatus)
-    : null;
+  const libraryItem = userGames.find((g) => g.igdb_id === gameId);
 
   return {
     ...details,
     inLibrary: Boolean(libraryItem),
-    libraryStatus: mappedStatus,
-    status: mappedStatus || undefined,
+    libraryStatus: libraryItem ? libraryItem.status : null,
+    status: libraryItem?.status,
     userRating: libraryItem?.rating,
     userReview: libraryItem?.personal_review,
     libraryData: libraryItem
       ? {
           id: libraryItem.id,
-          status: mappedStatus || "playing",
+          status: libraryItem.status,
           rating: libraryItem.rating,
-          playtime_hours: libraryItem.runtime || 0,
+          playtime_hours: libraryItem.playtime_hours || 0,
           personal_review: libraryItem.personal_review,
         }
       : null,
@@ -163,7 +193,7 @@ export async function getGameDashboardStatsService(username: string): Promise<Ga
 
   const total = games.length;
   const completed = games.filter((g) => g.status === "completed").length;
-  const playing = games.filter((g) => g.status === "watching" || (g.status as string) === "playing").length;
+  const playing = games.filter((g) => g.status === "playing").length;
   const onHold = games.filter((g) => g.status === "on_hold").length;
   const dropped = games.filter((g) => g.status === "dropped").length;
   const pending = games.filter((g) => g.status === "pending").length;
@@ -180,15 +210,8 @@ export async function getGameDashboardStatsService(username: string): Promise<Ga
   const platformCounts: Record<string, number> = {};
   games.forEach((g) => {
     let plats: string[] = [];
-    try {
-      plats = JSON.parse(g.language); // Note: we can store platforms in language or genres
-    } catch {
-      plats = g.language ? g.language.split(",") : [];
-    }
-    plats.forEach((p) => {
-      const clean = p.trim();
-      if (clean) platformCounts[clean] = (platformCounts[clean] || 0) + 1;
-    });
+    try { plats = JSON.parse(g.platforms); } catch { plats = g.platforms ? g.platforms.split(",") : []; }
+    plats.forEach((p) => { const c = p.trim(); if (c) platformCounts[c] = (platformCounts[c] || 0) + 1; });
   });
 
   const topPlatforms = Object.entries(platformCounts)
@@ -200,15 +223,8 @@ export async function getGameDashboardStatsService(username: string): Promise<Ga
   const genreCounts: Record<string, number> = {};
   games.forEach((g) => {
     let gens: string[] = [];
-    try {
-      gens = JSON.parse(g.genres);
-    } catch {
-      gens = g.genres ? g.genres.split(",") : [];
-    }
-    gens.forEach((gen) => {
-      const clean = gen.trim();
-      if (clean) genreCounts[clean] = (genreCounts[clean] || 0) + 1;
-    });
+    try { gens = JSON.parse(g.genres); } catch { gens = g.genres ? g.genres.split(",") : []; }
+    gens.forEach((gen) => { const c = gen.trim(); if (c) genreCounts[c] = (genreCounts[c] || 0) + 1; });
   });
 
   const topGenres = Object.entries(genreCounts)
@@ -216,62 +232,17 @@ export async function getGameDashboardStatsService(username: string): Promise<Ga
     .slice(0, 6)
     .map(([name, value]) => ({ name, value }));
 
-  // Up Next backlog items
-  const nextUp: GameItem[] = games
-    .filter((g) => g.status === "pending")
-    .slice(0, 5)
-    .map((g) => ({
-      id: g.tmdb_id,
-      title: g.movie_name,
-      cover_url: g.poster_url,
-      backdrop_url: null,
-      release_year: g.release_year,
-      rating: g.rating,
-      genres: (() => {
-        try {
-          return JSON.parse(g.genres);
-        } catch {
-          return g.genres ? g.genres.split(",") : [];
-        }
-      })(),
-      platforms: [],
-      game_modes: [],
-      themes: [],
-      summary: g.overview,
-      inLibrary: true,
-      libraryStatus: "pending",
-      userRating: g.rating,
-    }));
+  // Up Next: backlog
+  const nextUp: GameItem[] = games.filter((g) => g.status === "pending").slice(0, 5).map(rowToGameItem);
 
+  // Recent activity
   const recentActivity: GameItem[] = games
     .slice()
     .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())
     .slice(0, 6)
-    .map((g) => ({
-      id: g.tmdb_id,
-      title: g.movie_name,
-      cover_url: g.poster_url,
-      backdrop_url: null,
-      release_year: g.release_year,
-      rating: g.rating,
-      genres: (() => {
-        try {
-          return JSON.parse(g.genres);
-        } catch {
-          return g.genres ? g.genres.split(",") : [];
-        }
-      })(),
-      platforms: [],
-      game_modes: [],
-      themes: [],
-      summary: g.overview,
-      inLibrary: true,
-      libraryStatus: (g.status === "watching" ? "playing" : g.status) as GameStatus,
-      userRating: g.rating,
-      userReview: g.personal_review,
-    }));
+    .map(rowToGameItem);
 
-  const totalPlaytimeHours = games.reduce((acc, g) => acc + (Number(g.runtime) || 0), 0);
+  const totalPlaytimeHours = games.reduce((acc, g) => acc + (Number(g.playtime_hours) || 0), 0);
 
   return {
     total,
@@ -305,40 +276,31 @@ export async function addGameToLibraryService(username: string, body: any) {
 
   const existing = await getUserGames(username);
   const duplicate = existing.some(
-    (g) => g.tmdb_id === result.data.igdb_id || g.movie_name.toLowerCase() === result.data.game_name.toLowerCase()
+    (g) => g.igdb_id === result.data.igdb_id || g.game_name.toLowerCase() === result.data.game_name.toLowerCase()
   );
 
   if (duplicate) {
     throw new ApiError(409, "DUPLICATE_GAME", "Game already exists in your library");
   }
 
-  // Map "playing" to "watching" for unified Baserow status column
-  const dbStatus = result.data.status === "playing" ? "watching" : result.data.status;
-
   const row = await addGame({
     username,
-    movie_name: result.data.game_name,
-    type: "game",
-    status: dbStatus as any,
+    game_name: result.data.game_name,
+    status: result.data.status,
     rating: result.data.rating || 0,
     personal_review: result.data.personal_review || "",
     watch_order_rank: result.data.status === "pending" ? existing.length + 1 : null,
-    watch_link: null,
-    tmdb_id: result.data.igdb_id,
+    igdb_id: result.data.igdb_id,
     genres: result.data.genres,
+    platforms: result.data.platforms,
     release_year: result.data.release_year || 0,
-    runtime: result.data.playtime_hours || 0,
-    language: result.data.platforms, // Store platforms list in language field
-    poster_url: result.data.cover_url,
-    overview: result.data.summary,
+    playtime_hours: result.data.playtime_hours || 0,
+    cover_url: result.data.cover_url,
+    backdrop_url: result.data.backdrop_url,
+    summary: result.data.summary,
   });
 
-  logger.info({
-    module: "gameService",
-    action: "ADD_GAME",
-    username,
-    title: result.data.game_name,
-  });
+  logger.info({ module: "gameService", action: "ADD_GAME", username, title: result.data.game_name });
 
   return row;
 }
@@ -352,13 +314,11 @@ export async function updateGameLibraryItemService(username: string, id: number,
     throw new ApiError(400, "VALIDATION_ERROR", "Invalid game update payload");
   }
 
-  const updates: any = {};
-  if (result.data.status) {
-    updates.status = result.data.status === "playing" ? "watching" : result.data.status;
-  }
+  const updates: Partial<GameRow> = {};
+  if (result.data.status !== undefined) updates.status = result.data.status;
   if (result.data.rating !== undefined) updates.rating = result.data.rating;
   if (result.data.personal_review !== undefined) updates.personal_review = result.data.personal_review;
-  if (result.data.playtime_hours !== undefined) updates.runtime = result.data.playtime_hours;
+  if (result.data.playtime_hours !== undefined) updates.playtime_hours = result.data.playtime_hours;
 
   return await updateGame(id, updates);
 }
@@ -369,3 +329,8 @@ export async function updateGameLibraryItemService(username: string, id: number,
 export async function removeGameFromLibraryService(username: string, id: number) {
   return await deleteGame(id);
 }
+
+/**
+ * Search IGDB games (re-export for API route use)
+ */
+export { searchIgdbGames };

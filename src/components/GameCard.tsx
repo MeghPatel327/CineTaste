@@ -162,3 +162,4 @@ export function GameCard({ game, onClick, userStatus, userRating }: GameCardProp
     </div>
   );
 }
+

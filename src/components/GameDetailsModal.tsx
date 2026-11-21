@@ -3,10 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
-import { Star, Clock, Calendar, ExternalLink, Plus, Edit, Trash2, X, Gamepad2, Layers } from "lucide-react";
+import { Star, Clock, Calendar, ExternalLink, Plus, Edit, Trash2, X, Gamepad2, Layers, Download } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { GameItem, GameDetails, GameStatus } from "@/features/games/gameTypes";
+import { useAppStore } from "@/lib/appStore";
 
 interface GameDetailsModalProps {
   isOpen: boolean;
@@ -31,9 +32,11 @@ export function GameDetailsModal({
   initialGame,
   onUpdated,
 }: GameDetailsModalProps) {
+  const { getGamePirateSites } = useAppStore();
   const [data, setData] = useState<GameDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [gameSites, setGameSites] = useState<any[]>([]);
 
   // Form State
   const [isAdding, setIsAdding] = useState(false);
@@ -53,6 +56,13 @@ export function GameDetailsModal({
     setPlaytimeHours(undefined);
     setPersonalReview("");
   }, []);
+
+  // Fetch game-specific streaming/download sites
+  useEffect(() => {
+    if (isOpen) {
+      getGamePirateSites().then(setGameSites).catch(() => {});
+    }
+  }, [isOpen, getGamePirateSites]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -334,6 +344,24 @@ export function GameDetailsModal({
                     <span>IGDB</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
+                )}
+
+                {/* Game streaming / download sites */}
+                {gameSites.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {gameSites.map((site) => (
+                      <a
+                        key={site.id}
+                        href={site.search_url.replace(/\{q\}|\{query\}/g, encodeURIComponent(data.title))}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-purple-300 hover:text-white bg-white/[0.05] hover:bg-purple-500/20 border border-purple-500/20 transition-colors"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>{site.name}</span>
+                      </a>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

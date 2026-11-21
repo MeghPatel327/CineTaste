@@ -1,6 +1,9 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { getAllUsers, updateUserAdmin, getPirateSites, addPirateSite, updatePirateSite, deletePirateSite } from "./adminRepository";
+import {
+  getAllUsers, updateUserAdmin, getPirateSites, addPirateSite, updatePirateSite, deletePirateSite,
+  getGamePirateSitesAdmin, addGamePirateSiteAdmin, updateGamePirateSiteAdmin, deleteGamePirateSiteAdmin,
+} from "./adminRepository";
 import { updateUserPassword } from "../auth/userRepository";
 import { ApiError } from "@/lib/ApiError";
 
@@ -75,4 +78,26 @@ export async function updatePirateSiteService(id: number, body: any) {
 
 export async function deletePirateSiteService(id: number) {
   await deletePirateSite(id);
+}
+
+// ─── Game Pirate Sites ────────────────────────────────────────────────────────
+
+export async function getGamePirateSitesService() {
+  return await getGamePirateSitesAdmin();
+}
+
+export async function addGamePirateSiteService(body: any) {
+  const result = addSiteSchema.safeParse(body);
+  if (!result.success) throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
+  return await addGamePirateSiteAdmin(result.data);
+}
+
+export async function updateGamePirateSiteService(id: number, body: any) {
+  const result = updateSiteSchema.safeParse(body);
+  if (!result.success) throw new ApiError(400, "VALIDATION_ERROR", "Validation error");
+  return await updateGamePirateSiteAdmin(id, result.data);
+}
+
+export async function deleteGamePirateSiteService(id: number) {
+  await deleteGamePirateSiteAdmin(id);
 }

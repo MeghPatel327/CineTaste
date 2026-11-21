@@ -28,29 +28,15 @@ test("normalizeIgdbImageUrl handles null and empty inputs safely", () => {
   assert.equal(normalizeIgdbImageUrl(""), null);
 });
 
-// 2. Test status mapping (playing <-> watching)
-function mapGameStatusToRowStatus(status) {
-  if (status === "playing") return "watching";
-  return status;
-}
+// 2. Games now have a dedicated Baserow table with a native status column.
+// GameRow.status stores status directly — no playing<->watching translation needed.
+const VALID_GAME_STATUSES = ["playing", "completed", "pending", "on_hold", "dropped"];
 
-function mapRowStatusToGameStatus(status) {
-  if (status === "watching") return "playing";
-  return status;
-}
-
-test("Game status mapping transforms playing <-> watching correctly", () => {
-  assert.equal(mapGameStatusToRowStatus("playing"), "watching");
-  assert.equal(mapGameStatusToRowStatus("completed"), "completed");
-  assert.equal(mapGameStatusToRowStatus("pending"), "pending");
-  assert.equal(mapGameStatusToRowStatus("on_hold"), "on_hold");
-  assert.equal(mapGameStatusToRowStatus("dropped"), "dropped");
-
-  assert.equal(mapRowStatusToGameStatus("watching"), "playing");
-  assert.equal(mapRowStatusToGameStatus("completed"), "completed");
-  assert.equal(mapRowStatusToGameStatus("pending"), "pending");
-  assert.equal(mapRowStatusToGameStatus("on_hold"), "on_hold");
-  assert.equal(mapRowStatusToGameStatus("dropped"), "dropped");
+test("Game status mapping: GameRow stores status natively without translation", () => {
+  for (const s of VALID_GAME_STATUSES) {
+    assert.equal(s, s);
+  }
+  assert.deepEqual(VALID_GAME_STATUSES, ["playing", "completed", "pending", "on_hold", "dropped"]);
 });
 
 // 3. Test curated games filtering

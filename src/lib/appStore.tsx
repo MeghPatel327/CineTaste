@@ -37,6 +37,7 @@ interface AppState {
   dashboardData: CachedEntry<any> | null;
   profile: CachedEntry<any> | null;
   pirateSites: CachedEntry<any[]> | null;
+  gamePirateSites: CachedEntry<any[]> | null;
 
   // TMDB detail cache: key = `${type}_${tmdbId}`
   tmdbDetails: Record<string, any>;
@@ -56,6 +57,7 @@ type Action =
   | { type: "SET_DASHBOARD"; payload: any }
   | { type: "SET_PROFILE"; payload: any }
   | { type: "SET_PIRATE_SITES"; payload: any[] }
+  | { type: "SET_GAME_PIRATE_SITES"; payload: any[] }
   | { type: "SET_TMDB_DETAIL"; key: string; payload: any }
   | { type: "SET_TMDB_SEARCH"; key: string; payload: any[] }
   | { type: "SET_SIDEBAR_COLLAPSED"; payload: boolean };
@@ -70,6 +72,7 @@ const initialState: AppState = {
   dashboardData: null,
   profile: null,
   pirateSites: null,
+  gamePirateSites: null,
   tmdbDetails: {},
   tmdbSearch: {},
   sidebarCollapsed: false,
@@ -111,6 +114,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, profile: { data: action.payload, fetchedAt: Date.now() } };
     case "SET_PIRATE_SITES":
       return { ...state, pirateSites: { data: action.payload, fetchedAt: Date.now() } };
+    case "SET_GAME_PIRATE_SITES":
+      return { ...state, gamePirateSites: { data: action.payload, fetchedAt: Date.now() } };
     case "SET_TMDB_DETAIL":
       return { ...state, tmdbDetails: { ...state.tmdbDetails, [action.key]: action.payload } };
     case "SET_TMDB_SEARCH":
@@ -132,6 +137,7 @@ interface AppStoreContextValue {
   getLibrary: (force?: boolean) => Promise<any[]>;
   getDashboard: (force?: boolean) => Promise<{ data: any; isStale: boolean } | null>;
   getPirateSites: () => Promise<any[]>;
+  getGamePirateSites: () => Promise<any[]>;
   invalidateLibrary: () => void;
   invalidateDashboard: () => void;
   invalidateDiscover: () => void;
@@ -272,6 +278,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     return sitesInflight.current;
   }, [state.pirateSites]);
 
+  const gameSitesInflight = useRef<Promise<any[]> | null>(null);
+
+  const getGamePirateSites = useCallback(async (): Promise<any[]> => {
+    const cached = state.gamePirateSites;
+    if (cached && Date.now() - cached.fetchedAt < SITES_TTL) return cached.data;
+
+    if (gameSitesInflight.current) return gameSitesInflight.current;
+
+    gameSitesInflight.current = fetch("/api/game-pirate-sites")
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(json => {
+        const data = json.data ?? [];
+        dispatch({ type: "SET_GAME_PIRATE_SITES", payload: data });
+        gameSitesInflight.current = null;
+        return data;
+      })
+      .catch(() => {
+        gameSitesInflight.current = null;
+        return cached?.data ?? [];
+      });
+
+    return gameSitesInflight.current;
+  }, [state.gamePirateSites]);
+
   const invalidateLibrary = useCallback(() => {
     dispatch({ type: "SET_LIBRARY", payload: state.library?.data ?? [] });
     if (state.library) {
@@ -297,6 +327,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         getLibrary,
         getDashboard,
         getPirateSites,
+        getGamePirateSites,
         invalidateLibrary,
         invalidateDashboard,
         invalidateDiscover,

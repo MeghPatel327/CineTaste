@@ -4,7 +4,6 @@ import { successResponse, handleApiError, errorResponse } from "@/lib/apiRespons
 import { getSession } from "@/lib/session";
 import { getUserGames } from "@/features/games/gameRepository";
 import { addGameToLibraryService } from "@/features/games/gameService";
-
 import type { GameItem, GameStatus } from "@/features/games/gameTypes";
 
 export const GET = withLogger(async (req: NextRequest) => {
@@ -14,40 +13,28 @@ export const GET = withLogger(async (req: NextRequest) => {
   try {
     const rawGames = await getUserGames(session.username);
     const games: GameItem[] = rawGames.map((g) => ({
-      id: g.tmdb_id,
-      title: g.movie_name,
-      cover_url: g.poster_url,
-      backdrop_url: null,
+      id: g.igdb_id,
+      title: g.game_name,
+      cover_url: g.cover_url || null,
+      backdrop_url: g.backdrop_url || null,
       release_year: g.release_year,
       rating: g.rating,
-      genres: (() => {
-        try {
-          return JSON.parse(g.genres);
-        } catch {
-          return g.genres ? g.genres.split(",") : [];
-        }
-      })(),
-      platforms: (() => {
-        try {
-          return JSON.parse(g.language);
-        } catch {
-          return g.language ? g.language.split(",") : [];
-        }
-      })(),
+      genres: (() => { try { return JSON.parse(g.genres); } catch { return g.genres ? g.genres.split(",") : []; } })(),
+      platforms: (() => { try { return JSON.parse(g.platforms); } catch { return g.platforms ? g.platforms.split(",") : []; } })(),
       game_modes: [],
       themes: [],
-      summary: g.overview,
+      summary: g.summary,
       inLibrary: true,
-      libraryStatus: (g.status === "watching" ? "playing" : g.status) as GameStatus,
-      status: (g.status === "watching" ? "playing" : g.status) as GameStatus,
+      libraryStatus: g.status as GameStatus,
+      status: g.status as GameStatus,
       userRating: g.rating,
       userReview: g.personal_review,
-      playtime_hours: g.runtime,
+      playtime_hours: g.playtime_hours,
       libraryData: {
         id: g.id,
-        status: (g.status === "watching" ? "playing" : g.status) as GameStatus,
+        status: g.status as GameStatus,
         rating: g.rating,
-        playtime_hours: g.runtime,
+        playtime_hours: g.playtime_hours,
         personal_review: g.personal_review,
       },
     }));
