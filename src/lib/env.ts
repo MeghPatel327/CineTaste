@@ -10,6 +10,11 @@ export const env = {
   AUTH_SECRET: process.env.AUTH_SECRET || 'my_development_secret_key_change_me',
   BASEROW_RECOMMENDATION_PROFILE_TABLE_ID: process.env.BASEROW_RECOMMENDATION_PROFILE_TABLE_ID || '',
   BASEROW_RECOMMENDATION_SETS_TABLE_ID: process.env.BASEROW_RECOMMENDATION_SETS_TABLE_ID || '',
+  BASEROW_GAMES_TABLE_ID: process.env.BASEROW_GAMES_TABLE_ID || '',
+
+  // IGDB (Twitch Developer)
+  IGDB_CLIENT_ID: process.env.IGDB_CLIENT_ID || '',
+  IGDB_CLIENT_SECRET: process.env.IGDB_CLIENT_SECRET || '',
 
   // Gemini AI
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',

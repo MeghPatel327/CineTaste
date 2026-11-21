@@ -84,6 +84,42 @@
   --ct-shimmer-bg: #0D1013;
 }
 
+/* ── Dark Purple Gaming Theme (Activated on /games routes) ── */
+[data-mode="gaming"],
+.gaming-mode {
+  --ct-bg: #0B0813;
+  --ct-fg: #F5F3FF;
+  --ct-card: rgba(19, 14, 36, 0.78);
+  --ct-card-fg: #F5F3FF;
+  --ct-primary: #A855F7;
+  --ct-primary-fg: #ffffff;
+  --ct-secondary: #130E24;
+  --ct-secondary-fg: #F5F3FF;
+  --ct-muted: #1B1333;
+  --ct-muted-fg: #A78BFA;
+  --ct-accent: #C084FC;
+  --ct-accent-fg: #0B0813;
+  --ct-border: rgba(168, 85, 247, 0.16);
+  --ct-sidebar: rgba(15, 11, 26, 0.92);
+  --ct-sidebar-fg: #F5F3FF;
+  --ct-sidebar-border: rgba(168, 85, 247, 0.14);
+  --ct-sidebar-accent: rgba(168, 85, 247, 0.16);
+
+  --ct-shadow-sm:    0 2px 10px rgba(11,8,19,0.35), 0 1px 3px rgba(168,85,247,0.12);
+  --ct-shadow-md:    0 8px 24px rgba(11,8,19,0.45), 0 3px 8px rgba(168,85,247,0.18);
+  --ct-shadow-hover: 0 24px 64px rgba(168,85,247,0.22), 0 10px 24px rgba(11,8,19,0.30);
+  --ct-shadow-card:  0 8px 22px rgba(11,8,19,0.35), 0 2px 8px rgba(168,85,247,0.14);
+
+  --ct-border-subtle:   rgba(147, 51, 234, 0.40);
+  --ct-border-hover:    rgba(192, 132, 252, 0.75);
+  --ct-border-selected: var(--ct-primary);
+  --ct-focus-glow:      0 0 0 3px rgba(168, 85, 247, 0.30);
+
+  --ct-shimmer-base:  #16102B;
+  --ct-shimmer-shine: #231A45;
+  --ct-shimmer-bg:    #0E091C;
+}
+
 /* ── Light Theme ── */
 .light {
   --ct-bg: #f5faf6;
@@ -140,8 +176,32 @@
   .bg-background,
   .bg-secondary,
   .bg-sidebar,
-  select {
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  aside,
+  header,
+  nav,
+  main,
+  select,
+  .glass-panel {
+    transition: background-color 400ms cubic-bezier(0.22, 1, 0.36, 1),
+                color 400ms cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 400ms cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body,
+    .bg-card,
+    .bg-background,
+    .bg-secondary,
+    .bg-sidebar,
+    aside,
+    header,
+    nav,
+    main,
+    select,
+    .glass-panel {
+      transition: none !important;
+    }
   }
 }
 

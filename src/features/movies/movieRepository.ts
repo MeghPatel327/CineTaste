@@ -5,7 +5,7 @@ export interface MovieRow {
   id: number;
   username: string;
   movie_name: string;
-  type: "movie" | "series";
+  type: "movie" | "series" | "game";
   status: "completed" | "pending" | "dropped" | "watching" | "on_hold";
   rating: number;
   personal_review: string;

@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger";
 
 const addMovieSchema = z.object({
   movie_name: z.string().min(1),
-  type: z.enum(["movie", "series"]),
+  type: z.enum(["movie", "series", "game"]),
   status: z.enum(["completed", "pending", "dropped", "watching", "on_hold"]),
   rating: z.number().min(0).max(10),
   personal_review: z.string().optional(),

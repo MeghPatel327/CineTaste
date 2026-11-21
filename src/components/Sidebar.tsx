@@ -10,6 +10,9 @@ import {
   Swords,
   ListTodo,
   Library,
+  Gamepad2,
+  Trophy,
+  Disc3,
   Shield,
   User,
   Info,
@@ -34,6 +37,12 @@ const mainNavItems = [
   { href: "/anime", label: "Anime", icon: Swords },
   { href: "/recommendations", label: "Queue", icon: ListTodo },
   { href: "/library", label: "Library", icon: Library },
+];
+
+const gamingNavItems = [
+  { href: "/games", label: "Games", icon: Gamepad2 },
+  { href: "/games/dashboard", label: "Game Stats", icon: Trophy },
+  { href: "/games/library", label: "Game Library", icon: Disc3 },
 ];
 
 const bottomNavItems = [
@@ -81,6 +90,9 @@ export function Sidebar({ isAdmin }: SidebarProps) {
       "/anime",
       "/recommendations",
       "/library",
+      "/games",
+      "/games/dashboard",
+      "/games/library",
       "/profile",
       "/about",
     ];
@@ -96,6 +108,9 @@ export function Sidebar({ isAdmin }: SidebarProps) {
     if (href === "/recommendations") return pathname === "/recommendations";
     if (href === "/library")
       return pathname === "/library" || pathname.startsWith("/movies/edit");
+    if (href === "/games") return pathname === "/games";
+    if (href === "/games/dashboard") return pathname === "/games/dashboard";
+    if (href === "/games/library") return pathname === "/games/library";
     if (href === "/profile") return pathname === "/profile";
     if (href === "/about") return pathname === "/about";
     if (href === "/admin") return pathname.startsWith("/admin");
@@ -192,6 +207,53 @@ export function Sidebar({ isAdmin }: SidebarProps) {
               {/* Tooltip on collapsed */}
               {isCollapsed && (
                 <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#121619] border border-white/[0.1] text-[#F5F7F6] text-xs font-semibold rounded-md opacity-0 group-hover/nav:opacity-100 pointer-events-none transition-all duration-200 translate-x-1 group-hover/nav:translate-x-0 shadow-2xl z-50 whitespace-nowrap">
+                  {item.label}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Gaming Group Divider & Heading */}
+        <div className="my-2 border-t border-white/[0.06]" />
+        {!isCollapsed && (
+          <div className="px-3.5 py-1 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">
+            Gaming
+          </div>
+        )}
+        {gamingNavItems.map((item) => {
+          const active = isActive(item.href);
+          return (
+            <div key={item.href} className="relative group/nav flex justify-center">
+              <Link
+                href={item.href}
+                className={cn(
+                  "flex items-center rounded-xl text-sm font-medium transition-all duration-200 overflow-hidden",
+                  isCollapsed ? "w-11 h-11 justify-center" : "w-full px-3.5 py-2.5 gap-3",
+                  active
+                    ? "bg-purple-500/15 text-purple-400 border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.18)]"
+                    : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04] border border-transparent"
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    "w-[18px] h-[18px] shrink-0 transition-colors duration-200",
+                    active ? "text-purple-400" : "text-[#A1AAA6] group-hover/nav:text-[#F5F7F6]"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "whitespace-nowrap transition-all duration-200",
+                    isCollapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
+                  )}
+                >
+                  {item.label}
+                </span>
+              </Link>
+
+              {/* Tooltip on collapsed */}
+              {isCollapsed && (
+                <div className="absolute left-[4.5rem] top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-[#121619] border border-purple-500/20 text-[#F5F7F6] text-xs font-semibold rounded-md opacity-0 group-hover/nav:opacity-100 pointer-events-none transition-all duration-200 translate-x-1 group-hover/nav:translate-x-0 shadow-2xl z-50 whitespace-nowrap">
                   {item.label}
                 </div>
               )}
@@ -385,6 +447,31 @@ export function Sidebar({ isAdmin }: SidebarProps) {
                 )}
               >
                 <item.icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          {/* Gaming Section in Mobile Drawer */}
+          <div className="my-3 border-t border-white/[0.07]" />
+          <div className="px-3.5 py-1 text-[11px] font-semibold text-purple-400 uppercase tracking-wider">
+            Gaming
+          </div>
+          {gamingNavItems.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileDrawerOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                  active
+                    ? "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                    : "text-[#A1AAA6] hover:text-[#F5F7F6] hover:bg-white/[0.04]"
+                )}
+              >
+                <item.icon className="w-5 h-5 text-purple-400" />
                 <span>{item.label}</span>
               </Link>
             );

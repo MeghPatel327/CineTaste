@@ -65,7 +65,7 @@ export async function runCineTasteChat({
   // Manifest of ALL completed titles (untruncated)
   const completedManifest = completed.map((m) => {
     const review = m.personal_review?.trim();
-    return `- [${m.type === "series" ? "Series" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"}) — Rating: ${
+    return `- [${m.type === "series" ? "Series" : m.type === "game" ? "Game" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"}) — Rating: ${
       m.rating > 0 ? `${m.rating}/10` : "Unrated"
     } | Genres: ${m.genres || "Uncategorized"}${review ? ` | Personal Review: "${review}"` : ""}`;
   });
@@ -73,7 +73,7 @@ export async function runCineTasteChat({
   // Manifest of ALL currently watching titles
   const watchingManifest = watching.map((m) => {
     const review = m.personal_review?.trim();
-    return `- [${m.type === "series" ? "Series" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"})${
+    return `- [${m.type === "series" ? "Series" : m.type === "game" ? "Game" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"})${
       m.rating > 0 ? ` — Rating: ${m.rating}/10` : ""
     } | Genres: ${m.genres || "Uncategorized"}${review ? ` | Note: "${review}"` : ""}`;
   });
@@ -81,7 +81,7 @@ export async function runCineTasteChat({
   // Manifest of ALL on hold titles
   const onHoldManifest = onHold.map((m) => {
     const review = m.personal_review?.trim();
-    return `- [${m.type === "series" ? "Series" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"})${
+    return `- [${m.type === "series" ? "Series" : m.type === "game" ? "Game" : "Movie"}] "${m.movie_name}" (${m.release_year || "N/A"})${
       m.rating > 0 ? ` — Rating: ${m.rating}/10` : ""
     } | Genres: ${m.genres || "Uncategorized"}${review ? ` | Note: "${review}"` : ""}`;
   });
@@ -90,7 +90,7 @@ export async function runCineTasteChat({
   const queueManifest = pending.map((m, idx) => {
     const rank = m.watch_order_rank ?? idx + 1;
     const note = m.personal_review?.trim();
-    return `- Watch Order #${rank}: [${m.type === "series" ? "Series" : "Movie"}] "${m.movie_name}" (${
+    return `- Watch Order #${rank}: [${m.type === "series" ? "Series" : m.type === "game" ? "Game" : "Movie"}] "${m.movie_name}" (${
       m.release_year || "N/A"
     }) | Genres: ${m.genres || "Uncategorized"}${note ? ` | Note: "${note}"` : ""}`;
   });
@@ -98,7 +98,7 @@ export async function runCineTasteChat({
   // Manifest of ALL dropped titles (untruncated)
   const droppedManifest = dropped.map((m) => {
     const reason = m.personal_review?.trim();
-    return `- [${m.type === "series" ? "Series" : "Movie"}] "${m.movie_name}" (${
+    return `- [${m.type === "series" ? "Series" : m.type === "game" ? "Game" : "Movie"}] "${m.movie_name}" (${
       m.release_year || "N/A"
     }) — Dropped${m.rating > 0 ? ` (Rated ${m.rating}/10)` : ""}${
       reason ? ` | Reason/Critique: "${reason}"` : ""
@@ -126,6 +126,8 @@ export async function runCineTasteChat({
         ? "Series Catalogue"
         : pn.startsWith("/anime")
         ? "Anime Catalogue"
+        : pn.startsWith("/games")
+        ? "Games Hub & Catalogue"
         : pn.startsWith("/library")
         ? "User Movie & Series Library"
         : pn.startsWith("/recommendations")
