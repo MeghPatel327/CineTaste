@@ -43,11 +43,10 @@ export function GameCard({ game, onClick, userStatus, userRating }: GameCardProp
   const isUserScore = Boolean(effectiveUserRating && effectiveUserRating > 0);
   const rawScore = isUserScore ? effectiveUserRating : game.rating;
   const ratingDisplay: string | null = (() => {
-    if (rawScore === undefined || rawScore === null || rawScore <= 0) return null;
-    if (rawScore > 10) {
-      return (rawScore / 10).toFixed(1);
-    }
-    return Number.isInteger(rawScore) ? rawScore.toString() : rawScore.toFixed(1);
+    const n = Number(rawScore);
+    if (!rawScore || !Number.isFinite(n) || n <= 0) return null;
+    if (n > 10) return (n / 10).toFixed(1);
+    return Number.isInteger(n) ? n.toString() : n.toFixed(1);
   })();
 
   // Shorten platform names for compact badges

@@ -376,13 +376,12 @@ export default function GamesBrowsePage() {
     (selectedEra !== "all" ? 1 : 0) +
     (selectedSort !== "rating_desc" ? 1 : 0);
 
-  const heroRating = activeHeroGame?.rating
-    ? activeHeroGame.rating > 10
-      ? (activeHeroGame.rating / 10).toFixed(1)
-      : Number.isInteger(activeHeroGame.rating)
-      ? activeHeroGame.rating.toString()
-      : activeHeroGame.rating.toFixed(1)
-    : null;
+  const heroRating = (() => {
+    const n = Number(activeHeroGame?.rating);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    if (n > 10) return (n / 10).toFixed(1);
+    return Number.isInteger(n) ? n.toString() : n.toFixed(1);
+  })();
 
   return (
     <AppShell>
