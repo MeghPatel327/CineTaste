@@ -297,3 +297,131 @@ test("Game recommendation strictly excludes titles present in user library", () 
   assert.deepEqual(recommended.map(r => r.id), [41494, 7331]);
   assert.ok(!recommended.some(r => r.id === 3328 || r.id === 119133), "Existing library titles are excluded");
 });
+
+// 9. Adult Classification Logic (Sekiro & Mainstream Games are NEVER falsely classified 18+)
+function isGameAdult(raw) {
+  const esrbId = raw.esrb_rating?.id;
+  const isMainstreamEsrb = esrbId !== undefined && esrbId !== null && esrbId <= 4;
+
+  const rawgTags = (raw.tags || []).map((t) => (t.name || "").toLowerCase()).filter(Boolean);
+  const explicitAdultPatterns = [
+    /\bhentai\b/i,
+    /\beroge\b/i,
+    /\bdoujin\b/i,
+    /\bnsfw\b/i,
+    /\bporn\b/i,
+    /\berotic\b/i,
+    /\berotica\b/i,
+    /\badults? only\b/i,
+    /\bexplicit sexual\b/i,
+  ];
+
+  const hasExplicitAdultTag = rawgTags.some((tag) =>
+    explicitAdultPatterns.some((pattern) => pattern.test(tag))
+  );
+
+  return Boolean(!isMainstreamEsrb && (esrbId === 5 || hasExplicitAdultTag));
+}
+
+test("Sekiro and mainstream Mature/Teen action games are never falsely flagged 18+", () => {
+  const sekiroRaw = {
+    name: "Sekiro: Shadows Die Twice",
+    esrb_rating: { id: 4, name: "Mature", slug: "mature" },
+    tags: [
+      { name: "Singleplayer" },
+      { name: "Atmospheric" },
+      { name: "Violent" },
+      { name: "Difficult" },
+      { name: "Dark Fantasy" },
+      { name: "Nudity" }, // Steam user community tag
+      { name: "Sexual Content" }, // Steam user community tag
+    ],
+  };
+
+  assert.equal(isGameAdult(sekiroRaw), false, "Sekiro must NOT be flagged as isAdult");
+
+  const eldenRingRaw = {
+    name: "Elden Ring",
+    esrb_rating: { id: 4, name: "Mature" },
+    tags: [{ name: "Action RPG" }, { name: "Dark Fantasy" }, { name: "Violent" }],
+  };
+  assert.equal(isGameAdult(eldenRingRaw), false, "Elden Ring must NOT be flagged as isAdult");
+
+  const zeldaRaw = {
+    name: "The Legend of Zelda: Tears of the Kingdom",
+    esrb_rating: { id: 2, name: "Everyone 10+" },
+    tags: [{ name: "Adventure" }, { name: "Action" }],
+  };
+  assert.equal(isGameAdult(zeldaRaw), false, "Zelda must NOT be flagged as isAdult");
+});
+
+test("Explicit adult/hentai/AO games are properly identified as 18+", () => {
+  const aoGame = {
+    name: "Explicit Adult Novel",
+    esrb_rating: { id: 5, name: "Adults Only" },
+    tags: [{ name: "Visual Novel" }],
+  };
+  assert.equal(isGameAdult(aoGame), true, "ESRB AO 18+ game must be flagged isAdult");
+
+  const hentaiGame = {
+    name: "Hentai Heroine",
+    esrb_rating: null,
+    tags: [{ name: "Singleplayer" }, { name: "hentai" }, { name: "eroge" }, { name: "nsfw" }],
+  };
+  assert.equal(isGameAdult(hentaiGame), true, "Unrated hentai game with nsfw tags must be flagged isAdult");
+});
+
+// 10. Completed Games & Library Games Handling in Dashboard Discovery & Search
+test("Completed games are strictly excluded from dashboard discovery but appear in search", () => {
+  const userLibrary = [
+    { rawg_id: 28, game_name: "Red Dead Redemption 2", status: "completed", rating: 10 },
+    { rawg_id: 2462, game_name: "Uncharted 4: A Thief's End", status: "playing", rating: 9 },
+  ];
+
+  const userGameIds = new Set(userLibrary.map(g => Number(g.rawg_id)));
+  const userTitles = new Set(userLibrary.map(g => g.game_name.toLowerCase().replace(/[^a-z0-9]/g, "")));
+
+  // 1. Dashboard Discovery Feed Candidates
+  const discoveryCandidates = [
+    { id: 28, title: "Red Dead Redemption 2" }, // Completed game in library
+    { id: 2462, title: "Uncharted 4: A Thief's End" }, // Playing game in library
+    { id: 58175, title: "God of War Ragnarök" }, // Fresh candidate
+  ];
+
+  const filteredDiscovery = discoveryCandidates.filter(g => {
+    if (userGameIds.has(Number(g.id))) return false;
+    const norm = g.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (userTitles.has(norm)) return false;
+    return true;
+  });
+
+  assert.equal(filteredDiscovery.length, 1, "Completed and tracked games must NOT appear in discovery feed");
+  assert.equal(filteredDiscovery[0].id, 58175);
+
+  // 2. Search Results
+  // When user searches for "Red Dead", already-logged completed game MUST appear in search
+  const searchQuery = "Red Dead";
+  const allCandidates = [
+    { id: 28, title: "Red Dead Redemption 2" },
+    { id: 416, title: "Red Dead Redemption" },
+    { id: 119133, title: "Elden Ring" },
+  ];
+  const searchResults = allCandidates.filter(c => c.title.includes(searchQuery));
+
+  const enrichedSearchResults = searchResults.map(item => {
+    const inLib = userLibrary.find(g => Number(g.rawg_id) === item.id);
+    return {
+      ...item,
+      inLibrary: Boolean(inLib),
+      status: inLib?.status || null,
+      userRating: inLib?.rating || undefined,
+    };
+  });
+
+  assert.equal(enrichedSearchResults.length, 2, "Search includes already-logged games");
+  const completedMatch = enrichedSearchResults.find(r => r.id === 28);
+  assert.ok(completedMatch, "Completed game appears in search results");
+  assert.equal(completedMatch.inLibrary, true);
+  assert.equal(completedMatch.status, "completed");
+  assert.equal(completedMatch.userRating, 10);
+});

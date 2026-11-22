@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { AppShell } from "@/components/AppShell";
 import { GameCard } from "@/components/GameCard";
 import { GameDetailsModal } from "@/components/GameDetailsModal";
@@ -17,10 +17,14 @@ import {
   Calendar,
   Layers,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useScreenContext } from "@/lib/screenContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { CURATED_GAMES } from "@/features/games/curatedGames";
 import type { GameItem, GameBrowseResult } from "@/features/games/gameTypes";
 
 const GENRES = [

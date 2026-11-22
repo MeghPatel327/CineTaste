@@ -115,6 +115,85 @@ function rowToGameItem(g: GameRow): GameItem {
 }
 
 /**
+ * Search games with user library integration, guaranteeing already-logged library
+ * games (including "completed", "playing", "pending", etc.) are included in the results.
+ */
+export async function searchGamesService(
+  username: string,
+  query: string,
+  limit = 15
+): Promise<GameItem[]> {
+  if (!query.trim()) return [];
+
+  const [rawResults, userGames] = await Promise.all([
+    searchRawgGames(query, limit),
+    getUserGames(username).catch(() => []),
+  ]);
+
+  const libraryMap = new Map<number, GameRow>();
+  const titleMap = new Map<string, GameRow>();
+
+  userGames.forEach((g) => {
+    if (g.rawg_id) libraryMap.set(Number(g.rawg_id), g);
+    if (g.id) libraryMap.set(Number(g.id), g);
+    if (g.game_name) {
+      titleMap.set(g.game_name.toLowerCase().replace(/[^a-z0-9]/g, ""), g);
+    }
+  });
+
+  // Find any user library games matching query
+  const qClean = query.toLowerCase().trim();
+  const qNorm = qClean.replace(/[^a-z0-9]/g, "");
+  const matchingUserGames = userGames.filter((g) => {
+    const name = g.game_name.toLowerCase();
+    return name.includes(qClean) || name.replace(/[^a-z0-9]/g, "").includes(qNorm);
+  });
+
+  const seenIds = new Set<number>();
+  const combined: GameItem[] = [];
+
+  // 1. Include matching user library games (including "completed")
+  for (const ug of matchingUserGames) {
+    const item = rowToGameItem(ug);
+    combined.push(item);
+    if (ug.rawg_id) seenIds.add(Number(ug.rawg_id));
+    if (ug.id) seenIds.add(Number(ug.id));
+  }
+
+  // 2. Include RAWG search results, enriched with user's library status if tracked
+  for (const item of rawResults) {
+    if (seenIds.has(Number(item.id))) continue;
+    seenIds.add(Number(item.id));
+
+    const normTitle = item.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const libMatch = libraryMap.get(Number(item.id)) || titleMap.get(normTitle);
+
+    if (libMatch) {
+      combined.push({
+        ...item,
+        inLibrary: true,
+        libraryStatus: libMatch.status,
+        status: libMatch.status,
+        userRating: libMatch.rating,
+        userReview: libMatch.personal_review,
+        playtime_hours: libMatch.playtime_hours,
+        libraryData: {
+          id: libMatch.id,
+          status: libMatch.status,
+          rating: libMatch.rating,
+          playtime_hours: libMatch.playtime_hours,
+          personal_review: libMatch.personal_review,
+        },
+      });
+    } else {
+      combined.push(item);
+    }
+  }
+
+  return combined.slice(0, limit);
+}
+
+/**
  * Browse games catalog with user library integration
  */
 export async function getGameBrowseService(
@@ -126,20 +205,48 @@ export async function getGameBrowseService(
     browseRawgGames(options),
   ]);
 
-  const libraryMap = new Map<number, { status: GameStatus; rating: number }>();
+  const libraryMap = new Map<number, GameRow>();
+  const titleMap = new Map<string, GameRow>();
+
   userGames.forEach((g) => {
-    libraryMap.set(g.rawg_id, { status: g.status, rating: g.rating });
+    if (g.rawg_id) libraryMap.set(Number(g.rawg_id), g);
+    if (g.id) libraryMap.set(Number(g.id), g);
+    if (g.game_name) {
+      titleMap.set(g.game_name.toLowerCase().replace(/[^a-z0-9]/g, ""), g);
+    }
   });
 
-  const enrichedItems: GameItem[] = browseData.items.map((item) => {
-    const inLib = libraryMap.get(item.id);
+  let enrichedItems: GameItem[] = browseData.items.map((item) => {
+    const normTitle = item.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const libMatch = libraryMap.get(Number(item.id)) || titleMap.get(normTitle);
     return {
       ...item,
-      inLibrary: Boolean(inLib),
-      libraryStatus: inLib ? inLib.status : null,
-      userRating: inLib ? inLib.rating : undefined,
+      inLibrary: Boolean(libMatch),
+      libraryStatus: libMatch ? libMatch.status : null,
+      status: libMatch ? libMatch.status : item.status,
+      userRating: libMatch ? libMatch.rating : undefined,
     };
   });
+
+  // When searching, guarantee that already-logged games (including "completed")
+  // appear in search results even if RAWG search ranking differs
+  if (options.query && options.query.trim()) {
+    const qClean = options.query.toLowerCase().trim();
+    const qNorm = qClean.replace(/[^a-z0-9]/g, "");
+    const existingIds = new Set(enrichedItems.map((item) => Number(item.id)));
+
+    for (const ug of userGames) {
+      const gName = ug.game_name.toLowerCase();
+      const gNorm = gName.replace(/[^a-z0-9]/g, "");
+      if (
+        (gName.includes(qClean) || gNorm.includes(qNorm)) &&
+        !existingIds.has(Number(ug.rawg_id))
+      ) {
+        enrichedItems.unshift(rowToGameItem(ug));
+        existingIds.add(Number(ug.rawg_id));
+      }
+    }
+  }
 
   const featuredSpotlight = selectSpotlight(enrichedItems);
 
@@ -181,10 +288,16 @@ export async function getGameRecommendationsService(
   const userGames = await getUserGames(username).catch(() => []);
 
   // Strict library exclusion sets
-  const userGameIds = new Set<number>(userGames.map((g) => g.rawg_id));
-  const userTitles = new Set<string>(
-    userGames.map((g) => g.game_name.toLowerCase().replace(/[^a-z0-9]/g, ""))
-  );
+  const userGameIds = new Set<number>();
+  const userTitles = new Set<string>();
+
+  for (const g of userGames) {
+    if (g.rawg_id) userGameIds.add(Number(g.rawg_id));
+    if (g.id) userGameIds.add(Number(g.id));
+    if (g.game_name) {
+      userTitles.add(g.game_name.toLowerCase().replace(/[^a-z0-9]/g, ""));
+    }
+  }
 
   // Build taste profile
   const genreWeights: Record<string, number> = {};
@@ -259,11 +372,16 @@ export async function getGameRecommendationsService(
   }
 
   // STRICT EXCLUSION:
-  // Remove any game that matches an ID or normalized title already in user's library
+  // Remove any game that matches an ID or normalized title already in user's library (including "completed" games)
   const excludedCandidates = candidates.filter((g) => {
-    if (userGameIds.has(g.id)) return false;
+    if (userGameIds.has(Number(g.id))) return false;
     const normTitle = g.title.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (userTitles.has(normTitle)) return false;
+    for (const ut of userTitles) {
+      if (ut.length >= 5 && (normTitle.includes(ut) || ut.includes(normTitle))) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -404,6 +522,9 @@ export async function getGameDashboardStatsService(username: string): Promise<Ga
 
   const totalPlaytimeHours = games.reduce((acc, g) => acc + (Number(g.playtime_hours) || 0), 0);
 
+  // Discovery feed: personalized recommendations strictly excluding all user library titles (including completed)
+  const discovery = await getGameRecommendationsService(username, { limit: 6 }).catch(() => []);
+
   return {
     total,
     totalGames: total,
@@ -422,18 +543,37 @@ export async function getGameDashboardStatsService(username: string): Promise<Ga
     nextUpBacklog: nextUp,
     recentActivity,
     recentlyUpdated: recentActivity,
-    // If library is empty, show trending games as fallback
-    trending: total === 0 ? await getTrendingGames() : [],
+    discovery,
+    suggestions: discovery,
+    // If library is empty, show trending games as fallback (still strictly excluding user library)
+    trending: total === 0 ? await getTrendingGames(username) : [],
   };
 }
 
 /**
  * Get trending games for display when user's library is empty
  */
-async function getTrendingGames(): Promise<GameItem[]> {
+async function getTrendingGames(username?: string): Promise<GameItem[]> {
   try {
-    const trending = await browseRawgGames({ limit: 10, sort: "rating" });
-    return trending.items.filter((g) => !g.isAdult);
+    const trending = await browseRawgGames({ limit: 12, sort: "rating" });
+    let items = trending.items.filter((g) => !g.isAdult);
+    if (username) {
+      const userGames = await getUserGames(username).catch(() => []);
+      const userGameIds = new Set<number>();
+      const userTitles = new Set<string>();
+      for (const g of userGames) {
+        if (g.rawg_id) userGameIds.add(Number(g.rawg_id));
+        if (g.id) userGameIds.add(Number(g.id));
+        if (g.game_name) userTitles.add(g.game_name.toLowerCase().replace(/[^a-z0-9]/g, ""));
+      }
+      items = items.filter((g) => {
+        if (userGameIds.has(Number(g.id))) return false;
+        const normTitle = g.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (userTitles.has(normTitle)) return false;
+        return true;
+      });
+    }
+    return items;
   } catch {
     return [];
   }

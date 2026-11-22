@@ -126,17 +126,35 @@ export function formatRawgGame(raw: any): GameItem {
     rating = parseFloat((raw.rating * 2).toFixed(1));
   }
   
-  // Detect adult/hentai/18+ content
-  const adultTags = ["adult", "sexual", "violence", "nudity", "explicit", "nsfw", "erotic"];
+  // Detect adult/hentai/18+ content (strictly scoped to explicit nudity/hentai/adult sexual content)
+  // Mainstream action/dark-fantasy games (e.g. Sekiro, Witcher 3, Elden Ring, GTA) with ESRB Mature 17+ (id: 4)
+  // or Teen/Everyone ratings are NEVER classified as 18+ adult games.
+  const esrbId = raw.esrb_rating?.id;
+  const isMainstreamEsrb = esrbId !== undefined && esrbId !== null && esrbId <= 4; // 1: E, 2: E10+, 3: T, 4: M (17+)
+
   const rawgTags = (raw.tags || []).map((t: any) => t.name?.toLowerCase() || "").filter(Boolean);
+  
+  // Scoped strictly to explicit nudity/hentai/sexual adult content
+  const explicitAdultPatterns = [
+    /\bhentai\b/i,
+    /\beroge\b/i,
+    /\bdoujin\b/i,
+    /\bnsfw\b/i,
+    /\bporn\b/i,
+    /\berotic\b/i,
+    /\berotica\b/i,
+    /\badults? only\b/i,
+    /\bexplicit sexual\b/i,
+  ];
+
+  const hasExplicitAdultTag = rawgTags.some((tag: string) =>
+    explicitAdultPatterns.some((pattern) => pattern.test(tag))
+  );
+
   const isAdult = Boolean(
-    raw.esrb_rating?.id === 5 || // Adults Only 18+ in ESRB
-    rawgTags.some((tag: string) => 
-      adultTags.includes(tag) || 
-      tag.includes("18+") || 
-      tag.includes("hentai") || 
-      tag.includes("erot") ||
-      tag.includes("adult")
+    !isMainstreamEsrb && (
+      esrbId === 5 || // Adults Only 18+ in ESRB
+      hasExplicitAdultTag
     )
   );
 
@@ -304,7 +322,7 @@ export async function browseRawgGames(
 
       if (wantsAdult) {
         options.includeAdult = true;
-        params.tags = "erotic,hentai,adult,nudity";
+        params.tags = "hentai,eroge,nsfw,erotic";
       }
 
       // Genre filter (excluding 18+ tag which is passed via tags)
@@ -347,9 +365,11 @@ export async function browseRawgGames(
 
       let items: GameItem[] = (data.results || []).map(formatRawgGame);
 
-      // Post-filter for adult content if not included
+      // Post-filter for adult content
       if (!options.includeAdult) {
         items = items.filter((item) => !item.isAdult);
+      } else if (options.genres?.some((g) => g.includes("18+"))) {
+        items = items.filter((item) => item.isAdult);
       }
 
       // Post-filter by minimum rating
@@ -442,6 +462,8 @@ export async function browseRawgGames(
   // Filter out adult content by default unless explicitly requested
   if (!options.includeAdult && !wantsAdultFallback) {
     filtered = filtered.filter((g) => !(g as any).isAdult);
+  } else if (options.genres?.some((g) => g.includes("18+"))) {
+    filtered = filtered.filter((g) => Boolean((g as any).isAdult));
   }
 
   // Filter by minimum rating

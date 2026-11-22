@@ -108,5 +108,7 @@ export interface GameDashboardStats {
   nextUpBacklog: GameItem[];
   recentActivity: GameItem[];
   recentlyUpdated: GameItem[];
+  discovery?: GameItem[]; // Personalized recommendations strictly excluding all user library titles
+  suggestions?: GameItem[];
   trending?: GameItem[]; // Shown when library is empty
 }

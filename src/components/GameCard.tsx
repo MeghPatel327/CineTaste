@@ -34,11 +34,14 @@ export function GameCard({ game, onClick, userStatus, userRating }: GameCardProp
 
   const coverUrl = game.cover_url || "";
 
+  const effectiveStatus = userStatus || game.libraryStatus || (game.inLibrary ? game.status : undefined);
+  const effectiveUserRating = (userRating && userRating > 0) ? userRating : game.userRating;
+
   // Accurate rating calculation:
   // - If user has rated this game (1-10), display user's personal rating
   // - Otherwise use external source rating (0-10 scale or 0-100 scale scaled to 0-10)
-  const isUserScore = Boolean(userRating && userRating > 0);
-  const rawScore = isUserScore ? userRating : game.rating;
+  const isUserScore = Boolean(effectiveUserRating && effectiveUserRating > 0);
+  const rawScore = isUserScore ? effectiveUserRating : game.rating;
   const ratingDisplay: string | null = (() => {
     if (rawScore === undefined || rawScore === null || rawScore <= 0) return null;
     if (rawScore > 10) {
@@ -107,14 +110,14 @@ export function GameCard({ game, onClick, userStatus, userRating }: GameCardProp
         {/* Top Badges */}
         <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1 z-10 pointer-events-none">
           <div className="flex items-center gap-1">
-            {userStatus ? (
+            {effectiveStatus ? (
               <span
                 className={cn(
                   "px-2 py-0.5 text-[10px] font-bold rounded-md border backdrop-blur-md shadow-md",
-                  statusBadgeStyles[userStatus] || "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                  statusBadgeStyles[effectiveStatus] || "bg-purple-500/20 text-purple-300 border-purple-500/40"
                 )}
               >
-                {statusLabels[userStatus] || userStatus}
+                {statusLabels[effectiveStatus] || effectiveStatus}
               </span>
             ) : null}
             {game.isAdult ? (
@@ -122,7 +125,7 @@ export function GameCard({ game, onClick, userStatus, userRating }: GameCardProp
                 18+
               </span>
             ) : null}
-            {game.score && !userStatus ? (
+            {game.score && !effectiveStatus ? (
               <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md border backdrop-blur-md shadow-md bg-purple-500/30 text-purple-200 border-purple-400/40">
                 {game.score}% Match
               </span>

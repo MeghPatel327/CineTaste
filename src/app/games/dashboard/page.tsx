@@ -17,6 +17,7 @@ import {
   BarChart3,
   Layers,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -63,6 +64,7 @@ export default function GameDashboardPage() {
         })),
         nextUpBacklog: data.nextUpBacklog ?? data.nextUp ?? [],
         recentlyUpdated: data.recentlyUpdated ?? data.recentActivity ?? [],
+        discovery: data.discovery ?? data.suggestions ?? [],
       });
     } catch {
       setError(true);
@@ -336,6 +338,39 @@ export default function GameDashboardPage() {
                         onClick={(g) => setSelectedGame(g)}
                         userStatus={game.status}
                         userRating={game.rating}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Discovery & Suggestions Section (strictly excludes library & completed games) */}
+              {stats.discovery && stats.discovery.length > 0 && (
+                <div className="space-y-4 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-400" />
+                        <span>Recommended for You (Discovery)</span>
+                      </h2>
+                      <p className="text-xs text-purple-300/70">
+                        Games tailored to your taste profile, strictly excluding already-tracked titles.
+                      </p>
+                    </div>
+                    <Link
+                      href="/games"
+                      className="text-xs text-purple-400 hover:text-purple-200 font-semibold"
+                    >
+                      Explore all games →
+                    </Link>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {stats.discovery.map((game) => (
+                      <GameCard
+                        key={game.id}
+                        game={game}
+                        onClick={(g) => setSelectedGame(g)}
                       />
                     ))}
                   </div>
