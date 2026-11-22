@@ -18,28 +18,47 @@ const PLATFORM_ID_MAP: Record<string, number> = {
 };
 
 // RAWG genre slugs
-const GENRE_SLUG_MAP: Record<string, string> = {
-  "Role-playing (RPG)": "role-playing-games-rpg",
+export const GENRE_SLUG_MAP: Record<string, string> = {
+  "Action": "action",
   "Adventure": "adventure",
+  "Role-playing (RPG)": "role-playing-games-rpg",
+  "RPG": "role-playing-games-rpg",
   "Shooter": "shooter",
-  "Hack and slash": "action",
-  "Platform": "platformer",
-  "Puzzle": "puzzle",
   "Strategy": "strategy",
+  "Platform": "platformer",
+  "Platformer": "platformer",
   "Indie": "indie",
+  "Puzzle": "puzzle",
   "Racing": "racing",
-  "Turn-based strategy (TBS)": "strategy",
+  "Simulation": "simulation",
+  "Simulator": "simulation",
+  "Sports": "sports",
+  "Sport": "sports",
+  "Fighting": "fighting",
+  "Arcade": "arcade",
+  "Casual": "casual",
+  "Massively Multiplayer (MMO)": "massively-multiplayer",
+  "MMO": "massively-multiplayer",
+  "Family": "family",
+  "Board Games": "board-games",
+  "Card": "card",
+  "Educational": "educational",
 };
 
 // RAWG ordering map
-const SORT_MAP: Record<string, string> = {
+export const SORT_MAP: Record<string, string> = {
   recommended: "-rating",
   rating: "-rating",
+  rating_desc: "-rating",
   popularity: "-added",
   year: "-released",
+  release_desc: "-released",
   "year-asc": "released",
+  release_asc: "released",
   title: "name",
+  name_asc: "name",
   "title-desc": "-name",
+  name_desc: "-name",
 };
 
 function key(): string {
@@ -98,25 +117,32 @@ export function formatRawgGame(raw: any): GameItem {
     })
     .filter(Boolean);
 
-  // RAWG rating is 0-5; convert to 0-10
-  // Use metacritic when available (0-100 scale), otherwise use RAWG rating * 2
+  // RAWG rating is 0-5; convert to 0-10 scale
+  // Metacritic is 0-100; scale to 0-10 with 1 decimal place (e.g. 92 -> 9.2)
   let rating: number | undefined;
-  if (raw.metacritic !== undefined && raw.metacritic !== null) {
-    rating = Math.min(10, Math.round(raw.metacritic / 10));
-  } else if (raw.rating !== undefined && raw.rating !== null) {
+  if (raw.metacritic !== undefined && raw.metacritic !== null && raw.metacritic > 0) {
+    rating = parseFloat(Math.min(10, raw.metacritic / 10).toFixed(1));
+  } else if (raw.rating !== undefined && raw.rating !== null && raw.rating > 0) {
     rating = parseFloat((raw.rating * 2).toFixed(1));
   }
   
   // Detect adult/hentai/18+ content
-  const adultTags = ["adult", "sexual", "violence", "nudity", "explicit"];
+  const adultTags = ["adult", "sexual", "violence", "nudity", "explicit", "nsfw", "erotic"];
   const rawgTags = (raw.tags || []).map((t: any) => t.name?.toLowerCase() || "").filter(Boolean);
-  const isAdult = rawgTags.some((tag: string) => 
-    adultTags.includes(tag) || 
-    tag.includes("18+") || 
-    tag.includes("hentai") || 
-    tag.includes("erot") ||
-    tag.includes("adult")
+  const isAdult = Boolean(
+    raw.esrb_rating?.id === 5 || // Adults Only 18+ in ESRB
+    rawgTags.some((tag: string) => 
+      adultTags.includes(tag) || 
+      tag.includes("18+") || 
+      tag.includes("hentai") || 
+      tag.includes("erot") ||
+      tag.includes("adult")
+    )
   );
+
+  if (isAdult && !genres.includes("18+")) {
+    genres.push("18+");
+  }
 
   const developers: string[] = (raw.developers || []).map((d: any) => d.name).filter(Boolean);
   const publishers: string[] = (raw.publishers || []).map((p: any) => p.name).filter(Boolean);
@@ -258,15 +284,36 @@ export async function browseRawgGames(
       const params: Record<string, string | number | undefined> = {
         page,
         page_size: Math.min(limit, 40), // RAWG max page_size is 40
-        ordering: SORT_MAP[options.sort || "recommended"] || "-rating",
       };
 
-      if (options.query) params.search = options.query;
+      if (options.query && options.query.trim()) {
+        params.search = options.query.trim();
+        // If user is searching, use search relevance unless explicit sort requested
+        if (options.sort && options.sort !== "recommended") {
+          params.ordering = SORT_MAP[options.sort];
+        }
+      } else {
+        params.ordering = SORT_MAP[options.sort || "recommended"] || "-rating";
+      }
 
-      // Genre filter
+      // Check for 18+/adult selection
+      const wantsAdult = Boolean(
+        options.includeAdult ||
+        options.genres?.some((g) => g.includes("18+") || g.toLowerCase().includes("adult"))
+      );
+
+      if (wantsAdult) {
+        options.includeAdult = true;
+        params.tags = "erotic,hentai,adult,nudity";
+      }
+
+      // Genre filter (excluding 18+ tag which is passed via tags)
       if (options.genres && options.genres.length > 0) {
-        const slugs = options.genres
-          .map((g) => GENRE_SLUG_MAP[g])
+        const cleanGenres = options.genres.filter(
+          (g) => !g.includes("18+") && !g.toLowerCase().includes("adult")
+        );
+        const slugs = cleanGenres
+          .map((g) => GENRE_SLUG_MAP[g] || GENRE_SLUG_MAP[g.replace(/\s*\(.*\)/, "")] || g.toLowerCase())
           .filter(Boolean);
         if (slugs.length > 0) params.genres = slugs.join(",");
       }
@@ -325,6 +372,11 @@ export async function browseRawgGames(
   // ─── Curated fallback ──────────────────────────────────────────────────────
   let filtered = [...CURATED_GAMES];
 
+  const wantsAdultFallback = Boolean(
+    options.includeAdult ||
+    options.genres?.some((g) => g.includes("18+") || g.toLowerCase().includes("adult"))
+  );
+
   if (options.query) {
     const q = options.query.toLowerCase();
     filtered = filtered.filter(
@@ -336,11 +388,16 @@ export async function browseRawgGames(
   }
 
   if (options.genres && options.genres.length > 0) {
-    filtered = filtered.filter((g) =>
-      options.genres!.every((gen) =>
-        g.genres.some((ig) => ig.toLowerCase() === gen.toLowerCase())
-      )
+    const cleanGenres = options.genres.filter(
+      (g) => !g.includes("18+") && !g.toLowerCase().includes("adult")
     );
+    if (cleanGenres.length > 0) {
+      filtered = filtered.filter((g) =>
+        cleanGenres.some((gen) =>
+          g.genres.some((ig) => ig.toLowerCase().includes(gen.toLowerCase()) || gen.toLowerCase().includes(ig.toLowerCase()))
+        )
+      );
+    }
   }
 
   if (options.platforms && options.platforms.length > 0) {
@@ -382,8 +439,8 @@ export async function browseRawgGames(
     return (b.score || 0) - (a.score || 0);
   });
 
-  // Filter out adult content by default
-  if (!options.includeAdult) {
+  // Filter out adult content by default unless explicitly requested
+  if (!options.includeAdult && !wantsAdultFallback) {
     filtered = filtered.filter((g) => !(g as any).isAdult);
   }
 

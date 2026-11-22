@@ -14,16 +14,24 @@ import { ApiError } from "@/lib/ApiError";
 import { logger } from "@/lib/logger";
 
 export const AVAILABLE_GAME_GENRES = [
-  "Role-playing (RPG)",
+  "Action",
   "Adventure",
+  "Role-playing (RPG)",
   "Shooter",
-  "Hack and slash",
-  "Platform",
-  "Puzzle",
   "Strategy",
+  "Platform",
   "Indie",
+  "Puzzle",
   "Racing",
-  "Turn-based strategy (TBS)",
+  "Simulation",
+  "Sports",
+  "Fighting",
+  "Arcade",
+  "Casual",
+  "Massively Multiplayer (MMO)",
+  "Family",
+  "Card",
+  "18+ (Adult / Mature)",
 ];
 
 export const AVAILABLE_GAME_PLATFORMS = [
@@ -158,7 +166,148 @@ function selectSpotlight(items: GameItem[]): GameItem | null {
   const validSpotlight = items.find(
     (g) => !g.isAdult && g.cover_url && g.backdrop_url
   );
-  return validSpotlight || items.find((g) => !g.isAdult) || null;
+  return validSpotlight || items.find((g) => !g.isAdult && g.cover_url) || items[0] || null;
+}
+
+/**
+ * Generates personalized game recommendations based on user library & taste profile,
+ * strictly excluding any games already in the user's library.
+ */
+export async function getGameRecommendationsService(
+  username: string,
+  options: { limit?: number; forceRefresh?: boolean } = {}
+): Promise<GameItem[]> {
+  const limit = options.limit || 12;
+  const userGames = await getUserGames(username).catch(() => []);
+
+  // Strict library exclusion sets
+  const userGameIds = new Set<number>(userGames.map((g) => g.rawg_id));
+  const userTitles = new Set<string>(
+    userGames.map((g) => g.game_name.toLowerCase().replace(/[^a-z0-9]/g, ""))
+  );
+
+  // Build taste profile
+  const genreWeights: Record<string, number> = {};
+  const platformWeights: Record<string, number> = {};
+  const negativeGenres = new Set<string>();
+
+  for (const game of userGames) {
+    let parsedGenres: string[] = [];
+    try {
+      parsedGenres = JSON.parse(game.genres);
+    } catch {
+      parsedGenres = game.genres ? game.genres.split(",") : [];
+    }
+
+    let parsedPlatforms: string[] = [];
+    try {
+      parsedPlatforms = JSON.parse(game.platforms);
+    } catch {
+      parsedPlatforms = game.platforms ? game.platforms.split(",") : [];
+    }
+
+    if (game.status === "dropped" || (game.rating > 0 && game.rating <= 4)) {
+      parsedGenres.forEach((gen) => negativeGenres.add(gen.trim()));
+      continue;
+    }
+
+    const weight = game.rating >= 8 ? 3 : game.status === "completed" ? 2 : 1;
+    for (const gen of parsedGenres) {
+      const clean = gen.trim();
+      if (clean) genreWeights[clean] = (genreWeights[clean] || 0) + weight;
+    }
+    for (const plat of parsedPlatforms) {
+      const clean = plat.trim();
+      if (clean) platformWeights[clean] = (platformWeights[clean] || 0) + weight;
+    }
+  }
+
+  const topGenres = Object.entries(genreWeights)
+    .sort((a, b) => b[1] - a[1])
+    .map(([gen]) => gen);
+
+  const topPlatforms = Object.entries(platformWeights)
+    .sort((a, b) => b[1] - a[1])
+    .map(([plat]) => plat);
+
+  // Fetch candidates: top rated games in favorite genres or trending acclaimed
+  let candidates: GameItem[] = [];
+
+  if (topGenres.length > 0) {
+    const genreCandidates = await browseRawgGames({
+      genres: topGenres.slice(0, 2),
+      platforms: topPlatforms.slice(0, 2),
+      sort: "rating",
+      limit: 40,
+    });
+    candidates = genreCandidates.items;
+  }
+
+  // If not enough candidates or cold start, fetch top acclaimed must-play games
+  if (candidates.length < 20) {
+    const fallbackAcclaimed = await browseRawgGames({
+      sort: "rating",
+      limit: 40,
+    });
+    const existingIds = new Set(candidates.map((c) => c.id));
+    for (const item of fallbackAcclaimed.items) {
+      if (!existingIds.has(item.id)) {
+        candidates.push(item);
+        existingIds.add(item.id);
+      }
+    }
+  }
+
+  // STRICT EXCLUSION:
+  // Remove any game that matches an ID or normalized title already in user's library
+  const excludedCandidates = candidates.filter((g) => {
+    if (userGameIds.has(g.id)) return false;
+    const normTitle = g.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (userTitles.has(normTitle)) return false;
+    return true;
+  });
+
+  // Calculate Match Score Affinity
+  const scored = excludedCandidates.map((g) => {
+    let score = 75; // Baseline high recommendation confidence
+
+    // Genre overlap bonus
+    if (topGenres.length > 0 && g.genres) {
+      const matchingGenreCount = g.genres.filter((gen) =>
+        topGenres.includes(gen)
+      ).length;
+      score += Math.min(15, matchingGenreCount * 6);
+    }
+
+    // Platform affinity bonus
+    if (topPlatforms.length > 0 && g.platforms) {
+      const matchingPlat = g.platforms.some((plat) =>
+        topPlatforms.some((tp) => plat.toLowerCase().includes(tp.toLowerCase()))
+      );
+      if (matchingPlat) score += 5;
+    }
+
+    // Quality bonus
+    if (g.rating && g.rating >= 9) score += 3;
+
+    // Disliked genre penalty
+    if (g.genres?.some((gen) => negativeGenres.has(gen))) {
+      score -= 15;
+    }
+
+    // Clamp score between 70 and 99
+    const finalScore = Math.min(99, Math.max(70, Math.round(score)));
+
+    return {
+      ...g,
+      score: finalScore,
+    };
+  });
+
+  // Sort by affinity score descending, then rating
+  scored.sort((a, b) => (b.score || 0) - (a.score || 0) || (b.rating || 0) - (a.rating || 0));
+
+  return scored.slice(0, limit);
 }
 
 /**

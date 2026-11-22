@@ -33,8 +33,19 @@ export function GameCard({ game, onClick, userStatus, userRating }: GameCardProp
   const [imgError, setImgError] = useState(false);
 
   const coverUrl = game.cover_url || "";
-  const rating = userRating && userRating > 0 ? userRating : game.rating ? Math.round(game.rating / 10) : null;
+
+  // Accurate rating calculation:
+  // - If user has rated this game (1-10), display user's personal rating
+  // - Otherwise use external source rating (0-10 scale or 0-100 scale scaled to 0-10)
   const isUserScore = Boolean(userRating && userRating > 0);
+  const rawScore = isUserScore ? userRating : game.rating;
+  const ratingDisplay: string | null = (() => {
+    if (rawScore === undefined || rawScore === null || rawScore <= 0) return null;
+    if (rawScore > 10) {
+      return (rawScore / 10).toFixed(1);
+    }
+    return Number.isInteger(rawScore) ? rawScore.toString() : rawScore.toFixed(1);
+  })();
 
   // Shorten platform names for compact badges
   const displayPlatforms = (game.platforms || []).slice(0, 3).map((p) => {
@@ -95,20 +106,30 @@ export function GameCard({ game, onClick, userStatus, userRating }: GameCardProp
 
         {/* Top Badges */}
         <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1 z-10 pointer-events-none">
-          {userStatus ? (
-            <span
-              className={cn(
-                "px-2 py-0.5 text-[10px] font-bold rounded-md border backdrop-blur-md shadow-md",
-                statusBadgeStyles[userStatus] || "bg-purple-500/20 text-purple-300 border-purple-500/40"
-              )}
-            >
-              {statusLabels[userStatus] || userStatus}
-            </span>
-          ) : (
-            <span />
-          )}
+          <div className="flex items-center gap-1">
+            {userStatus ? (
+              <span
+                className={cn(
+                  "px-2 py-0.5 text-[10px] font-bold rounded-md border backdrop-blur-md shadow-md",
+                  statusBadgeStyles[userStatus] || "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                )}
+              >
+                {statusLabels[userStatus] || userStatus}
+              </span>
+            ) : null}
+            {game.isAdult ? (
+              <span className="px-1.5 py-0.5 text-[9px] font-black rounded-md border backdrop-blur-md shadow-md bg-rose-500/30 text-rose-300 border-rose-500/50">
+                18+
+              </span>
+            ) : null}
+            {game.score && !userStatus ? (
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md border backdrop-blur-md shadow-md bg-purple-500/30 text-purple-200 border-purple-400/40">
+                {game.score}% Match
+              </span>
+            ) : null}
+          </div>
 
-          {rating !== null && (
+          {ratingDisplay !== null && (
             <span
               className={cn(
                 "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold backdrop-blur-md border shadow-md",
@@ -118,7 +139,7 @@ export function GameCard({ game, onClick, userStatus, userRating }: GameCardProp
               )}
             >
               <Star className={cn("w-3 h-3 fill-current", isUserScore ? "text-amber-400" : "text-purple-400")} />
-              <span>{rating}/10</span>
+              <span>{ratingDisplay}/10</span>
             </span>
           )}
         </div>

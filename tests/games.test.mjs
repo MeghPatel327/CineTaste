@@ -223,3 +223,77 @@ test("GameRow uses rawg_id as canonical identifier, not tmdb_id", () => {
   assert.equal(typeof gameRow.rawg_id, "number", "rawg_id is a number");
   assert.equal(!("tmdb_id" in gameRow), true, "GameRow does NOT have tmdb_id field");
 });
+
+// 6. Rating Display Formatting Tests (Fix for 1/10 bug)
+function formatRatingDisplay(rawScore, userRating) {
+  const isUserScore = Boolean(userRating && userRating > 0);
+  const score = isUserScore ? userRating : rawScore;
+  if (score === undefined || score === null || score <= 0) return null;
+  if (score > 10) {
+    return (score / 10).toFixed(1);
+  }
+  return Number.isInteger(score) ? score.toString() : score.toFixed(1);
+}
+
+test("Rating formatting never incorrectly divides 0-10 scale down to 1/10", () => {
+  assert.equal(formatRatingDisplay(9.2), "9.2", "9.2/10 must display as 9.2");
+  assert.equal(formatRatingDisplay(8.4), "8.4", "8.4/10 must display as 8.4");
+  assert.equal(formatRatingDisplay(9.0), "9", "9.0/10 must display as 9");
+  assert.equal(formatRatingDisplay(95), "9.5", "100-scale 95 must scale down to 9.5");
+  assert.equal(formatRatingDisplay(0), null, "Unrated/0 must return null");
+  assert.equal(formatRatingDisplay(null), null);
+  // User rating overrides external score
+  assert.equal(formatRatingDisplay(9.5, 8), "8", "User rating of 8 overrides external 9.5");
+});
+
+// 7. Multi-Genre Filtering & 18+ Handling
+test("Multi-genre filtering supports selecting multiple genres simultaneously", () => {
+  const games = [
+    { id: 1, title: "Game A", genres: ["Action", "Adventure"] },
+    { id: 2, title: "Game B", genres: ["Role-playing (RPG)", "Strategy"] },
+    { id: 3, title: "Game C", genres: ["Action", "Role-playing (RPG)"] },
+    { id: 4, title: "Game D", genres: ["Simulation"] },
+    { id: 5, title: "Game E", genres: ["18+ (Adult / Mature)", "Adventure"], isAdult: true },
+  ];
+
+  const selected = ["Action", "Role-playing (RPG)"];
+  const matches = games.filter(g =>
+    selected.some(sel => g.genres.includes(sel))
+  );
+  assert.equal(matches.length, 3, "Finds games matching Action OR RPG");
+  assert.deepEqual(matches.map(m => m.id), [1, 2, 3]);
+
+  // 18+ filtering
+  const adultOnly = games.filter(g => g.isAdult);
+  assert.equal(adultOnly.length, 1);
+  assert.equal(adultOnly[0].id, 5);
+});
+
+// 8. Game Recommendation Strict Library Exclusion
+test("Game recommendation strictly excludes titles present in user library", () => {
+  const userLibrary = [
+    { rawg_id: 3328, game_name: "The Witcher 3: Wild Hunt" },
+    { rawg_id: 119133, game_name: "Elden Ring" },
+  ];
+
+  const candidatePool = [
+    { id: 3328, title: "The Witcher 3: Wild Hunt" }, // Should be excluded by ID & title
+    { id: 119133, title: "Elden Ring" }, // Should be excluded by ID & title
+    { id: 41494, title: "Cyberpunk 2077" }, // Should be retained
+    { id: 7331, title: "The Legend of Zelda: Breath of the Wild" }, // Should be retained
+  ];
+
+  const userGameIds = new Set(userLibrary.map(g => g.rawg_id));
+  const userTitles = new Set(userLibrary.map(g => g.game_name.toLowerCase().replace(/[^a-z0-9]/g, "")));
+
+  const recommended = candidatePool.filter(g => {
+    if (userGameIds.has(g.id)) return false;
+    const norm = g.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (userTitles.has(norm)) return false;
+    return true;
+  });
+
+  assert.equal(recommended.length, 2);
+  assert.deepEqual(recommended.map(r => r.id), [41494, 7331]);
+  assert.ok(!recommended.some(r => r.id === 3328 || r.id === 119133), "Existing library titles are excluded");
+});

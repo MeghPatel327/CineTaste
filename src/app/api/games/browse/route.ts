@@ -11,15 +11,22 @@ export const GET = withLogger(async (req: NextRequest) => {
 
   const searchParams = req.nextUrl.searchParams;
   const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = parseInt(searchParams.get("limit") || "50", 10);
-  const query = searchParams.get("query") || "";
+  const limit = parseInt(searchParams.get("limit") || "40", 10);
+  const query = searchParams.get("query") || searchParams.get("q") || "";
   const era = searchParams.get("era") || "";
   const sort = (searchParams.get("sort") || "recommended") as any;
 
-  const rawGenres = searchParams.get("genres") || searchParams.get("genre") || "";
-  const genres = rawGenres
-    ? rawGenres.split(",").map((g) => g.trim()).filter((g) => g && g !== "All")
-    : [];
+  // Support both comma-separated genres and multiple repeated query parameters
+  const rawGenreList = searchParams.getAll("genres").concat(searchParams.getAll("genre"));
+  const genreFallback = [searchParams.get("genres") || searchParams.get("genre") || ""];
+  const genres = (rawGenreList.length > 0 ? rawGenreList : genreFallback)
+    .flatMap((g) => g.split(","))
+    .map((g) => g.trim())
+    .filter((g) => g && g !== "All");
+
+  const includeAdult =
+    searchParams.get("includeAdult") === "true" ||
+    genres.some((g) => g.includes("18+") || g.toLowerCase().includes("adult"));
 
   const rawPlatforms = searchParams.get("platforms") || searchParams.get("platform") || "";
   const platforms = rawPlatforms
@@ -40,6 +47,7 @@ export const GET = withLogger(async (req: NextRequest) => {
     era,
     sort,
     query,
+    includeAdult,
   };
 
   try {
