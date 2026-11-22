@@ -19,6 +19,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useScreenContext } from "@/lib/screenContext";
@@ -26,6 +27,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CURATED_GAMES } from "@/features/games/curatedGames";
 import type { GameItem, GameBrowseResult } from "@/features/games/gameTypes";
+
+const HERO_ROTATION_MS = 7_000;
+const MAX_AUTO_SCROLL_PAGE = 3;
 
 const GENRES = [
   "Action",
@@ -86,7 +90,6 @@ export default function GamesBrowsePage() {
   const { setScreenDetails } = useScreenContext();
   const [games, setGames] = useState<GameItem[]>([]);
   const [recommendations, setRecommendations] = useState<GameItem[]>([]);
-  const [spotlightGame, setSpotlightGame] = useState<GameItem | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -108,8 +111,24 @@ export default function GamesBrowsePage() {
   const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
   const [addingQuickId, setAddingQuickId] = useState<number | null>(null);
 
-  // Sentinel ref for infinite loading
+  // Hero carousel state
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const [isHeroPaused, setIsHeroPaused] = useState(false);
+  const heroTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Synchronized refs for safe IntersectionObserver (avoids runaway fetch loops & tab OOM)
+  const isFetchingRef = useRef(false);
+  const pageRef = useRef(1);
+  const hasMoreRef = useRef(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Keep refs synchronized
+  useEffect(() => {
+    pageRef.current = page;
+    hasMoreRef.current = hasMore;
+    isFetchingRef.current = loading || loadingMore;
+  }, [page, hasMore, loading, loadingMore]);
 
   // Update screen context for CineTaste chat
   useEffect(() => {
@@ -124,6 +143,50 @@ export default function GamesBrowsePage() {
     });
   }, [setScreenDetails, query, selectedGenres, selectedEra, selectedSort]);
 
+  // Build 6-7 curated hero games (excluding 18+ content)
+  const heroGames = useMemo<GameItem[]>(() => {
+    const nonAdultCatalog = games.filter(
+      (g) => !g.isAdult && Boolean(g.backdrop_url || g.cover_url)
+    );
+    const nonAdultCurated = CURATED_GAMES.filter(
+      (g) => !g.isAdult && Boolean(g.backdrop_url || g.cover_url)
+    );
+
+    const merged: GameItem[] = [...nonAdultCatalog];
+    const seen = new Set(merged.map((g) => g.id));
+    for (const c of nonAdultCurated) {
+      if (!seen.has(c.id)) {
+        merged.push(c);
+        seen.add(c.id);
+      }
+    }
+    return merged.slice(0, 7);
+  }, [games]);
+
+  const activeHeroGame = heroGames[activeHeroIndex] ?? heroGames[0] ?? null;
+
+  // Auto-rotate hero slides
+  const nextHeroSlide = useCallback(() => {
+    if (heroGames.length <= 1) return;
+    setActiveHeroIndex((prev) => (prev + 1) % heroGames.length);
+  }, [heroGames.length]);
+
+  const prevHeroSlide = useCallback(() => {
+    if (heroGames.length <= 1) return;
+    setActiveHeroIndex((prev) => (prev - 1 + heroGames.length) % heroGames.length);
+  }, [heroGames.length]);
+
+  useEffect(() => {
+    if (isHeroPaused || heroGames.length <= 1) return;
+    heroTimerRef.current = setInterval(() => {
+      nextHeroSlide();
+    }, HERO_ROTATION_MS);
+
+    return () => {
+      if (heroTimerRef.current) clearInterval(heroTimerRef.current);
+    };
+  }, [isHeroPaused, heroGames.length, nextHeroSlide, activeHeroIndex]);
+
   // Fetch personalized recommendations
   const fetchRecommendations = useCallback(async () => {
     setLoadingRecs(true);
@@ -132,7 +195,7 @@ export default function GamesBrowsePage() {
       if (res.ok) {
         const json = await res.json();
         const data = json.data || json || [];
-        setRecommendations(data);
+        setRecommendations(Array.isArray(data) ? data : []);
       }
     } catch {
       // Graceful fallback
@@ -144,12 +207,23 @@ export default function GamesBrowsePage() {
   // Fetch games catalog with pagination
   const fetchGames = useCallback(
     async (pageNum = 1, isAppend = false) => {
+      // Guard against concurrent executions
+      if (isFetchingRef.current && isAppend) return;
+
       if (isAppend) {
         setLoadingMore(true);
       } else {
         setLoading(true);
         setError(false);
       }
+      isFetchingRef.current = true;
+
+      // Abort previous in-flight request if starting new search
+      if (!isAppend && abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       try {
         const params = new URLSearchParams();
@@ -163,11 +237,17 @@ export default function GamesBrowsePage() {
         if (selectedEra !== "all") params.set("era", selectedEra);
         if (selectedSort) params.set("sort", selectedSort);
 
-        const res = await fetch(`/api/games/browse?${params.toString()}`);
+        const res = await fetch(`/api/games/browse?${params.toString()}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("Failed to fetch games");
         const json = await res.json();
-        const data: GameBrowseResult = json.data || json;
-        const newItems: GameItem[] = data.games || data.items || [];
+        const data: GameBrowseResult = json.data || json || {};
+        const newItems: GameItem[] = Array.isArray(data.games)
+          ? data.games
+          : Array.isArray(data.items)
+          ? data.items
+          : [];
 
         if (isAppend) {
           setGames((prev) => {
@@ -177,20 +257,21 @@ export default function GamesBrowsePage() {
           });
         } else {
           setGames(newItems);
-          if (data.featuredSpotlight) {
-            setSpotlightGame(data.featuredSpotlight);
-          } else if (newItems.length > 0 && !query.trim() && selectedGenres.length === 0) {
-            setSpotlightGame(newItems[0]);
-          }
         }
 
         setPage(pageNum);
-        setHasMore(data.hasMore ?? newItems.length >= 20);
-      } catch {
-        if (!isAppend) setError(true);
+        pageRef.current = pageNum;
+        const moreAvailable = data.hasMore ?? newItems.length >= 20;
+        setHasMore(moreAvailable);
+        hasMoreRef.current = moreAvailable;
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          if (!isAppend) setError(true);
+        }
       } finally {
         setLoading(false);
         setLoadingMore(false);
+        isFetchingRef.current = false;
       }
     },
     [query, selectedGenres, selectedPlatform, selectedMode, selectedEra, selectedSort]
@@ -201,7 +282,12 @@ export default function GamesBrowsePage() {
     const timer = setTimeout(() => {
       fetchGames(1, false);
     }, 250);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [fetchGames]);
 
   // Initial recommendations fetch
@@ -209,24 +295,29 @@ export default function GamesBrowsePage() {
     fetchRecommendations();
   }, [fetchRecommendations]);
 
-  // Infinite scroll observer
+  // Stable IntersectionObserver: capped at MAX_AUTO_SCROLL_PAGE to prevent browser memory crash / OOM
   useEffect(() => {
-    if (!hasMore || loading || loadingMore) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
-          fetchGames(page + 1, true);
+        const first = entries[0];
+        if (
+          first?.isIntersecting &&
+          hasMoreRef.current &&
+          !isFetchingRef.current &&
+          pageRef.current < MAX_AUTO_SCROLL_PAGE
+        ) {
+          fetchGames(pageRef.current + 1, true);
         }
       },
-      { rootMargin: "600px" }
+      { rootMargin: "150px" }
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore, page, fetchGames]);
+  }, [fetchGames]);
 
   // Toggle multi-select genre
   const handleToggleGenre = (g: string) => {
@@ -266,13 +357,9 @@ export default function GamesBrowsePage() {
       }
 
       toast.success(`"${game.title}" added to your Backlog!`);
-      // Update local state
       setGames((prev) =>
         prev.map((g) => (g.id === game.id ? { ...g, inLibrary: true, libraryStatus: "pending" } : g))
       );
-      if (spotlightGame && spotlightGame.id === game.id) {
-        setSpotlightGame({ ...spotlightGame, inLibrary: true, libraryStatus: "pending" });
-      }
       fetchRecommendations();
     } catch (err: any) {
       toast.error(err.message || "Could not add game");
@@ -289,89 +376,110 @@ export default function GamesBrowsePage() {
     (selectedEra !== "all" ? 1 : 0) +
     (selectedSort !== "rating_desc" ? 1 : 0);
 
-  const spotlightRating = spotlightGame?.rating
-    ? spotlightGame.rating > 10
-      ? (spotlightGame.rating / 10).toFixed(1)
-      : Number.isInteger(spotlightGame.rating)
-      ? spotlightGame.rating.toString()
-      : spotlightGame.rating.toFixed(1)
+  const heroRating = activeHeroGame?.rating
+    ? activeHeroGame.rating > 10
+      ? (activeHeroGame.rating / 10).toFixed(1)
+      : Number.isInteger(activeHeroGame.rating)
+      ? activeHeroGame.rating.toString()
+      : activeHeroGame.rating.toFixed(1)
     : null;
 
   return (
     <AppShell>
       <div className="min-h-screen bg-[#080511] text-[#F5F7F6] pb-24">
-        {/* Spotlight Hero Section */}
-        {spotlightGame && !query && selectedGenres.length === 0 && selectedPlatform === "All" && (
-          <div className="relative w-full overflow-hidden border-b border-purple-500/20 bg-gradient-to-b from-[#180F33] via-[#0F0A20] to-[#080511]">
-            {/* Cinematic Background Backdrop Image */}
-            {(spotlightGame.backdrop_url || spotlightGame.cover_url) && (
-              <div
-                className="absolute inset-0 bg-cover bg-center opacity-30 md:opacity-40 transition-transform duration-1000 scale-105 pointer-events-none"
-                style={{ backgroundImage: `url(${spotlightGame.backdrop_url || spotlightGame.cover_url})` }}
-              />
-            )}
-            {/* Gradient Overlays for Maximum Readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#080511] via-[#080511]/75 to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#080511] via-[#080511]/90 md:via-[#080511]/70 to-transparent pointer-events-none" />
+        {/* ── 6-7 Hot Games Rotating Cinematic Hero Section ── */}
+        {!query && selectedGenres.length === 0 && selectedPlatform === "All" && heroGames.length > 0 && (
+          <section
+            className="relative w-full h-[75vh] md:h-[80vh] min-h-[580px] overflow-hidden select-none border-b border-purple-500/20 bg-[#080511]"
+            onMouseEnter={() => setIsHeroPaused(true)}
+            onMouseLeave={() => setIsHeroPaused(false)}
+          >
+            {/* Backdrop Images with Smooth Cross-fade */}
+            {heroGames.map((game, idx) => {
+              const isCurrent = idx === activeHeroIndex;
+              const bgImg = game.backdrop_url || game.cover_url;
+              return (
+                <div
+                  key={game.id || idx}
+                  className={cn(
+                    "absolute inset-0 transition-opacity duration-1000 ease-out",
+                    isCurrent ? "opacity-100 z-0" : "opacity-0 pointer-events-none -z-10"
+                  )}
+                >
+                  {bgImg ? (
+                    <img
+                      src={bgImg}
+                      alt={game.title}
+                      className={cn(
+                        "w-full h-full object-cover object-center transition-transform duration-10000 ease-out transform",
+                        isCurrent ? "scale-105" : "scale-100"
+                      )}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-[#180F33] via-[#0F0A20] to-[#080511]" />
+                  )}
 
-            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-                {/* Left Content Column */}
-                <div className="md:col-span-8 space-y-4">
+                  {/* Multi-layered Obsidian Violet Gradients */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#080511] via-[#080511]/75 to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#080511] via-[#080511]/90 md:via-[#080511]/70 to-transparent pointer-events-none" />
+                  <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#080511]/80 to-transparent pointer-events-none" />
+                </div>
+              );
+            })}
+
+            {/* Hero Content Overlay */}
+            {activeHeroGame && (
+              <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 flex flex-col justify-end pb-28 md:pb-32">
+                <div className="max-w-2xl md:max-w-3xl space-y-3.5">
+                  {/* Badges Row */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-500/20 border border-purple-500/40 text-purple-300 backdrop-blur-md">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-500/25 border border-purple-500/40 text-purple-300 backdrop-blur-md shadow-[0_0_15px_rgba(168,85,247,0.25)]">
                       <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                      <span>Featured Gaming Spotlight</span>
-                    </div>
+                      <span>Hot Games Spotlight</span>
+                    </span>
 
-                    {spotlightGame.isAdult && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-black bg-rose-500/25 border border-rose-500/50 text-rose-300">
-                        18+ Mature
+                    {heroRating !== null && (
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/60 border border-purple-500/30 text-amber-300 font-bold text-xs backdrop-blur-md">
+                        <Star className="w-3.5 h-3.5 fill-current text-amber-400" />
+                        <span>{heroRating}/10</span>
                       </span>
                     )}
+
+                    {activeHeroGame.release_year && (
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-500/20 text-purple-200 text-xs font-medium">
+                        <Calendar className="w-3 h-3 text-purple-400" />
+                        <span>{activeHeroGame.release_year}</span>
+                      </span>
+                    )}
+
+                    {activeHeroGame.genres &&
+                      activeHeroGame.genres.slice(0, 3).map((g) => (
+                        <span
+                          key={g}
+                          className="px-2.5 py-1 rounded-lg bg-purple-950/40 border border-purple-500/20 text-purple-300 text-xs font-medium"
+                        >
+                          {g}
+                        </span>
+                      ))}
                   </div>
 
-                  <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white drop-shadow-lg leading-tight">
-                    {spotlightGame.title}
+                  {/* Title */}
+                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white drop-shadow-lg leading-tight line-clamp-2">
+                    {activeHeroGame.title}
                   </h1>
 
-                  {/* Badges / Meta row */}
-                  <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs md:text-sm">
-                    {spotlightRating !== null && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 border border-purple-500/30 text-amber-300 font-bold backdrop-blur-md">
-                        <Star className="w-4 h-4 fill-current text-amber-400" />
-                        <span>{spotlightRating}/10</span>
-                      </div>
-                    )}
-
-                    {spotlightGame.release_year && (
-                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-950/50 border border-purple-500/20 text-purple-200">
-                        <Calendar className="w-3.5 h-3.5 text-purple-400" />
-                        <span>{spotlightGame.release_year}</span>
-                      </div>
-                    )}
-
-                    {spotlightGame.genres && spotlightGame.genres.slice(0, 3).map((g) => (
-                      <span
-                        key={g}
-                        className="px-2.5 py-1 rounded-lg bg-purple-950/40 border border-purple-500/20 text-purple-300 text-xs font-medium"
-                      >
-                        {g}
-                      </span>
-                    ))}
-                  </div>
-
-                  {spotlightGame.summary && (
-                    <p className="text-sm md:text-base text-purple-100/90 line-clamp-3 leading-relaxed max-w-2xl pt-1">
-                      {spotlightGame.summary}
+                  {/* Synopsis / Summary */}
+                  {activeHeroGame.summary && (
+                    <p className="text-sm md:text-base text-purple-100/90 line-clamp-3 leading-relaxed max-w-2xl drop-shadow">
+                      {activeHeroGame.summary}
                     </p>
                   )}
 
                   {/* Platforms Row */}
-                  {spotlightGame.platforms && spotlightGame.platforms.length > 0 && (
+                  {activeHeroGame.platforms && activeHeroGame.platforms.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <span className="text-xs text-purple-400 font-semibold mr-1">Platforms:</span>
-                      {spotlightGame.platforms.slice(0, 5).map((p) => (
+                      {activeHeroGame.platforms.slice(0, 5).map((p) => (
                         <span
                           key={p}
                           className="px-2 py-0.5 text-xs rounded bg-purple-950/70 border border-purple-500/30 text-purple-200 font-medium"
@@ -383,59 +491,105 @@ export default function GamesBrowsePage() {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="flex flex-wrap items-center gap-3 pt-3">
+                  <div className="flex items-center gap-3 pt-2">
                     <Button
-                      onClick={() => setSelectedGame(spotlightGame)}
-                      className="bg-purple-600 hover:bg-purple-500 text-white font-semibold shadow-lg shadow-purple-600/35 gap-2 px-6 py-2.5 text-sm"
+                      onClick={() => setSelectedGame(activeHeroGame)}
+                      className="bg-purple-600 hover:bg-purple-500 text-white font-semibold shadow-lg shadow-purple-600/35 gap-2 px-5 py-2.5 rounded-xl text-sm transition-all"
                     >
                       <Gamepad2 className="w-4 h-4" />
                       <span>View & Track Game</span>
                     </Button>
 
-                    {!spotlightGame.inLibrary ? (
+                    {!activeHeroGame.inLibrary ? (
                       <Button
                         variant="ghost"
-                        onClick={() => handleQuickAdd(spotlightGame)}
-                        disabled={addingQuickId === spotlightGame.id}
-                        className="bg-purple-950/40 hover:bg-purple-900/60 text-purple-200 border border-purple-500/30 font-semibold gap-2 px-4 py-2.5 text-sm"
+                        onClick={() => handleQuickAdd(activeHeroGame)}
+                        disabled={addingQuickId === activeHeroGame.id}
+                        className="bg-purple-950/50 hover:bg-purple-900/70 text-purple-200 border border-purple-500/30 font-semibold gap-2 px-4 py-2.5 rounded-xl text-sm"
                       >
                         <Bookmark className="w-4 h-4 text-purple-400" />
-                        <span>{addingQuickId === spotlightGame.id ? "Adding..." : "Add to Backlog"}</span>
+                        <span>{addingQuickId === activeHeroGame.id ? "Adding..." : "Add to Backlog"}</span>
                       </Button>
                     ) : (
                       <span className="px-3 py-2 text-xs font-bold rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/40 inline-flex items-center gap-1.5">
                         <Check className="w-3.5 h-3.5" />
-                        <span>In Library • {spotlightGame.libraryStatus || "Tracked"}</span>
+                        <span>In Library • {activeHeroGame.libraryStatus || "Tracked"}</span>
                       </span>
                     )}
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Right Visual Poster Column */}
-                <div className="hidden md:flex md:col-span-4 justify-center">
-                  {spotlightGame.cover_url && (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedGame(spotlightGame)}
-                      className="relative w-56 lg:w-64 aspect-[3/4] rounded-2xl overflow-hidden border-2 border-purple-500/40 shadow-[0_20px_50px_rgba(168,85,247,0.35)] cursor-pointer group transform hover:-translate-y-2 transition-all duration-300"
+            {/* ── 6-7 Compact Thumbnail Selectors (Docked at Bottom) ── */}
+            <div className="absolute bottom-4 inset-x-0 z-20 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto flex items-center justify-between gap-4">
+              {/* Thumbnail Strip */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
+                {heroGames.map((game, idx) => {
+                  const isSelected = idx === activeHeroIndex;
+                  return (
+                    <button
+                      key={game.id || idx}
+                      onClick={() => setActiveHeroIndex(idx)}
+                      className={cn(
+                        "group relative flex items-center gap-2 p-1.5 rounded-xl transition-all duration-300 text-left outline-none shrink-0",
+                        "bg-[#130E24]/80 backdrop-blur-md border",
+                        isSelected
+                          ? "border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)] ring-1 ring-purple-400/50 scale-105"
+                          : "border-purple-500/20 hover:border-purple-500/50 hover:bg-purple-950/40 opacity-70 hover:opacity-100"
+                      )}
                     >
-                      <img
-                        src={spotlightGame.cover_url}
-                        alt={spotlightGame.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                          <Gamepad2 className="w-4 h-4 text-purple-400" /> Click to view details
-                        </span>
+                      {/* Cover Thumbnail */}
+                      {game.cover_url ? (
+                        <img
+                          src={game.cover_url}
+                          alt={game.title}
+                          className="w-8 h-11 object-cover rounded-md"
+                        />
+                      ) : (
+                        <div className="w-8 h-11 bg-purple-950/70 rounded-md flex items-center justify-center">
+                          <Gamepad2 className="w-3.5 h-3.5 text-purple-400" />
+                        </div>
+                      )}
+
+                      {/* Snippet on desktop */}
+                      <div className="hidden lg:block max-w-[110px] pr-2">
+                        <p className="text-[11px] font-semibold text-white truncate">
+                          {game.title}
+                        </p>
+                        <p className="text-[10px] text-purple-300/80 font-mono">
+                          {game.release_year || "Featured"}
+                        </p>
                       </div>
-                    </div>
-                  )}
-                </div>
+
+                      {/* Active progress indicator */}
+                      {isSelected && !isHeroPaused && (
+                        <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-purple-400 rounded-full animate-pulse" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Prev / Next Chevrons */}
+              <div className="hidden sm:flex items-center gap-1.5 shrink-0 bg-[#130E24]/80 backdrop-blur-md border border-purple-500/25 p-1 rounded-xl">
+                <button
+                  onClick={prevHeroSlide}
+                  className="p-1.5 rounded-lg text-purple-300 hover:text-white hover:bg-purple-900/50 transition-colors"
+                  aria-label="Previous featured game"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={nextHeroSlide}
+                  className="p-1.5 rounded-lg text-purple-300 hover:text-white hover:bg-purple-900/50 transition-colors"
+                  aria-label="Next featured game"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
-          </div>
+          </section>
         )}
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
@@ -747,8 +901,10 @@ export default function GamesBrowsePage() {
                 ))}
               </div>
 
-              {/* Infinite scroll sentinel */}
-              <div ref={sentinelRef} className="h-10 w-full" />
+              {/* Infinite scroll sentinel (capped at page 3 for auto-load) */}
+              {page < MAX_AUTO_SCROLL_PAGE && hasMore && (
+                <div ref={sentinelRef} className="h-10 w-full" />
+              )}
 
               {/* Loading More Indicator / Load More Button */}
               {loadingMore ? (
@@ -759,11 +915,11 @@ export default function GamesBrowsePage() {
                   </div>
                 </div>
               ) : hasMore ? (
-                <div className="flex justify-center pt-4">
+                <div className="flex justify-center pt-6 pb-2">
                   <Button
                     variant="ghost"
                     onClick={() => fetchGames(page + 1, true)}
-                    className="px-6 py-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-purple-200 text-sm font-semibold transition-all hover:scale-105"
+                    className="px-6 py-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 text-purple-200 text-sm font-semibold transition-all hover:scale-105 shadow-md shadow-purple-950/40"
                   >
                     Load More Games
                   </Button>

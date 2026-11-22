@@ -6,14 +6,14 @@ import { getGameRecommendationsService } from "@/features/games/gameService";
 
 export const GET = withLogger(async (req: NextRequest) => {
   const session = await getSession();
-  if (!session) return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
+  const username = session?.username || "guest";
 
   const searchParams = req.nextUrl.searchParams;
   const limit = parseInt(searchParams.get("limit") || "12", 10);
   const forceRefresh = searchParams.get("refresh") === "true";
 
   try {
-    const recommendations = await getGameRecommendationsService(session.username, {
+    const recommendations = await getGameRecommendationsService(username, {
       limit,
       forceRefresh,
     });

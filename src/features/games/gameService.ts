@@ -276,16 +276,35 @@ function selectSpotlight(items: GameItem[]): GameItem | null {
   return validSpotlight || items.find((g) => !g.isAdult && g.cover_url) || items[0] || null;
 }
 
+// In-memory cache for game recommendations per user (3 min TTL)
+const recommendationsCache = new Map<string, { data: GameItem[]; expiresAt: number }>();
+
+export function invalidateGameRecommendationsCache(username?: string): void {
+  if (username) {
+    recommendationsCache.delete(username);
+  } else {
+    recommendationsCache.clear();
+  }
+}
+
 /**
  * Generates personalized game recommendations based on user library & taste profile,
  * strictly excluding any games already in the user's library.
  */
 export async function getGameRecommendationsService(
   username: string,
-  options: { limit?: number; forceRefresh?: boolean } = {}
+  options: { limit?: number; forceRefresh?: boolean; userGames?: GameRow[] } = {}
 ): Promise<GameItem[]> {
   const limit = options.limit || 12;
-  const userGames = await getUserGames(username).catch(() => []);
+
+  if (!options.forceRefresh && !options.userGames) {
+    const cached = recommendationsCache.get(username);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data.slice(0, limit);
+    }
+  }
+
+  const userGames = options.userGames ?? (await getUserGames(username).catch(() => []));
 
   // Strict library exclusion sets
   const userGameIds = new Set<number>();
@@ -425,7 +444,13 @@ export async function getGameRecommendationsService(
   // Sort by affinity score descending, then rating
   scored.sort((a, b) => (b.score || 0) - (a.score || 0) || (b.rating || 0) - (a.rating || 0));
 
-  return scored.slice(0, limit);
+  const result = scored.slice(0, limit);
+  recommendationsCache.set(username, {
+    data: scored,
+    expiresAt: Date.now() + 3 * 60 * 1000,
+  });
+
+  return result;
 }
 
 /**
@@ -523,7 +548,8 @@ export async function getGameDashboardStatsService(username: string): Promise<Ga
   const totalPlaytimeHours = games.reduce((acc, g) => acc + (Number(g.playtime_hours) || 0), 0);
 
   // Discovery feed: personalized recommendations strictly excluding all user library titles (including completed)
-  const discovery = await getGameRecommendationsService(username, { limit: 6 }).catch(() => []);
+  // Pass `games` directly as `userGames` to eliminate redundant Baserow roundtrips
+  const discovery = await getGameRecommendationsService(username, { limit: 6, userGames: games }).catch(() => []);
 
   return {
     total,
@@ -614,6 +640,7 @@ export async function addGameToLibraryService(username: string, body: any) {
     summary: result.data.summary,
   });
 
+  invalidateGameRecommendationsCache(username);
   logger.info({ module: "gameService", action: "ADD_GAME", username, title: result.data.game_name });
 
   return row;
@@ -634,14 +661,18 @@ export async function updateGameLibraryItemService(username: string, id: number,
   if (result.data.personal_review !== undefined) updates.personal_review = result.data.personal_review;
   if (result.data.playtime_hours !== undefined) updates.playtime_hours = result.data.playtime_hours;
 
-  return await updateGame(id, updates);
+  const updated = await updateGame(id, updates);
+  invalidateGameRecommendationsCache(username);
+  return updated;
 }
 
 /**
  * Remove game from user library
  */
 export async function removeGameFromLibraryService(username: string, id: number) {
-  return await deleteGame(id);
+  const deleted = await deleteGame(id);
+  invalidateGameRecommendationsCache(username);
+  return deleted;
 }
 
 /**

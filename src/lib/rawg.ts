@@ -69,6 +69,53 @@ function hasKey(): boolean {
   return Boolean(env.RAWG_API_KEY);
 }
 
+// ── In-Memory LRU Cache with TTL ─────────────────────────────────────────────
+const BROWSE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DETAILS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const browseCache = new Map<string, CacheEntry<{ items: GameItem[]; total: number }>>();
+const detailsCache = new Map<number, CacheEntry<GameDetails | null>>();
+const searchCache = new Map<string, CacheEntry<GameItem[]>>();
+
+function setCache<T>(map: Map<any, CacheEntry<T>>, key: any, data: T, ttlMs: number) {
+  if (map.size > 300) {
+    const iter = map.keys();
+    for (let i = 0; i < 50; i++) {
+      const next = iter.next();
+      if (next.done) break;
+      map.delete(next.value);
+    }
+  }
+  map.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
+function getCache<T>(map: Map<any, CacheEntry<T>>, key: any): T | null {
+  const entry = map.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    map.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+/** Fetch with a strict timeout so slow external API calls never hang the server */
+async function fetchWithTimeout(url: string, timeoutMs = 3500): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal, cache: "no-store" });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Build RAWG URL with API key appended */
 function rawgUrl(path: string, params: Record<string, string | number | undefined> = {}): string {
   const url = new URL(`${BASE}${path}`);
@@ -220,13 +267,19 @@ export function formatRawgGameDetail(raw: any, screenshots: any[]): GameDetails 
 export async function searchRawgGames(query: string, limit = 15): Promise<GameItem[]> {
   if (!query.trim()) return [];
 
+  const cacheKey = `${query.toLowerCase().trim()}|${limit}`;
+  const cached = getCache(searchCache, cacheKey);
+  if (cached) return cached;
+
   if (!hasKey()) {
     const q = query.toLowerCase();
-    return CURATED_GAMES.filter(
+    const fallback = CURATED_GAMES.filter(
       (g) =>
         g.title.toLowerCase().includes(q) ||
         g.genres.some((gen) => gen.toLowerCase().includes(q))
     ).slice(0, limit);
+    setCache(searchCache, cacheKey, fallback, SEARCH_CACHE_TTL_MS);
+    return fallback;
   }
 
   try {
@@ -235,18 +288,21 @@ export async function searchRawgGames(query: string, limit = 15): Promise<GameIt
       page_size: limit,
       search_precise: "true",
     });
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetchWithTimeout(url, 3500);
     if (!res.ok) throw new Error(`RAWG search ${res.status}`);
     const data = await res.json();
-    return (data.results || []).map(formatRawgGame);
+    const results = (data.results || []).map(formatRawgGame);
+    setCache(searchCache, cacheKey, results, SEARCH_CACHE_TTL_MS);
+    return results;
   } catch (err) {
     logger.warn({ module: "rawg", action: "SEARCH_FAILED", error: err });
     const q = query.toLowerCase();
-    return CURATED_GAMES.filter(
+    const fallback = CURATED_GAMES.filter(
       (g) =>
         g.title.toLowerCase().includes(q) ||
         g.genres.some((gen) => gen.toLowerCase().includes(q))
     ).slice(0, limit);
+    return fallback;
   }
 }
 
@@ -254,21 +310,26 @@ export async function searchRawgGames(query: string, limit = 15): Promise<GameIt
  * Get detailed info for a single RAWG game by ID
  */
 export async function getRawgGameDetails(gameId: number): Promise<GameDetails | null> {
+  const cached = getCache(detailsCache, gameId);
+  if (cached !== null) return cached;
+
   if (!hasKey()) {
     const curated = CURATED_GAMES.find((g) => g.id === gameId);
     if (!curated) return null;
-    return {
+    const fallback = {
       ...curated,
       screenshots: [],
       artworks: [],
       similar_games: [],
     } as GameDetails;
+    setCache(detailsCache, gameId, fallback, DETAILS_CACHE_TTL_MS);
+    return fallback;
   }
 
   try {
     const [detailRes, screenshotRes] = await Promise.all([
-      fetch(rawgUrl(`/games/${gameId}`), { cache: "no-store" }),
-      fetch(rawgUrl(`/games/${gameId}/screenshots`), { cache: "no-store" }),
+      fetchWithTimeout(rawgUrl(`/games/${gameId}`), 3500),
+      fetchWithTimeout(rawgUrl(`/games/${gameId}/screenshots`), 3500).catch(() => null),
     ]);
 
     if (!detailRes.ok) {
@@ -277,9 +338,11 @@ export async function getRawgGameDetails(gameId: number): Promise<GameDetails | 
     }
 
     const detail = await detailRes.json();
-    const screenshots = screenshotRes.ok ? (await screenshotRes.json()).results || [] : [];
+    const screenshots = screenshotRes && screenshotRes.ok ? (await screenshotRes.json()).results || [] : [];
 
-    return formatRawgGameDetail(detail, screenshots);
+    const result = formatRawgGameDetail(detail, screenshots);
+    setCache(detailsCache, gameId, result, DETAILS_CACHE_TTL_MS);
+    return result;
   } catch (err) {
     logger.warn({ module: "rawg", action: "DETAIL_FAILED", gameId, error: err });
     const curated = CURATED_GAMES.find((g) => g.id === gameId);
@@ -296,6 +359,22 @@ export async function browseRawgGames(
 ): Promise<{ items: GameItem[]; total: number }> {
   const page = options.page || 1;
   const limit = options.limit || 50;
+
+  const cacheKey = JSON.stringify({
+    page,
+    limit,
+    query: options.query,
+    genres: (options.genres || []).slice().sort(),
+    platforms: (options.platforms || []).slice().sort(),
+    gameModes: (options.gameModes || []).slice().sort(),
+    era: options.era,
+    sort: options.sort,
+    includeAdult: options.includeAdult,
+    rating: options.rating,
+  });
+
+  const cached = getCache(browseCache, cacheKey);
+  if (cached) return cached;
 
   if (hasKey()) {
     try {
@@ -358,7 +437,7 @@ export async function browseRawgGames(
       }
 
       const url = rawgUrl("/games", params);
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetchWithTimeout(url, 3500);
 
       if (!res.ok) throw new Error(`RAWG browse ${res.status}`);
       const data = await res.json();
@@ -382,7 +461,9 @@ export async function browseRawgGames(
         // RAWG doesn't expose modes — skip filter, include all
       }
 
-      return { items, total: data.count || items.length };
+      const result = { items, total: data.count || items.length };
+      setCache(browseCache, cacheKey, result, BROWSE_CACHE_TTL_MS);
+      return result;
     } catch (err) {
       logger.warn({ module: "rawg", action: "BROWSE_FAILED", error: err });
       // Fall through to curated

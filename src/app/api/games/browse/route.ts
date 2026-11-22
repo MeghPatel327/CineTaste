@@ -7,7 +7,7 @@ import type { GameFilterOptions } from "@/features/games/gameTypes";
 
 export const GET = withLogger(async (req: NextRequest) => {
   const session = await getSession();
-  if (!session) return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
+  const username = session?.username || "guest";
 
   const searchParams = req.nextUrl.searchParams;
   const page = parseInt(searchParams.get("page") || "1", 10);
@@ -51,7 +51,7 @@ export const GET = withLogger(async (req: NextRequest) => {
   };
 
   try {
-    const result = await getGameBrowseService(session.username, options);
+    const result = await getGameBrowseService(username, options);
     return successResponse(result);
   } catch (error: any) {
     return handleApiError(error);
