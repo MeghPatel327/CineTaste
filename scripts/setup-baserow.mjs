@@ -155,31 +155,6 @@ async function main() {
     await createField(recSetsTableId, 'generation_model', 'text');
     await createField(recSetsTableId, 'item_count', 'number', { number_decimal_places: 0 });
 
-    // 6. Create Games Table (Dedicated game library - separate from movies)
-    const gamesTableId = await createTable('games');
-    await createField(gamesTableId, 'username', 'text');
-    await createField(gamesTableId, 'game_name', 'text');
-    await createField(gamesTableId, 'status', 'text'); // playing, completed, pending, on_hold, dropped
-    await createField(gamesTableId, 'rating', 'number', { number_decimal_places: 1 });
-    await createField(gamesTableId, 'personal_review', 'long_text');
-    await createField(gamesTableId, 'watch_order_rank', 'number', { number_decimal_places: 0 });
-    await createField(gamesTableId, 'rawg_id', 'number', { number_decimal_places: 0 }); // Canonical RAWG ID (not tmdb_id)
-    await createField(gamesTableId, 'genres', 'long_text'); // JSON array string
-    await createField(gamesTableId, 'platforms', 'long_text'); // JSON array string
-    await createField(gamesTableId, 'release_year', 'number', { number_decimal_places: 0 });
-    await createField(gamesTableId, 'playtime_hours', 'number', { number_decimal_places: 1 });
-    await createField(gamesTableId, 'cover_url', 'url');
-    await createField(gamesTableId, 'backdrop_url', 'url');
-    await createField(gamesTableId, 'summary', 'long_text');
-    await createField(gamesTableId, 'created_at', 'text');
-    await createField(gamesTableId, 'updated_at', 'text');
-
-    // 7. Create Game Pirate Sites Table (Separate from movie pirate_sites)
-    const gamePiratesTableId = await createTable('game_pirate_sites');
-    await createField(gamePiratesTableId, 'name', 'text');
-    await createField(gamePiratesTableId, 'search_url', 'url');
-    await createField(gamePiratesTableId, 'enabled', 'boolean');
-
     // Update .env
     updateEnv({
       BASEROW_USERS_TABLE_ID: usersTableId,
@@ -187,8 +162,6 @@ async function main() {
       BASEROW_PIRATES_TABLE_ID: piratesTableId,
       BASEROW_RECOMMENDATION_PROFILE_TABLE_ID: profileTableId,
       BASEROW_RECOMMENDATION_SETS_TABLE_ID: recSetsTableId,
-      BASEROW_GAMES_TABLE_ID: gamesTableId,
-      BASEROW_GAME_PIRATES_TABLE_ID: gamePiratesTableId,
     });
 
     console.log("\n🎉 Database schema set up successfully! You can now start the app.");

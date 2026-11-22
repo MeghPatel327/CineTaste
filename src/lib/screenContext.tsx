@@ -22,7 +22,7 @@ export interface ScreenFiltersContext {
 
 export interface ScreenContextData {
   pathname: string;
-  category?: "movies" | "series" | "anime" | "games" | null;
+  category?: "movies" | "series" | "anime" | null;
   searchQuery?: string;
   appliedFilters?: ScreenFiltersContext;
   currentMovie?: CurrentMovieContext | null;

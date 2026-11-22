@@ -9,13 +9,6 @@ export interface PirateSiteRow {
   enabled: boolean;
 }
 
-export interface GamePirateSiteRow {
-  id: number;
-  name: string;
-  search_url: string;
-  enabled: boolean;
-}
-
 // User Admin Operations
 export async function getAllUsers(): Promise<UserRow[]> {
   const results = await baserowGetAll<UserRow>(env.BASEROW_USERS_TABLE_ID);
@@ -42,21 +35,4 @@ export async function updatePirateSite(id: number, data: Partial<PirateSiteRow>)
 
 export async function deletePirateSite(id: number): Promise<void> {
   return baserowDelete(env.BASEROW_PIRATES_TABLE_ID, id);
-}
-
-// Game Pirate Site Operations
-export async function getGamePirateSitesAdmin(): Promise<GamePirateSiteRow[]> {
-  return baserowGetAll<GamePirateSiteRow>(env.BASEROW_GAME_PIRATES_TABLE_ID);
-}
-
-export async function addGamePirateSiteAdmin(data: Omit<GamePirateSiteRow, "id">): Promise<GamePirateSiteRow> {
-  return baserowCreate<GamePirateSiteRow>(env.BASEROW_GAME_PIRATES_TABLE_ID, data);
-}
-
-export async function updateGamePirateSiteAdmin(id: number, data: Partial<GamePirateSiteRow>): Promise<GamePirateSiteRow> {
-  return baserowUpdate<GamePirateSiteRow>(env.BASEROW_GAME_PIRATES_TABLE_ID, id, data);
-}
-
-export async function deleteGamePirateSiteAdmin(id: number): Promise<void> {
-  return baserowDelete(env.BASEROW_GAME_PIRATES_TABLE_ID, id);
 }

@@ -126,8 +126,6 @@ export async function runCineTasteChat({
         ? "Series Catalogue"
         : pn.startsWith("/anime")
         ? "Anime Catalogue"
-        : pn.startsWith("/games")
-        ? "Games Hub & Catalogue"
         : pn.startsWith("/library")
         ? "User Movie & Series Library"
         : pn.startsWith("/recommendations")
